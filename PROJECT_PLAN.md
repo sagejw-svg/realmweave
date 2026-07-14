@@ -498,16 +498,90 @@ release is worth it.*
 
 The first concrete work items, each a small, reviewable change:
 
-1. **Phase 1 kickoff:** scaffold `rules/` with `CharacterSheet`, attributes, the
-   `check()` function and its tests, and attach a sheet to every agent (seeded
-   from role). No behavior change yet beyond checks logging.
-2. **Route one action through a check:** make smithing output quality depend on a
-   Smithing check, visible in the headless log, as the first proof that mechanics
-   drive outcomes.
-3. **Design spike for cognition (Phase 2):** write a one-page note on the goal and
-   planner data structures before coding, so the autonomy layer lands clean.
+1. **Phase 1 - done and merged** (PR #1): `rules/` with `CharacterSheet`, 1-100
+   skills, d100 checks, use-based progression, role seeding, and skill-driven
+   crafting; save format v2 with migration; 10 unit tests.
+2. **Next - Phase 2 (autonomy):** design spike on the goal and planner data
+   structures, then goal generation, a simple planner, and utility-based action
+   selection so agents pursue self-set aims.
+3. **In parallel (cheap wins):** drop in CC0/public-domain placeholder art and
+   audio (see `RESOURCES.md`) to start giving Oakhollow a classic look and feel
+   without blocking the simulation work.
 
-Say the word and I will start Phase 1 in a feature branch.
+---
+
+## 12. World scope and setting
+
+**Tone.** Classic high-fantasy with an early-history, low-industrial feel:
+medieval-adjacent villages, trades, and travel. No science fiction for now. A
+first-person dungeon-crawler mode in the spirit of Wizardry 8 is noted as a
+possible *future* stretch, not a near-term goal.
+
+**Geography: a continent-based world like Earth.** The world is organized into
+continents separated by seas. The starting region (Oakhollow and its
+surroundings) sits on one continent. Most early play happens here; the map grows
+outward as the simulation and content allow.
+
+**Seafaring, trade, and discovery (long horizon).** Eventually ships can sail the
+seas to trade and reach other lands. This is a post-core-loop horizon (around the
+world-feel and beyond phases, Phase 9+), sequenced after the systems that make it
+meaningful (economy, factions, reputation). The first expression is coastal and
+inter-settlement trade on the home continent; open-ocean voyages and new
+continents come later.
+
+*Design note:* continents are a natural level-of-detail boundary too. Distant
+lands can run in cheap abstract simulation until a player or trade route brings
+them into focus, which fits the performance strategy in Section 7.
+
+## 13. Setting boundaries: discovery without conquest
+
+A deliberate design stance, decided with the project owner: the world supports
+exploration, trade, and cultural exchange, but is structured so that the
+historical atrocities tied to exploration, chattel slavery and the subjugation of
+native peoples, do not become the emergent gameplay. Individual moral freedom
+(a character can be a thief or a villain, with real consequences) is preserved;
+what we exclude are *systemic* atrocity mechanics.
+
+The levers, combined:
+
+1. **Peoples are peers, not resources.** Every culture and settlement is made of
+   full agents with the same autonomy, skills, and rights under the simulation.
+   There are no "primitive" or NPC-only peoples to be "discovered" and taken.
+2. **New lands are already thriving.** Other continents hold established,
+   organized, populous civilizations with their own militaries, economies, and
+   diplomacy. They cannot be trivially conquered or displaced; contact means
+   negotiation, trade, and rivalry, not takeover. (This is the "bustling
+   populations that can't be easily taken over" option, chosen as the default.)
+3. **Conquest is a losing strategy by design.** The reputation, faction, and
+   justice systems (Phase 7) treat aggression against a people as a grave act
+   that provokes coordinated military, economic, and diplomatic retaliation, so
+   force is impractical and self-defeating compared to trade and alliance.
+4. **No slavery in the action space.** Ownable people and forced-labor mechanics
+   are simply not part of the economy or rules. Labor is done by free agents,
+   hirelings, and apprentices. This is a hard content boundary, not a tunable.
+5. **Discovery framed around knowledge and exchange.** Exploration rewards maps,
+   goods, ideas, alliances, and reputation, not extraction from the defenseless.
+
+*Design note (options considered):* an alternative framing, "humans originate
+only from the starting region," was raised. We prefer option 2 (peer
+civilizations everywhere) because it keeps every people a full participant and
+avoids any center-versus-periphery, colonizer-versus-colonized framing entirely.
+The two can also combine: multiple independent points of origin (a polycentric
+world) with no single "home" civilization spreading outward. These are setting
+choices we can revisit; the hard boundary in point 4 is not.
+
+## 14. Art and audio direction
+
+To cut cost and development time, Realmweave starts from **public-domain and
+CC0** assets wherever possible, with CC-BY (attribution) as an acceptable
+fallback. Target aesthetic: classic tabletop-fantasy, early-history, medieval
+villages and wilds; readable 2D top-down for the main view.
+
+`RESOURCES.md` catalogs vetted free sources (Kenney, OpenGameArt, itch.io CC0,
+Musopen, Sonniss, Freesound, and others) with license guidance. The rule from
+`ASSETS.md` still holds: anything actually used gets logged with its license
+before it ships. Original art can replace placeholders over time without changing
+the pipeline.
 
 ---
 
