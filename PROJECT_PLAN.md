@@ -215,12 +215,19 @@ The player is a god who can influence but not puppet.
 5. Outcomes feed back: heeded suggestions that go well raise faith; ignored or
    punished ones shift disposition (resentment, zealotry, doubt).
 
+**Authoring at creation (a god power, distinct from suggestions).** The god can
+seed a character's **name, background, and personality** when they enter the
+world. This is authorship of a starting point, not a script for their actions.
+A seeded background is a memory and a set of tendencies, never a leash: the
+character can diverge from it (see 4.7). The same authoring applies whether the
+god is shaping an AI agent or setting up a character to later observe or possess.
+
 *Design note (tunable):* a **favor** resource can gate how often or how strongly
 the god nudges, so influence feels earned. We deliberately chose soft influence
 over god-mode; a rare hard "decree" could be added later as a costly exception if
 desired, but it is out of scope for now.
 
-### 4.6 Perception and the "through their eyes" view  *Proposed - the capstone*
+### 4.6 Perception and the "through their eyes" view  *Proposed*
 
 Two things must exist before a first-person view is meaningful: a **perception
 model** (agents should only know what they could plausibly perceive) and a way to
@@ -250,6 +257,47 @@ mode** (subjective panel + inner monologue + limited forward view) before any
 full 3D embodiment. Full 3D per-agent FPS is a large art/engine effort and is
 called out as a stretch goal, not a Phase gate.
 
+### 4.7 Identity, reputation, and consequences  *Proposed*
+
+Two linked ideas: characters own their identity, and actions have real teeth.
+
+**Authored, not scripted.** As in 4.5, the god seeds name, background, and
+personality, but that describes who a character *starts as*, not what they will
+do. A character can diverge from their origin. Example: someone the god names
+**Jon Doe**, with a bandit-clan past, may choose to go by **Sam Smith** and try
+to turn over a new leaf. The background is a starting condition and a memory, not
+a leash. This holds for the human's own character too.
+
+**Identity and aliases.** A character has a true identity plus optional aliases
+and a public reputation that others know them by. Reinvention is a real arc:
+shedding a name, outrunning a past, being recognized by someone who knew the old
+you. Whether an alias holds depends on who has seen your face (ties to
+perception).
+
+**Reputation and factions.** Reputation is tracked per faction/community (the
+village, the guard, bandit clans, temples) on axes such as trust, fear, and
+renown. Deeds shift it, and witnesses matter: a crime no one perceives does not
+immediately cost reputation, though it can surface later through evidence or
+confession.
+
+**Crime and justice.** Evil is fully playable, and it has real consequences.
+Theft, assault, and murder register as crimes when perceived or later
+discovered. Consequences scale with severity and notoriety: victims and
+witnesses remember, the guard investigates, bounties are posted, and both NPCs
+and autonomous AI agents will hunt a wanted character. This applies **equally to
+the human's character and to AI agents** - no double standard. An armed robbery
+in the square gets you chased; a quiet theft might go unnoticed until the goods
+are recognized.
+
+**Redemption.** Turning over a new leaf is supported. Reputation can be rebuilt
+through deeds, restitution, the passage of time, or moving to a community that
+does not know you, so the Sam Smith arc can actually pay off rather than being
+cosmetic.
+
+*Design note:* fair crime detection depends on the perception model, which is
+why this lands right after Phase 6. Severity tiers, statutes of limitation,
+bounty economics, and how doggedly the guard and AI pursue are all tunable knobs.
+
 ---
 
 ## 5. Phased roadmap
@@ -264,15 +312,16 @@ ordered so that every later capstone rests on foundations proven earlier.
 | 2 | Autonomy | Goals + plans + utility selection; agents pursue self-set aims | 3-4 wk |
 | 3 | Livelihoods | Economy, professions, agent-built shops | 3-4 wk |
 | 4 | Quests | Cross-domain quests; players play them; agents may ignore them | 2-3 wk |
-| 5 | Divine influence | God suggestions the AI weighs and may refuse | 1-2 wk |
-| 6 | Perception | Sense-limited knowledge; foundation for POV | 2-3 wk |
-| 7 | Through their eyes | First-person observation mode (panel + inner life + forward view) | 3-5 wk |
-| 8 | World feel | Tilemap + sprite art, day/night, animations | 3-6 wk |
-| 9 | Multiplayer | Hostable server, roster, interest management | 4-6 wk |
-| 10 | Release | Content tooling, performance, Steam build | ongoing |
+| 5 | Divine influence | God suggestions the AI weighs and may refuse; god-authored creation | 1-2 wk |
+| 6 | Perception | Sense-limited knowledge; foundation for POV and fair crime detection | 2-3 wk |
+| 7 | Reputation & justice | Identity/aliases, per-faction reputation, crime, bounties; the wanted are hunted | 2-3 wk |
+| 8 | Through their eyes | First-person observation mode (panel + inner life + forward view) | 3-5 wk |
+| 9 | World feel | Tilemap + sprite art, day/night, animations | 3-6 wk |
+| 10 | Multiplayer | Hostable server, roster, interest management | 4-6 wk |
+| 11 | Release | Content tooling, performance, Steam build | ongoing |
 
-*Phases 1-6 are backend-heavy and testable headless (fast, no GPU needed for the
-logic). Phases 7-8 are client/art heavy. 8 can slip earlier if you want it to
+*Phases 1-7 are backend-heavy and testable headless (fast, no GPU needed for the
+logic). Phases 8-9 are client/art heavy. 9 can slip earlier if you want it to
 look good sooner; it does not block the simulation work.*
 
 ### Phase 1 - Rules foundation
@@ -312,9 +361,12 @@ look good sooner; it does not block the simulation work.*
 - Add `divine/` : suggestion API from client to a chosen agent; disposition +
   personality weighting; accept/partial/bargain/refuse with in-character reaction;
   favor resource; feedback into disposition.
+- Add **god-authored creation**: a creation UI/API to seed a character's name,
+  background, and personality (which seed identity and memory, not behavior).
 - **Acceptance:** the "sell the shop, do something bigger" scenario works end to
   end; the same suggestion is accepted by an ambitious agent and refused by a
-  content one, each reacting in character.
+  content one, each reacting in character. A god-authored background influences
+  but does not dictate the agent's later choices.
 
 ### Phase 6 - Perception
 - Add `perception/` : sight (range, line of sight, light), hearing; agents only
@@ -323,7 +375,19 @@ look good sooner; it does not block the simulation work.*
   through those who could perceive it or were told; unwitnessed events stay
   unknown.
 
-### Phase 7 - Through their eyes  *(capstone)*
+### Phase 7 - Reputation and justice
+- Add `reputation/` : true identity + aliases, per-faction reputation (trust,
+  fear, renown), crime records tied to witnesses (from perception), bounties,
+  wanted status, and pursuit behavior for NPCs and AI agents.
+- Wire redemption paths (deeds, restitution, time, relocation) so reputation can
+  recover.
+- **Acceptance:** a character commits a witnessed theft, becomes wanted, and is
+  pursued by the guard and at least one AI agent; the same crime unwitnessed
+  goes undetected; an alias holds until someone who saw the deed recognizes them;
+  reputation rebuilds after restitution. Applies identically to the human's
+  character and AI agents.
+
+### Phase 8 - Through their eyes  *(capstone)*
 - Client: agent selection, **observe** mode (subjective panel: forward view of
   surroundings, inner-thought stream, current goal/plan, mood, surfacing
   memories, relationship lens); protocol additions to stream one agent's
@@ -333,11 +397,11 @@ look good sooner; it does not block the simulation work.*
   their perspective, seeing what they see and think, including reacting to a
   divine suggestion from the inside.
 
-### Phases 8-10
-- **8 World feel:** tilemap + sprites, day/night lighting, activity animations.
-- **9 Multiplayer:** hostable dedicated server, player roster, interest
+### Phases 9-11
+- **9 World feel:** tilemap + sprites, day/night lighting, activity animations.
+- **10 Multiplayer:** hostable dedicated server, player roster, interest
   management (stream only nearby agents), authority basics, latency smoothing.
-- **10 Release:** village-authoring tools, performance passes for many agents,
+- **11 Release:** village-authoring tools, performance passes for many agents,
   Steam build and Deck check, packaging. MIT throughout.
 
 ---
@@ -353,8 +417,9 @@ Save format is already versioned JSON with atomic writes. Each phase bumps
 | 2 | Personality traits, active goals, plan steps. |
 | 3 | Money, inventories, goods, structures, shop stock/prices. |
 | 4 | Quest instances, progress, completions. |
-| 5 | Divine favor, per-agent disposition toward the god, suggestion history. |
+| 5 | Divine favor, per-agent disposition toward the god, suggestion history; god-authored creation seeds (name/background/personality). |
 | 6 | Per-agent knowledge sets (what each has perceived/been told). |
+| 7 | True identity + aliases, per-faction reputation, crime records, bounties, wanted status. |
 
 *Principle:* every new system serializes cleanly and survives a save/load, and
 death remains permanent across all of it. A migration test loads a prior-version
@@ -379,7 +444,7 @@ The constraint is the RTX 5070 (12 GB) and the goal of many concurrent agents.
 
 ---
 
-## 8. Multiplayer path (Phase 9)
+## 8. Multiplayer path (Phase 10)
 
 The server is already authoritative and multi-client. Remaining work: a hostable
 dedicated build, player accounts/roster, interest management so each client only
@@ -420,7 +485,9 @@ release is worth it.*
 | Emergent worlds feel aimless | Low engagement | Authored personas, seeded goals, and quests give emergence something to push against. |
 | LLM cost/latency with many agents | Sim stalls | Code-first cognition, LOD, async + per-tick LLM budget. |
 | Autonomy vs playability | God feels powerless | Soft influence + favor economy tuned so nudges matter without removing agency. |
-| First-person scope creep | Phase 7 balloons | Ship observation mode (panel + inner life + limited view) before any 3D embodiment. |
+| Authored background railroads | Loses autonomy | Background seeds identity and memory only, never scripts actions; characters can reinvent (aliases, new leaf). |
+| Evil/griefing feels consequence-free | Hollow stakes | Reputation & justice: witnesses, bounties, and NPC + AI pursuit; consequences scale with notoriety and apply to everyone equally. |
+| First-person scope creep | Phase 8 balloons | Ship observation mode (panel + inner life + limited view) before any 3D embodiment. |
 | Save-format churn | Broken worlds | Versioned saves + migration tests at every bump. |
 | Model licensing surprises | Release blocker | Model-agnostic router; verify licenses early. |
 | Solo-dev burnout on breadth | Stalls | Each phase is independently valuable and shippable; stop-anywhere ordering. |
