@@ -70,6 +70,8 @@ class Agent:
     sheet: Optional["CharacterSheet"] = None  # rules character sheet (skills 1-100)
     personality: Dict[str, float] = field(default_factory=dict)  # cognition traits 0..1
     goal: Optional["Goal"] = None                                # current self-set aim
+    coin: int = 0                                                # money
+    inventory: List = field(default_factory=list)               # List[economy.Item]
 
     # ---- scheduling ----------------------------------------------------
     def scheduled_block(self, hour: int) -> ScheduleBlock:
@@ -136,6 +138,7 @@ class Agent:
             "top_skills": self.sheet.top_skills(3) if self.sheet else [],
             "goal": self.goal.description if self.goal else "",
             "goal_step": (self.goal.current_step.name if (self.goal and self.goal.current_step) else ""),
+            "coin": self.coin,
         }
 
 

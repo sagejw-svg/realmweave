@@ -27,6 +27,8 @@ from .memory import MemoryStream
 from .rules.skills import role_sheet
 from .cognition.mind import Mind
 from .cognition.personality import seed_personality
+from .economy.market import Economy
+from .economy.goods import make_item
 from .llm.router import LLMRouter, LLMRequest, Tier
 
 EventSink = Callable[[dict], None]
@@ -55,12 +57,15 @@ class Simulation:
         self._last_reflect: Dict[str, int] = {}
 
         self.mind = Mind(self)
+        self.economy = Economy(self)
 
         embedder = router.embedder()
         for a in default_agents():
             a.memory = MemoryStream(owner=a.id, embedder=embedder)
             a.sheet = role_sheet(a.role)
             a.personality = seed_personality(a.id)
+            a.coin = 150                     # starting money to trade with
+            a.inventory = []
             a.current_location = a.home
             self.agents[a.id] = a
             self._last_reflect[a.id] = 0
@@ -230,15 +235,33 @@ class Simulation:
             skill, item = "Smithing", "a piece of armor"
         elif kind == "field":
             skill, item = "Farming", "a bushel of produce"
+        elif kind == "well":
+            skill, item = "Herbalism", "a healing remedy"
+        elif kind == "tavern":
+            skill, item = "Cooking", "a hot meal"
         else:
             return
         if self.rng.random() > 0.2:      # not every tick
             return
         quality, res = a.sheet.craft(skill, self.rng)
+        # the crafted good becomes a real Item: stocked in the owner's shop if
+        # they have one, otherwise held in their inventory to sell or stock later
+        good = make_item(skill, quality)
+        shop = self.economy.shops.get(a.id)
+        if shop is not None and shop.is_open:
+            shop.stock.append(good)
+        else:
+            a.inventory.append(good)
         self._observe(a, f"Worked {skill} and made {item} (quality {quality}).", 2.0, "event")
         self.emit("craft", agent=a.id, agent_name=a.name, item=item, quality=quality,
                   skill=skill, skill_value=a.sheet.skill(skill), roll=res.roll,
                   outcome=res.outcome.value)
+
+    def _on_goal_complete(self, agent: Agent, goal) -> None:
+        """Hook the Mind calls when an agent finishes a goal. Turning a
+        'build a livelihood' aim into an actual shop happens here."""
+        if goal.kind == "build_livelihood":
+            self.economy.found_shop(agent)
 
     # ---- player interaction -------------------------------------------
     def player_speak(self, player_name: str, x: float, y: float, text: str,
@@ -314,6 +337,8 @@ class Simulation:
         for loc_id in list(self.world.locations.keys()):
             self._maybe_socialize(loc_id)
 
+        self.economy.maybe_trade()
+
         self.emit("tick", tick=self.tick_count)
 
     # ---- serialization -------------------------------------------------
@@ -322,5 +347,8 @@ class Simulation:
             "clock": self.clock.to_dict(),
             "world": self.world.to_dict(),
             "agents": [a.to_dict() for a in self.agents.values()],
+            "shops": [{"name": s.name, "location": s.location_id, "owner": s.owner_id,
+                       "x": s.x, "y": s.y, "stock": len(s.stock)}
+                      for s in self.economy.shops.values()],
             "tick": self.tick_count,
         }
