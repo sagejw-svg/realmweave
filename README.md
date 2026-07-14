@@ -41,7 +41,22 @@ Try the drama test (kills the tavernkeeper at tick 40 and watch grief ripple):
 python run_headless.py --ticks 120 --stub --kill bram
 ```
 
+Talk to a villager and persist the world:
+
+```bash
+# a traveler speaks to the nearest NPC at tick 20, then the world is saved
+python run_headless.py --ticks 60 --stub --say "Is the Stag still serving?" --save data/save.json
+# resume that exact world (dead stay dead, memories intact)
+python run_headless.py --ticks 60 --stub --load data/save.json
+```
+
+In the Godot client, press Enter to focus the chat box, type a line, and press
+Enter again to speak to whichever villager is closest. Their reply appears as a
+speech bubble and in the event log. The server auto-saves every 60s and on exit,
+and resumes automatically on next launch.
+
 `--stub` forces the deterministic, GPU-free LLM. Drop it once Ollama is running.
+On Windows the Python launcher is usually `py` instead of `python`.
 
 ---
 
@@ -131,7 +146,8 @@ Key files to read first: `backend/realmweave/sim.py` (the loop),
 ## Roadmap (short version)
 
 Phase 0 (done): living village, routines, memory, death, protocol, 2D client.
-Phase 1: sprites/tilemap, day-night, player dialogue reaching NPCs, save/load.
+Phase 1 (in progress): player dialogue reaching NPCs and save/load are **done**;
+still to come: sprites/tilemap, day-night lighting, inventory/objects.
 Phase 2: agent goals/plans, factions, rumor spread, economy, illness.
 Phase 3: hostable dedicated server, player roster, interest management.
 Phase 4: content tooling, performance, Steam build.

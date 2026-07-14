@@ -19,6 +19,8 @@
     "host": "127.0.0.1",
     "port": 8765,
     "broadcast_hz": 4,
-    "ticks_per_second": 8
+    "ticks_per_second": 8,
+    "save_path": "data/world_save.json",
+    "autosave_seconds": 60
   }
 }

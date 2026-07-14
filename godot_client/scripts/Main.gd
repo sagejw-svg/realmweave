@@ -30,6 +30,7 @@ var _events: Array = []             # recent event log (strings)
 var _player_id := ""
 var _player_pos := Vector2(32, 24)
 var _send_accum := 0.0
+var _chat_input: LineEdit
 
 const KIND_COLORS := {
 	"tavern": Color(0.72, 0.45, 0.20),
@@ -47,7 +48,23 @@ func _ready() -> void:
 	if ProjectSettings.has_setting("network/realmweave/server_url"):
 		_server_url = ProjectSettings.get_setting("network/realmweave/server_url")
 	_ws.connect_to_url(_server_url)
+	# chat box: type a line and press Enter to speak to the nearest villager
+	_chat_input = LineEdit.new()
+	_chat_input.placeholder_text = "Say something to a nearby villager, then press Enter (Enter to focus)"
+	_chat_input.custom_minimum_size = Vector2(560, 30)
+	_chat_input.position = Vector2(12, 58)
+	_chat_input.text_submitted.connect(_on_chat_submitted)
+	add_child(_chat_input)
 	set_process(true)
+
+
+func _on_chat_submitted(text: String) -> void:
+	var line := text.strip_edges()
+	if line != "" and _player_id != "":
+		_send({"type": "player_say", "id": _player_id, "text": line})
+		_log("You: \"" + line + "\"")
+	_chat_input.clear()
+	_chat_input.release_focus()
 
 
 func world_to_screen(x: float, y: float) -> Vector2:
@@ -107,6 +124,12 @@ func _on_message(text: String) -> void:
 				_agents[a["id"]] = a
 		"event":
 			_on_event(data.get("event", {}))
+		"npc_reply":
+			var who: String = data.get("agent_name", "")
+			if who == "":
+				_log(data.get("text", ""))
+			else:
+				_log("%s (to you): \"%s\"" % [who, data.get("text", "")])
 
 
 func _on_event(evt: Dictionary) -> void:
@@ -119,6 +142,9 @@ func _on_event(evt: Dictionary) -> void:
 
 func _handle_input(delta: float) -> void:
 	if _player_id == "":
+		return
+	# don't drive the character while typing in the chat box
+	if _chat_input and _chat_input.has_focus():
 		return
 	var dir := Vector2.ZERO
 	if Input.is_key_pressed(KEY_W): dir.y -= 1

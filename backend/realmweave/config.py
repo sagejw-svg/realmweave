@@ -16,7 +16,8 @@ _DEFAULT: Dict[str, Any] = {
     "reflex_max_importance": 3.0,
     "dialogue_max_importance": 7.0,
     "sim": {"minutes_per_tick": 10, "seed": 7, "social_chance": 0.5, "reflection_interval": 720},
-    "server": {"host": "127.0.0.1", "port": 8765, "broadcast_hz": 4, "ticks_per_second": 8},
+    "server": {"host": "127.0.0.1", "port": 8765, "broadcast_hz": 4, "ticks_per_second": 8,
+               "save_path": "data/world_save.json", "autosave_seconds": 60},
 }
 
 

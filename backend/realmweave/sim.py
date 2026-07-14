@@ -17,6 +17,7 @@ The sim is deterministic given a seed + stubbed LLM, which makes it testable.
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional
+import math
 import random
 
 from .time_system import WorldClock
@@ -204,6 +205,59 @@ class Simulation:
                          tier=Tier.DIALOGUE, num_predict=50)
         resp = self.router.generate(req)
         self._observe(a, f"Reflection: {resp.text.splitlines()[0][:180]}", 5.0, "reflection")
+
+    # ---- player interaction -------------------------------------------
+    def player_speak(self, player_name: str, x: float, y: float, text: str,
+                     radius: float = 6.0) -> Optional[dict]:
+        """Route a player's spoken line to the nearest living NPC and reply.
+
+        The NPC remembers being addressed (so it can reference the exchange
+        later), forms/updates an affinity toward the player, and answers in
+        character via the `dialogue` tier. Returns the reply, or None if no NPC
+        was within earshot.
+        """
+        target = None
+        best = radius
+        for a in self.living():
+            d = math.hypot(a.x - x, a.y - y)
+            if d <= best:
+                best, target = d, a
+        if target is None:
+            return None
+
+        pkey = f"player:{player_name}"
+        self._observe(target, f"{player_name} (a traveler) said to me: \"{text}\"", 5.0, "dialogue")
+        mems = target.memory.retrieve(f"{player_name} {text}", self.clock.minutes, k=3) if target.memory else []
+        mem_txt = " ".join(f"[{m.text}]" for m in mems)
+        aff = target.affinity(pkey)
+        mood = "warmly" if aff > 0.2 else ("warily" if aff < -0.2 else "evenly")
+        prompt = (f"A traveler named {player_name} approaches you at "
+                  f"{self.world.loc(target.current_location).name} during the {self.clock.part_of_day} "
+                  f"and says: \"{text}\". You regard them {mood}. "
+                  f"Recent memories: {mem_txt or 'none'}. Reply in one short line, in character.")
+        importance = 4.0 + abs(aff) * 3.0
+        req = LLMRequest(prompt=prompt, system=self._persona_system(target),
+                         importance=importance, tier=Tier.DIALOGUE, other=player_name, num_predict=60)
+        resp = self.router.generate(req)
+        line = resp.text.split("\n")[0][:180]
+        target.speak(line, ttl=10)
+        target.adjust_affinity(pkey, 0.02)
+        target.social.satisfy(0.05)
+        self._observe(target, f"I replied to {player_name}: \"{line}\"", 3.0, "dialogue")
+        self.emit("dialogue", speaker=target.id, speaker_name=target.name,
+                  listener=pkey, listener_name=player_name, location=target.current_location,
+                  text=line, tier=resp.tier.value, model=resp.model, backend=resp.backend,
+                  to_player=True)
+        return {"agent_id": target.id, "agent_name": target.name, "text": line}
+
+    # ---- persistence ---------------------------------------------------
+    def save(self, path: str) -> None:
+        from .persistence import save_world
+        save_world(self, path)
+
+    def load(self, path: str) -> bool:
+        from .persistence import load_world
+        return load_world(self, path)
 
     # ---- main loop -----------------------------------------------------
     def tick(self) -> None:

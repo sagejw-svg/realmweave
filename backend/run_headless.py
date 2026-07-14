@@ -26,6 +26,9 @@ def main() -> None:
     ap.add_argument("--stub", action="store_true", help="force the GPU-free stub LLM")
     ap.add_argument("--digest-hours", type=int, default=2, help="hours between world digests")
     ap.add_argument("--kill", type=str, default="", help="agent id to kill at tick 40 (drama test)")
+    ap.add_argument("--load", type=str, default="", help="load a saved world before running")
+    ap.add_argument("--save", type=str, default="", help="save the world to this path when done")
+    ap.add_argument("--say", type=str, default="", help="a traveler says this to the nearest NPC at tick 20")
     args = ap.parse_args()
 
     cfg = load_config()
@@ -44,10 +47,23 @@ def main() -> None:
     sim.subscribe(lambda e: print(f"  ** DEATH ** {e['name']} — {e['cause']} ({e['stamp']})")
                   if e["kind"] == "death" else None)
 
+    if args.load:
+        if sim.load(args.load):
+            print(f"Loaded world from {args.load} -> resuming at {sim.clock.stamp()}\n")
+        else:
+            print(f"No valid save at {args.load}; starting fresh.\n")
+
     last_digest_hour = -999
     for i in range(args.ticks):
         if args.kill and i == 40:
             sim.kill(args.kill, cause="a sudden fever")
+        if args.say and i == 20:
+            reply = sim.player_speak("Traveler", 32.0, 24.0, args.say)
+            if reply:
+                print(f"\n  >> You say to {reply['agent_name']}: \"{args.say}\"")
+                print(f"  << {reply['agent_name']} replies: \"{reply['text']}\"\n")
+            else:
+                print("\n  >> You speak, but no villager is close enough to hear.\n")
         sim.tick()
         cur_h = sim.clock.day_index * 24 + sim.clock.hour
         if cur_h - last_digest_hour >= args.digest_hours:
@@ -64,6 +80,9 @@ def main() -> None:
                       f"[{d['tier']}/{d['backend']}]")
 
     print(f"\nSimulated {args.ticks} ticks -> {sim.clock.stamp()}.")
+    if args.save:
+        sim.save(args.save)
+        print(f"Saved world to {args.save}.")
     # tiny memory peek
     sample = next(iter(sim.agents.values()))
     print(f"\n{sample.name}'s top memories right now:")

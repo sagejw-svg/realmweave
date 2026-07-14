@@ -167,11 +167,13 @@ agents with routines/needs/memory, tiered LLM router with Ollama + stub, death
 with lasting memory, WebSocket protocol, Godot 2D client, headless runner.
 Status: **built and tested headless.**
 
-**Phase 1 - Make it feel alive.** Real tilemap + sprite art; day/night lighting;
-richer activity animations; player dialogue actually reaching NPCs (route
-`player_say` into the target agent's next decision + memory); inventory/objects;
-weather that affects farming and mood; persistence to disk (save/load world +
-memories).
+**Phase 1 - Make it feel alive.** *Done:* player dialogue reaching NPCs
+(`player_speak` routes a spoken line to the nearest NPC, records it to memory,
+updates affinity, and replies via the `dialogue` tier); persistence to disk
+(versioned JSON save/load of clock, world, agent state + full memory streams;
+server auto-saves and resumes; the dead stay dead across saves). *Still to come:*
+real tilemap + sprite art; day/night lighting; richer activity animations;
+inventory/objects; weather that affects farming and mood.
 
 **Phase 2 - Depth of consequence.** Agent goals and plans (multi-step, not just
 schedules); factions and reputation; rumor propagation through the social graph;

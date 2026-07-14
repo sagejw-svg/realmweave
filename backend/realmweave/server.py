@@ -21,6 +21,7 @@ added to a roster the sim can render alongside NPCs.
 from __future__ import annotations
 import asyncio
 import json
+import os
 from typing import Dict, Set
 
 try:
@@ -44,6 +45,15 @@ class RealmweaveServer:
         self.players: Dict[str, dict] = {}
         self._event_queue: "asyncio.Queue[dict]" = asyncio.Queue()
         self.sim.subscribe(self._on_event)
+
+        # resolve save path relative to the backend/ dir and resume if present
+        base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.save_path = os.path.join(base, self.scfg.get("save_path", "data/world_save.json"))
+        self.autosave_seconds = int(self.scfg.get("autosave_seconds", 60))
+        if self.sim.load(self.save_path):
+            print(f"Resumed world from {self.save_path} at {self.sim.clock.stamp()}")
+        else:
+            print("Starting a fresh world (no save found).")
 
     def _on_event(self, evt: dict) -> None:
         # only push interesting events to clients (skip per-tick noise)
@@ -100,6 +110,12 @@ class RealmweaveServer:
             p = self.players.get(msg.get("id"))
             if p:
                 p["say"] = str(msg.get("text", ""))[:200]
+                reply = self.sim.player_speak(p["name"], p["x"], p["y"], p["say"])
+                if reply:
+                    await ws.send(json.dumps({"type": "npc_reply", **reply}))
+                else:
+                    await ws.send(json.dumps({"type": "npc_reply", "agent_name": "",
+                                              "text": "(No one is close enough to hear you.)"}))
         elif mtype == "admin_kill":
             self.sim.kill(msg.get("id", ""), cause=msg.get("cause", "an unseen hand"))
 
@@ -113,6 +129,15 @@ class RealmweaveServer:
         while True:
             evt = await self._event_queue.get()
             await self._broadcast({"type": "event", "event": evt})
+
+    async def autosave_loop(self) -> None:
+        while True:
+            await asyncio.sleep(self.autosave_seconds)
+            try:
+                self.sim.save(self.save_path)
+                print(f"[autosave] {self.sim.clock.stamp()} -> {self.save_path}")
+            except Exception as e:
+                print(f"[autosave] failed: {e}")
 
     async def broadcast_loop(self) -> None:
         dt = 1.0 / max(1, self.scfg["broadcast_hz"])
@@ -128,8 +153,17 @@ class RealmweaveServer:
             raise RuntimeError("The 'websockets' package is required: pip install websockets")
         host, port = self.scfg["host"], self.scfg["port"]
         print(f"Realmweave server listening on ws://{host}:{port}")
-        async with websockets.serve(self.handler, host, port):
-            await asyncio.gather(self.sim_loop(), self.broadcast_loop(), self.event_loop())
+        try:
+            async with websockets.serve(self.handler, host, port):
+                await asyncio.gather(self.sim_loop(), self.broadcast_loop(),
+                                     self.event_loop(), self.autosave_loop())
+        finally:
+            # persist the world on shutdown (Ctrl+C) so nothing is lost
+            try:
+                self.sim.save(self.save_path)
+                print(f"\nSaved world to {self.save_path} on shutdown.")
+            except Exception as e:
+                print(f"Save on shutdown failed: {e}")
 
 
 def main() -> None:
