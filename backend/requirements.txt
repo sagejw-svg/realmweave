@@ -1,0 +1,3 @@
+# Core simulation + Ollama client use only the Python standard library.
+# The networked server needs one dependency:
+websockets>=12.0

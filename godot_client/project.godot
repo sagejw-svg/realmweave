@@ -1,0 +1,23 @@
+; Realmweave 2D client (Godot 4.3+)
+; Renders the authoritative world streamed by the Python backend over WebSocket.
+
+config_version=5
+
+[application]
+config/name="Realmweave"
+config/description="A living high-fantasy world simulation. 2D client."
+run/main_scene="res://scenes/Main.tscn"
+config/features=PackedStringArray("4.3", "GL Compatibility")
+config/icon="res://icon.svg"
+
+[display]
+window/size/viewport_width=1024
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+
+[rendering]
+renderer/rendering_method="gl_compatibility"
+environment/defaults/default_clear_color=Color(0.09, 0.10, 0.12, 1)
+
+[network]
+realmweave/server_url="ws://127.0.0.1:8765"
