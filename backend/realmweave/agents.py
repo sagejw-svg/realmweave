@@ -68,6 +68,8 @@ class Agent:
     persona: str = ""        # short character brief fed to the LLM
     memory: Optional[MemoryStream] = None
     sheet: Optional["CharacterSheet"] = None  # rules character sheet (skills 1-100)
+    personality: Dict[str, float] = field(default_factory=dict)  # cognition traits 0..1
+    goal: Optional["Goal"] = None                                # current self-set aim
 
     # ---- scheduling ----------------------------------------------------
     def scheduled_block(self, hour: int) -> ScheduleBlock:
@@ -132,6 +134,8 @@ class Agent:
             },
             "char_class": self.sheet.emergent_class() if self.sheet else "",
             "top_skills": self.sheet.top_skills(3) if self.sheet else [],
+            "goal": self.goal.description if self.goal else "",
+            "goal_step": (self.goal.current_step.name if (self.goal and self.goal.current_step) else ""),
         }
 
 

@@ -14,9 +14,10 @@ import json
 import os
 
 from .memory import MemoryEntry
+from .cognition.goals import Goal
 
-SAVE_VERSION = 2
-SUPPORTED_VERSIONS = (1, 2)
+SAVE_VERSION = 3
+SUPPORTED_VERSIONS = (1, 2, 3)
 
 
 def save_world(sim, path: str) -> None:
@@ -42,6 +43,8 @@ def save_world(sim, path: str) -> None:
             "relationships": a.relationships,
             "say": a.say, "say_ttl": a.say_ttl,
             "sheet": a.sheet.to_dict() if a.sheet else None,
+            "personality": dict(a.personality) if a.personality else {},
+            "goal": a.goal.to_dict() if a.goal else None,
             "memory": [
                 {"text": e.text, "importance": e.importance, "created_at": e.created_at,
                  "last_accessed": e.last_accessed, "kind": e.kind}
@@ -94,6 +97,10 @@ def load_world(sim, path: str) -> bool:
         sheet_data = ad.get("sheet")
         if sheet_data and a.sheet is not None:
             a.sheet.load_dict(sheet_data)
+        # v3+: restore personality and the active goal; older saves keep seeds
+        if ad.get("personality"):
+            a.personality = {k: float(v) for k, v in ad["personality"].items()}
+        a.goal = Goal.from_dict(ad["goal"]) if ad.get("goal") else None
         if a.memory is not None:
             a.memory.entries = [
                 MemoryEntry(

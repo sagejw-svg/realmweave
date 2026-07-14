@@ -25,6 +25,8 @@ from .world import World
 from .agents import Agent, default_agents
 from .memory import MemoryStream
 from .rules.skills import role_sheet
+from .cognition.mind import Mind
+from .cognition.personality import seed_personality
 from .llm.router import LLMRouter, LLMRequest, Tier
 
 EventSink = Callable[[dict], None]
@@ -52,10 +54,13 @@ class Simulation:
         self.tick_count = 0
         self._last_reflect: Dict[str, int] = {}
 
+        self.mind = Mind(self)
+
         embedder = router.embedder()
         for a in default_agents():
             a.memory = MemoryStream(owner=a.id, embedder=embedder)
             a.sheet = role_sheet(a.role)
+            a.personality = seed_personality(a.id)
             a.current_location = a.home
             self.agents[a.id] = a
             self._last_reflect[a.id] = 0
@@ -100,12 +105,14 @@ class Simulation:
 
     # ---- decision + movement ------------------------------------------
     def _decide(self, a: Agent) -> None:
+        # survival needs still hard-override everything
         urgent = a.urgent_need()
         if urgent is not None:
             a.activity, a.target_location = urgent
-        else:
-            block = a.scheduled_block(self.clock.hour)
-            a.activity, a.target_location = block.activity, block.location
+            return
+        # otherwise the Mind scores needs, the active goal step, and routine,
+        # and picks the highest-utility action (personality bends the weights)
+        a.activity, a.target_location = self.mind.choose(a)
 
     def _move(self, a: Agent) -> None:
         if a.activity == "wander" and a.current_location == a.target_location:
@@ -295,10 +302,13 @@ class Simulation:
             a.tick_needs()
             if a.say_ttl > 0:
                 a.say_ttl -= 1
+            self.mind.ensure_personality(a)
+            self.mind.maybe_generate_goal(a)
             self._decide(a)
             self._move(a)
             self._activity_effects(a)
             self._maybe_craft(a)
+            self.mind.progress_goal(a)
             self._maybe_reflect(a)
 
         for loc_id in list(self.world.locations.keys()):

@@ -44,10 +44,16 @@ def main() -> None:
 
     dialogues = []
     crafts = []
+    steps = []
     sim.subscribe(lambda e: dialogues.append(e) if e["kind"] == "dialogue" else None)
     sim.subscribe(lambda e: crafts.append(e) if e["kind"] == "craft" else None)
+    sim.subscribe(lambda e: steps.append(e) if e["kind"] == "goal_step" else None)
     sim.subscribe(lambda e: print(f"  ** DEATH ** {e['name']} — {e['cause']} ({e['stamp']})")
                   if e["kind"] == "death" else None)
+    sim.subscribe(lambda e: print(f"  >> GOAL   {e['agent_name']} resolves to {e['description']} "
+                                  f"({e['steps']} steps)") if e["kind"] == "goal_new" else None)
+    sim.subscribe(lambda e: print(f"  ++ DONE   {e['agent_name']} accomplished: {e['description']}")
+                  if e["kind"] == "goal_complete" else None)
 
     if args.load:
         if sim.load(args.load):
@@ -75,7 +81,11 @@ def main() -> None:
                 status = "DEAD" if not a.alive else a.activity
                 where = sim.world.loc(a.current_location).name
                 extra = f'  "{a.say}"' if (a.say and a.say_ttl > 0) else ""
-                print(f"  {a.name:<14} {status:<10} @ {where}{extra}")
+                aim = f"  <aim: {a.goal.current_step.name}>" if (a.alive and a.goal and a.goal.current_step) else ""
+                print(f"  {a.name:<14} {status:<10} @ {where}{extra}{aim}")
+            for s in steps[-5:]:
+                print(f"    * {s['agent_name']} step: {s['step']}")
+            steps.clear()
             while dialogues:
                 d = dialogues.pop(0)
                 print(f"    · {d['speaker_name']} -> {d['listener_name']}: \"{d['text']}\"  "
