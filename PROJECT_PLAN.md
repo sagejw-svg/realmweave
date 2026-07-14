@@ -308,8 +308,8 @@ ordered so that every later capstone rests on foundations proven earlier.
 | Phase | Theme | Headline outcome | Rough effort |
 |-------|-------|------------------|--------------|
 | 0 | Living village | Autonomous NPCs, memory, death, dialogue, save/load | **Done** |
-| 1 | Rules foundation | Character sheets, 1-100 skills, checks driving outcomes | 2-3 wk |
-| 2 | Autonomy | Goals + plans + utility selection; agents pursue self-set aims | 3-4 wk |
+| 1 | Rules foundation | Character sheets, 1-100 skills, checks driving outcomes | **Done** |
+| 2 | Autonomy | Goals + plans + utility selection; agents pursue self-set aims | **Done** |
 | 3 | Livelihoods | Economy, professions, agent-built shops | 3-4 wk |
 | 4 | Quests | Cross-domain quests; players play them; agents may ignore them | 2-3 wk |
 | 5 | Divine influence | God suggestions the AI weighs and may refuse; god-authored creation | 1-2 wk |
@@ -501,10 +501,13 @@ The first concrete work items, each a small, reviewable change:
 1. **Phase 1 - done and merged** (PR #1): `rules/` with `CharacterSheet`, 1-100
    skills, d100 checks, use-based progression, role seeding, and skill-driven
    crafting; save format v2 with migration; 10 unit tests.
-2. **Next - Phase 2 (autonomy):** design spike on the goal and planner data
-   structures, then goal generation, a simple planner, and utility-based action
-   selection so agents pursue self-set aims.
-3. **In parallel (cheap wins):** drop in CC0/public-domain placeholder art and
+2. **Phase 2 - done** (PR #2): `cognition/` with personality traits, goal
+   generation, a template planner, and utility-based action selection. Agents now
+   form and pursue their own multi-step goals; save format v3.
+3. **Next - Phase 3 (livelihoods):** money, inventory, professions, and
+   agent-built shops, so the "open a shop" goal becomes a real storefront that
+   trades.
+4. **In parallel (cheap wins):** drop in CC0/public-domain placeholder art and
    audio (see `RESOURCES.md`) to start giving Oakhollow a classic look and feel
    without blocking the simulation work.
 
