@@ -15,9 +15,10 @@ import os
 
 from .memory import MemoryEntry
 from .cognition.goals import Goal
+from .economy.goods import Item
 
-SAVE_VERSION = 3
-SUPPORTED_VERSIONS = (1, 2, 3)
+SAVE_VERSION = 4
+SUPPORTED_VERSIONS = (1, 2, 3, 4)
 
 
 def save_world(sim, path: str) -> None:
@@ -45,12 +46,16 @@ def save_world(sim, path: str) -> None:
             "sheet": a.sheet.to_dict() if a.sheet else None,
             "personality": dict(a.personality) if a.personality else {},
             "goal": a.goal.to_dict() if a.goal else None,
+            "coin": a.coin,
+            "inventory": [it.to_dict() for it in a.inventory],
             "memory": [
                 {"text": e.text, "importance": e.importance, "created_at": e.created_at,
                  "last_accessed": e.last_accessed, "kind": e.kind}
                 for e in mem
             ],
         }
+
+    data["economy"] = sim.economy.to_dict()
 
     abspath = os.path.abspath(path)
     os.makedirs(os.path.dirname(abspath), exist_ok=True)
@@ -101,6 +106,10 @@ def load_world(sim, path: str) -> bool:
         if ad.get("personality"):
             a.personality = {k: float(v) for k, v in ad["personality"].items()}
         a.goal = Goal.from_dict(ad["goal"]) if ad.get("goal") else None
+        # v4+: restore money and inventory
+        if "coin" in ad:
+            a.coin = int(ad["coin"])
+        a.inventory = [Item.from_dict(it) for it in ad.get("inventory", [])]
         if a.memory is not None:
             a.memory.entries = [
                 MemoryEntry(
@@ -111,4 +120,7 @@ def load_world(sim, path: str) -> bool:
                 )
                 for m in ad.get("memory", [])
             ]
+
+    # v4+: restore shops (also re-adds their locations to the world)
+    sim.economy.load(data.get("economy", {}))
     return True

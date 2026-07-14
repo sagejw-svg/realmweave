@@ -54,6 +54,10 @@ def main() -> None:
                                   f"({e['steps']} steps)") if e["kind"] == "goal_new" else None)
     sim.subscribe(lambda e: print(f"  ++ DONE   {e['agent_name']} accomplished: {e['description']}")
                   if e["kind"] == "goal_complete" else None)
+    sim.subscribe(lambda e: print(f"  $$ SHOP   {e['agent_name']} opened {e['shop']} "
+                                  f"(stock: {e['stock']})") if e["kind"] == "shop_founded" else None)
+    trades = []
+    sim.subscribe(lambda e: trades.append(e) if e["kind"] == "trade" else None)
 
     if args.load:
         if sim.load(args.load):
@@ -94,6 +98,10 @@ def main() -> None:
                 print(f"    ~ {c['agent_name']} ({c['skill']} {c['skill_value']}) crafted "
                       f"{c['item']} q{c['quality']} [{c['outcome']}]")
             crafts.clear()
+            for t in trades[-5:]:
+                print(f"    $ {t['buyer_name']} bought {t['item']} q{t['quality']} from "
+                      f"{t['seller_name']} for {t['price']} coin")
+            trades.clear()
 
     print(f"\nSimulated {args.ticks} ticks -> {sim.clock.stamp()}.")
     if args.save:

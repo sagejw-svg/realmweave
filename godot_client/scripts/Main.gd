@@ -41,6 +41,7 @@ const KIND_COLORS := {
 	"smithy": Color(0.55, 0.30, 0.30),
 	"field": Color(0.45, 0.60, 0.30),
 	"gate": Color(0.50, 0.50, 0.55),
+	"shop": Color(0.80, 0.65, 0.25),
 }
 
 

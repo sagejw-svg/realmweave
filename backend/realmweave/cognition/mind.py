@@ -33,13 +33,18 @@ class Mind:
     def propose_goal(self, agent) -> Optional[Goal]:
         p = agent.personality
         social = agent.social.value
+        econ = getattr(self.sim, "economy", None)
+        owns_shop = econ is not None and agent.id in econ.shops
         candidates = [
-            (p["ambition"] * 0.6 + p["greed"] * 0.4 + p["industry"] * 0.2, "build_livelihood"),
             (p["ambition"] * 0.5 + p["curiosity"] * 0.5 - p["caution"] * 0.3, "seek_adventure"),
             (p["sociability"] * 0.6 + (1.0 - social) * 0.3, "seek_companionship"),
             (p["industry"] * 0.6 + 0.2, "master_craft"),
             (p["curiosity"] * 0.7 - p["caution"] * 0.2, "explore"),
         ]
+        # only pursue building a livelihood if you don't already own a shop
+        if not owns_shop:
+            candidates.append((p["ambition"] * 0.6 + p["greed"] * 0.4 + p["industry"] * 0.2,
+                               "build_livelihood"))
         score, kind = max(candidates, key=lambda t: t[0])
         if score < GOAL_THRESHOLD:
             return None
@@ -49,6 +54,10 @@ class Mind:
 
     def maybe_generate_goal(self, agent) -> None:
         if agent.goal is not None:
+            return
+        # agents have downtime between aims (leisure, browsing, socializing)
+        # rather than instantly grabbing a new quest every tick
+        if self.sim.rng.random() > 0.05:
             return
         goal = self.propose_goal(agent)
         if goal is None:
@@ -74,6 +83,13 @@ class Mind:
         if agent.goal is not None and agent.goal.current_step is not None:
             step = agent.goal.current_step
             cands.append((agent.goal.priority * 0.85, step.activity, step.location))
+        # browse a shop when comfortable and holding coin (greedy/curious folk more so)
+        econ = getattr(self.sim, "economy", None)
+        if econ is not None and agent.coin >= 5:
+            shop_loc = econ.nearest_open_shop_location(agent)
+            if shop_loc is not None:
+                drive = 0.45 * max(p["greed"], p["curiosity"])
+                cands.append((drive, "visit", shop_loc))
         # routine fallback (do your job / scheduled activity)
         block = agent.scheduled_block(self.sim.clock.hour)
         cands.append((0.35, block.activity, block.location))
@@ -108,4 +124,9 @@ class Mind:
                 self.sim.emit("goal_complete", agent=agent.id, agent_name=agent.name,
                               goal=g.kind, description=g.description)
                 self.sim._observe(agent, f"I accomplished my aim: {g.description}.", 7.0, "reflection")
+                # let the sim turn certain finished goals into world state
+                # (e.g. a 'build a livelihood' goal founds a real shop)
+                hook = getattr(self.sim, "_on_goal_complete", None)
+                if hook is not None:
+                    hook(agent, g)
                 agent.goal = None

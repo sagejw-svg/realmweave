@@ -310,7 +310,7 @@ ordered so that every later capstone rests on foundations proven earlier.
 | 0 | Living village | Autonomous NPCs, memory, death, dialogue, save/load | **Done** |
 | 1 | Rules foundation | Character sheets, 1-100 skills, checks driving outcomes | **Done** |
 | 2 | Autonomy | Goals + plans + utility selection; agents pursue self-set aims | **Done** |
-| 3 | Livelihoods | Economy, professions, agent-built shops | 3-4 wk |
+| 3 | Livelihoods | Economy, professions, agent-built shops | **Done** |
 | 4 | Quests | Cross-domain quests; players play them; agents may ignore them | 2-3 wk |
 | 5 | Divine influence | God suggestions the AI weighs and may refuse; god-authored creation | 1-2 wk |
 | 6 | Perception | Sense-limited knowledge; foundation for POV and fair crime detection | 2-3 wk |
@@ -504,10 +504,12 @@ The first concrete work items, each a small, reviewable change:
 2. **Phase 2 - done** (PR #2): `cognition/` with personality traits, goal
    generation, a template planner, and utility-based action selection. Agents now
    form and pursue their own multi-step goals; save format v3.
-3. **Next - Phase 3 (livelihoods):** money, inventory, professions, and
-   agent-built shops, so the "open a shop" goal becomes a real storefront that
-   trades.
-4. **In parallel (cheap wins):** drop in CC0/public-domain placeholder art and
+3. **Phase 3 - done** (PR #4): money, inventory, goods, and agent-built shops.
+   A "build a livelihood" goal now founds a real storefront that stocks and
+   sells; prices flex with Bargaining; save format v4.
+4. **Next - Phase 4 (quests):** cross-domain quests players can take, which
+   agents may ignore because they do not serve their own goals.
+5. **In parallel (cheap wins):** drop in CC0/public-domain placeholder art and
    audio (see `RESOURCES.md`) to start giving Oakhollow a classic look and feel
    without blocking the simulation work.
 
