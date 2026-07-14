@@ -4,7 +4,10 @@ A persistent, living high-fantasy world simulation powered by local LLMs. NPCs
 have their own routines, memories, relationships, and mortality. You influence
 the world; you don't own it. Single-player now, multiplayer by design. MIT.
 
-See [DESIGN.md](DESIGN.md) for the full architecture and roadmap.
+See [DESIGN.md](DESIGN.md) for the current architecture, and
+[PROJECT_PLAN.md](PROJECT_PLAN.md) for the full phased roadmap from here to
+seeing the world through an AI's eyes (skills, autonomy, economy, quests, and
+divine influence).
 
 ---
 
