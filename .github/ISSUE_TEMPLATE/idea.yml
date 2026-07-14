@@ -1,0 +1,78 @@
+name: "💡 Idea / Feature request"
+description: "Suggest a feature, mechanic, or improvement. This form guides you through what we need to evaluate it."
+title: "[Idea]: "
+labels: ["idea", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping shape Realmweave. Ideas go through a short review: a
+        maintainer reads every submission and, if approved, labels it `approved`
+        (and `ai-eligible` if it is a good fit for AI-assisted implementation).
+        The more concretely you answer below, the faster it can be evaluated.
+  - type: input
+    id: summary
+    attributes:
+      label: One-line summary
+      placeholder: "Blacksmiths should be able to take apprentices"
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem or opportunity does this address?
+      description: "What is missing or could be better today? Why does it matter for the living-world vision?"
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed idea
+      description: "Describe the feature or mechanic. How would it work from a player's and an agent's point of view?"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which area does this touch most?
+      options:
+        - "Agent autonomy / cognition"
+        - "Rules & skills"
+        - "Economy & livelihoods"
+        - "Quests"
+        - "Divine influence"
+        - "Perception / first-person view"
+        - "Reputation & justice"
+        - "World & setting"
+        - "Client / rendering / UI"
+        - "Multiplayer"
+        - "Art / audio / assets"
+        - "Other / not sure"
+    validations:
+      required: true
+  - type: textarea
+    id: alignment
+    attributes:
+      label: How does it fit the vision?
+      description: "Realmweave is a persistent, emergent, local-LLM living world. Agents keep their autonomy; the god influences but does not fully control. Does your idea respect that? (See PROJECT_PLAN.md.)"
+    validations:
+      required: false
+  - type: dropdown
+    id: help
+    attributes:
+      label: Would you like to help build it?
+      options:
+        - "Just suggesting the idea"
+        - "I could help with design/testing"
+        - "I could write the code"
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: "I searched existing issues and this is not a duplicate"
+          required: true
+        - label: "This is a single, focused idea (not a bundle of several)"
+          required: true

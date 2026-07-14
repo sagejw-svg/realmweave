@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile all modules
+        working-directory: backend
+        run: python -m compileall -q realmweave run_headless.py run_server.py
+      - name: Run unit tests
+        working-directory: backend
+        run: python -m unittest discover -s tests -p "test_*.py" -v
+      - name: Headless smoke test (GPU-free stub)
+        working-directory: backend
+        env:
+          REALMWEAVE_FORCE_STUB: "1"
+        run: python run_headless.py --ticks 60 --stub --digest-hours 999

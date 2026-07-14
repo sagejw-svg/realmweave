@@ -1,0 +1,5 @@
+# Code owners for Realmweave.
+# The head developer must review and approve changes before they merge.
+# (Enforced by branch protection: "Require review from Code Owners".)
+
+*       @sagejw-svg

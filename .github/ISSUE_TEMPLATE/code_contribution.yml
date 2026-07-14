@@ -1,0 +1,49 @@
+name: "🛠️ Code contribution proposal"
+description: "Propose a code change before writing it, so it can be approved and won't be wasted effort."
+title: "[Code]: "
+labels: ["code", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Realmweave is design-first: for anything beyond a trivial fix, please
+        propose here and get a maintainer's `approved` label **before** opening a
+        PR. This protects your time and keeps the architecture coherent. Small
+        obvious fixes (typos, clear bugs) can skip straight to a PR.
+  - type: input
+    id: summary
+    attributes:
+      label: What do you want to change?
+      placeholder: "Add an apprenticeship relationship between crafters"
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Why? (link an approved idea/bug if there is one)
+      description: "Reference the issue number of the idea or bug this implements, if any."
+    validations:
+      required: true
+  - type: textarea
+    id: approach
+    attributes:
+      label: Proposed approach
+      description: "Which modules/files would change? New files? How does it fit the backend (rules/cognition/economy/...) and the save format? Any migration needed?"
+    validations:
+      required: true
+  - type: textarea
+    id: testing
+    attributes:
+      label: How will it be tested?
+      description: "Unit tests, a headless acceptance run, etc. Realmweave keeps the deterministic (stub) path covered by tests."
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: "I read CONTRIBUTING.md and this fits the vision in PROJECT_PLAN.md"
+          required: true
+        - label: "I understand a maintainer must approve this before a PR is merged"
+          required: true
