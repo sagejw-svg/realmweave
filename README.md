@@ -155,4 +155,16 @@ Phase 2: agent goals/plans, factions, rumor spread, economy, illness.
 Phase 3: hostable dedicated server, player roster, interest management.
 Phase 4: content tooling, performance, Steam build.
 
-Contributions welcome under the MIT License.
+## Contributing
+
+Everyone is welcome, coder or not. Ideas, bug reports, playtesting, art, music,
+and docs all count. Submissions go through guided issue forms and a short
+approval step by the head developer, then a merge gate (CI + review) that applies
+equally to human and AI-assisted contributions.
+
+- Read [CONTRIBUTING.md](CONTRIBUTING.md) for how a suggestion becomes part of the game.
+- See [GOVERNANCE.md](GOVERNANCE.md) for roles and the approval flow.
+- Open a [new issue](https://github.com/sagejw-svg/realmweave/issues/new/choose)
+  and pick the Idea, Bug, or Code proposal template.
+
+Contributions are accepted under the MIT License.

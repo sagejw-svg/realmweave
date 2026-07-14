@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 Read the contribution guide first
+    url: https://github.com/sagejw-svg/realmweave/blob/main/CONTRIBUTING.md
+    about: How ideas, bugs, and code move from submission to approval to merge.
+  - name: 🗺️ Project vision & roadmap
+    url: https://github.com/sagejw-svg/realmweave/blob/main/PROJECT_PLAN.md
+    about: Check the phased plan before proposing something, to see where it fits.

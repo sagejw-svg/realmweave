@@ -1,0 +1,64 @@
+name: "🐛 Bug report"
+description: "Something isn't working as expected."
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: "Thanks for the report. Clear reproduction steps get bugs fixed far faster."
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: "What went wrong, and what did you expect instead?"
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: "Exact steps. Include the command you ran (e.g. `python run_headless.py --ticks 100 --stub`) if relevant."
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - "Backend / simulation"
+        - "LLM router / Ollama"
+        - "Save / load"
+        - "WebSocket server"
+        - "Godot client"
+        - "Tests / CI"
+        - "Docs"
+        - "Other / not sure"
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: "OS, Python version (`python --version`), Godot version if relevant, GPU/Ollama models if relevant."
+      placeholder: "Windows 11, Python 3.12, Godot 4.3, RTX 5070, qwen2.5:7b"
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / traceback
+      description: "Paste any error output. This will be formatted as code automatically."
+      render: shell
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: "I searched existing issues and this is not a duplicate"
+          required: true
