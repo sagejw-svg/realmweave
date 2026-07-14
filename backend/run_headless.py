@@ -43,7 +43,9 @@ def main() -> None:
     print(f"Cast: {', '.join(a.name + ' (' + a.role + ')' for a in sim.agents.values())}\n")
 
     dialogues = []
+    crafts = []
     sim.subscribe(lambda e: dialogues.append(e) if e["kind"] == "dialogue" else None)
+    sim.subscribe(lambda e: crafts.append(e) if e["kind"] == "craft" else None)
     sim.subscribe(lambda e: print(f"  ** DEATH ** {e['name']} — {e['cause']} ({e['stamp']})")
                   if e["kind"] == "death" else None)
 
@@ -78,6 +80,10 @@ def main() -> None:
                 d = dialogues.pop(0)
                 print(f"    · {d['speaker_name']} -> {d['listener_name']}: \"{d['text']}\"  "
                       f"[{d['tier']}/{d['backend']}]")
+            for c in crafts[-4:]:
+                print(f"    ~ {c['agent_name']} ({c['skill']} {c['skill_value']}) crafted "
+                      f"{c['item']} q{c['quality']} [{c['outcome']}]")
+            crafts.clear()
 
     print(f"\nSimulated {args.ticks} ticks -> {sim.clock.stamp()}.")
     if args.save:

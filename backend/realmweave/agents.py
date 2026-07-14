@@ -67,6 +67,7 @@ class Agent:
     relationships: Dict[str, float] = field(default_factory=dict)  # id -> affinity -1..1
     persona: str = ""        # short character brief fed to the LLM
     memory: Optional[MemoryStream] = None
+    sheet: Optional["CharacterSheet"] = None  # rules character sheet (skills 1-100)
 
     # ---- scheduling ----------------------------------------------------
     def scheduled_block(self, hour: int) -> ScheduleBlock:
@@ -129,6 +130,8 @@ class Agent:
                 "thirst": round(self.thirst.value, 2),
                 "social": round(self.social.value, 2),
             },
+            "char_class": self.sheet.emergent_class() if self.sheet else "",
+            "top_skills": self.sheet.top_skills(3) if self.sheet else [],
         }
 
 

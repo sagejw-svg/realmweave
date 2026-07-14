@@ -15,7 +15,8 @@ import os
 
 from .memory import MemoryEntry
 
-SAVE_VERSION = 1
+SAVE_VERSION = 2
+SUPPORTED_VERSIONS = (1, 2)
 
 
 def save_world(sim, path: str) -> None:
@@ -40,6 +41,7 @@ def save_world(sim, path: str) -> None:
             },
             "relationships": a.relationships,
             "say": a.say, "say_ttl": a.say_ttl,
+            "sheet": a.sheet.to_dict() if a.sheet else None,
             "memory": [
                 {"text": e.text, "importance": e.importance, "created_at": e.created_at,
                  "last_accessed": e.last_accessed, "kind": e.kind}
@@ -61,7 +63,7 @@ def load_world(sim, path: str) -> bool:
         return False
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
-    if data.get("version") != SAVE_VERSION:
+    if data.get("version") not in SUPPORTED_VERSIONS:
         return False
 
     sim.clock.minutes = int(data.get("clock_minutes", sim.clock.minutes))
@@ -88,6 +90,10 @@ def load_world(sim, path: str) -> bool:
         a.relationships = {k: float(v) for k, v in ad.get("relationships", {}).items()}
         a.say = ad.get("say", "")
         a.say_ttl = int(ad.get("say_ttl", 0))
+        # v2+: restore the character sheet; v1 saves keep the role-seeded sheet
+        sheet_data = ad.get("sheet")
+        if sheet_data and a.sheet is not None:
+            a.sheet.load_dict(sheet_data)
         if a.memory is not None:
             a.memory.entries = [
                 MemoryEntry(

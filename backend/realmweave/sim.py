@@ -24,6 +24,7 @@ from .time_system import WorldClock
 from .world import World
 from .agents import Agent, default_agents
 from .memory import MemoryStream
+from .rules.skills import role_sheet
 from .llm.router import LLMRouter, LLMRequest, Tier
 
 EventSink = Callable[[dict], None]
@@ -54,6 +55,7 @@ class Simulation:
         embedder = router.embedder()
         for a in default_agents():
             a.memory = MemoryStream(owner=a.id, embedder=embedder)
+            a.sheet = role_sheet(a.role)
             a.current_location = a.home
             self.agents[a.id] = a
             self._last_reflect[a.id] = 0
@@ -157,7 +159,10 @@ class Simulation:
                   tier=resp.tier.value, model=resp.model, backend=resp.backend)
 
     def _persona_system(self, a: Agent) -> str:
-        return (f"You are {a.name}, {a.role} of the village of Oakhollow. {a.persona} "
+        skills = ""
+        if a.sheet is not None:
+            skills = f" You are a {a.sheet.summary()}."
+        return (f"You are {a.name}, {a.role} of the village of Oakhollow. {a.persona}{skills} "
                 f"Speak in one short, natural line of dialogue, in character. No narration.")
 
     def _dialogue_context(self, a: Agent, b: Agent, loc_id: str) -> str:
@@ -205,6 +210,28 @@ class Simulation:
                          tier=Tier.DIALOGUE, num_predict=50)
         resp = self.router.generate(req)
         self._observe(a, f"Reflection: {resp.text.splitlines()[0][:180]}", 5.0, "reflection")
+
+    # ---- crafting (skills drive outcomes) -----------------------------
+    def _maybe_craft(self, a: Agent) -> None:
+        """When an agent works at a production site, a skill check sets the
+        quality of what they make. This is the first place mechanics (the 1-100
+        skills) visibly drive world outcomes."""
+        if a.activity != "work" or a.sheet is None:
+            return
+        kind = self.world.loc(a.current_location).kind
+        if kind == "smithy":
+            skill, item = "Smithing", "a piece of armor"
+        elif kind == "field":
+            skill, item = "Farming", "a bushel of produce"
+        else:
+            return
+        if self.rng.random() > 0.2:      # not every tick
+            return
+        quality, res = a.sheet.craft(skill, self.rng)
+        self._observe(a, f"Worked {skill} and made {item} (quality {quality}).", 2.0, "event")
+        self.emit("craft", agent=a.id, agent_name=a.name, item=item, quality=quality,
+                  skill=skill, skill_value=a.sheet.skill(skill), roll=res.roll,
+                  outcome=res.outcome.value)
 
     # ---- player interaction -------------------------------------------
     def player_speak(self, player_name: str, x: float, y: float, text: str,
@@ -271,6 +298,7 @@ class Simulation:
             self._decide(a)
             self._move(a)
             self._activity_effects(a)
+            self._maybe_craft(a)
             self._maybe_reflect(a)
 
         for loc_id in list(self.world.locations.keys()):
