@@ -393,6 +393,31 @@ class Simulation:
 
         self.emit("tick", tick=self.tick_count)
 
+    # ---- subjective view (through their eyes) -------------------------
+    def subjective_view(self, agent_id: str) -> Optional[dict]:
+        from .perception.observe import build_subjective
+        a = self.agents.get(agent_id)
+        if a is None:
+            return None
+        return build_subjective(self, a)
+
+    def inner_thought(self, agent_id: str) -> Optional[str]:
+        """Generate a first-person inner-monologue line for an agent, in the
+        moment. Uses the LLM (dialogue tier) with the stub as a GPU-free fallback."""
+        a = self.agents.get(agent_id)
+        if a is None or not a.alive:
+            return None
+        view = self.subjective_view(agent_id)
+        who = ", ".join(s["name"] for s in view["seen"][:3]) or "no one in particular"
+        mem = view["memories"][0]["text"] if view["memories"] else "the day so far"
+        prompt = (f"It is {view['part_of_day']} at {view['where']}. You are {view['mood']}, "
+                  f"{view['activity']}. You see {who}. On your mind: {mem}. "
+                  f"Your aim: {view['goal']}. Think one short first-person line to yourself.")
+        req = LLMRequest(prompt=prompt, system=self._persona_system(a),
+                         importance=4.0, tier=Tier.DIALOGUE, num_predict=50)
+        resp = self.router.generate(req)
+        return resp.text.split("\n")[0][:200]
+
     # ---- identity ------------------------------------------------------
     def display_name(self, agent: Agent, viewer_id: str = "") -> str:
         """The name a given viewer knows this agent by. An alias holds unless the
