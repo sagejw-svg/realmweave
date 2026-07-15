@@ -49,21 +49,19 @@ jobs:
           version: 4.3.0
           include-templates: true
 
-      - name: Export the client (best effort, verbose)
+      - name: Export the client (best effort)
         id: client
         continue-on-error: true
         run: |
+          # Godot logs warnings to stderr; do NOT let that abort the step.
+          $ErrorActionPreference = 'Continue'
           New-Item -ItemType Directory -Force -Path build | Out-Null
-          Write-Host "GODOT bin: $env:GODOT"
-          & "$env:GODOT" --version
-          Write-Host "=== import pass ==="
-          & "$env:GODOT" --headless --path godot_client --import 2>&1 | Write-Host
+          godot --version
+          godot --headless --path godot_client --import
           Write-Host "import exit: $LASTEXITCODE"
-          Write-Host "=== export pass ==="
-          & "$env:GODOT" --headless --path godot_client --export-release "Windows Desktop" "$env:GITHUB_WORKSPACE/build/RealmweaveClient.exe" 2>&1 | Write-Host
+          godot --headless --path godot_client --export-release "Windows Desktop" build/RealmweaveClient.exe
           Write-Host "export exit: $LASTEXITCODE"
-          Write-Host "=== build dir ==="
-          Get-ChildItem "$env:GITHUB_WORKSPACE/build" | ForEach-Object { Write-Host $_.Name }
+          Get-ChildItem "$env:GITHUB_WORKSPACE/build" | ForEach-Object { Write-Host "  build/ $($_.Name)" }
           if (Test-Path "$env:GITHUB_WORKSPACE/build/RealmweaveClient.exe") {
             "ok=true"  | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           } else {
