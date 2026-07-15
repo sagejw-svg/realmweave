@@ -1,0 +1,24 @@
+# Realmweave nginx site (reverse-proxy wss:// to the local world server).
+#
+# 1. Edit server_name below to your subdomain (e.g. realm.dxedge.net) and make
+#    sure a DNS A record points it at this droplet.
+# 2. sudo cp deploy/realmweave.nginx /etc/nginx/sites-available/realmweave
+#    sudo ln -s /etc/nginx/sites-available/realmweave /etc/nginx/sites-enabled/
+# 3. sudo certbot --nginx -d realm.dxedge.net   # adds the 443 block + certs
+# 4. sudo nginx -t && sudo systemctl reload nginx
+#
+# Players and the browser dashboards then connect to  wss://realm.dxedge.net
+
+server {
+    listen 80;
+    server_name realm.dxedge.net;
+
+    location / {
+        proxy_pass http://127.0.0.1:8765;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_read_timeout 3600s;
+    }
+}

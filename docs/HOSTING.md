@@ -97,6 +97,19 @@ sudo systemctl enable --now realmweave
 sudo systemctl status realmweave
 ```
 
+### Quick deploy on an existing Ubuntu droplet (one command)
+
+On the droplet as root, this clones Realmweave, installs it, writes a
+storage-host config (AI off, bound to localhost), and runs it as a service:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/sagejw-svg/realmweave/main/deploy/dxedge_deploy.sh | sudo bash
+```
+
+Then add a DNS record (e.g. `realm.dxedge.net`) and put it behind nginx with the
+template in `deploy/realmweave.nginx` + `certbot` (see below). Update later with
+`cd /opt/realmweave && git pull && systemctl restart realmweave`.
+
 ### Co-hosting on an existing droplet (e.g. behind nginx)
 
 If your droplet already runs nginx + Let's Encrypt for another site, add a
