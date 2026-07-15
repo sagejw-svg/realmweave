@@ -31,6 +31,17 @@ _GRIEF = [
     "We buried {other} today. Pour one out.",
     "{other} deserved better than that end.",
 ]
+_DIVINE = {
+    "accept": ["As you will it, so shall it be.", "The gods speak, and I heed. It is done.",
+               "Yes... I feel the pull of something greater."],
+    "partial": ["I'll take a step that way, no more.", "Perhaps, in part. I am not so bold.",
+                "A little, then. We shall see where it leads."],
+    "bargain": ["And what will the heavens grant me in return?", "If I do this, what is owed to me?",
+                "Ask it, but know I expect a fair trade."],
+    "refuse": ["The gods ask much of a simple soul. I'll keep my own road.",
+               "With respect to the heavens, this is not my path.",
+               "I hear you, but no. My life is here."],
+}
 
 
 class StubLLM:
@@ -54,6 +65,18 @@ class StubLLM:
         # crude routing by keyword so the stub stays vaguely relevant
         p = prompt.lower()
         other = kw.get("other", "friend")
+        # reactions to a divine suggestion, by the stance embedded in the prompt
+        if "divine voice" in p or "the gods" in p:
+            rng = random.Random(hash(prompt) & 0xFFFFFFFF)
+            if "refuse" in p:
+                stance = "refuse"
+            elif "half-accept" in p:
+                stance = "partial"
+            elif "bargain" in p:
+                stance = "bargain"
+            else:
+                stance = "accept"
+            return rng.choice(_DIVINE[stance])
         if "died" in p or "grief" in p or "buried" in p:
             return self.line("grief", other=other, seed=prompt)
         if "tavern" in p or "ale" in p or "stag" in p:

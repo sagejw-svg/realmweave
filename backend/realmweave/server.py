@@ -58,7 +58,8 @@ class RealmweaveServer:
     def _on_event(self, evt: dict) -> None:
         # only push interesting events to clients (skip per-tick noise)
         if evt["kind"] in ("dialogue", "death", "reflection", "shop_founded",
-                           "trade", "quest_posted", "quest_accepted", "quest_completed"):
+                           "trade", "quest_posted", "quest_accepted", "quest_completed",
+                           "divine_suggestion", "divine_authored"):
             try:
                 self._event_queue.put_nowait(evt)
             except asyncio.QueueFull:
@@ -115,15 +116,47 @@ class RealmweaveServer:
         elif mtype == "player_say":
             p = self.players.get(msg.get("id"))
             if p:
-                p["say"] = str(msg.get("text", ""))[:200]
+                text = str(msg.get("text", ""))[:200]
+                # "/suggest <text>" whispers a divine suggestion to the nearest NPC
+                if text.lower().startswith("/suggest "):
+                    await self._divine_suggest_nearest(ws, p, text[9:].strip())
+                    return
+                p["say"] = text
                 reply = self.sim.player_speak(p["name"], p["x"], p["y"], p["say"])
                 if reply:
                     await ws.send(json.dumps({"type": "npc_reply", **reply}))
                 else:
                     await ws.send(json.dumps({"type": "npc_reply", "agent_name": "",
                                               "text": "(No one is close enough to hear you.)"}))
+        elif mtype == "divine_suggest":
+            res = self.sim.divine.suggest(msg.get("agent_id", ""), str(msg.get("text", "")),
+                                          goal_kind=msg.get("goal_kind", ""))
+            await ws.send(json.dumps({"type": "divine_result", **(res or {"error": "no such agent"})}))
+        elif mtype == "divine_author":
+            res = self.sim.divine.author(msg.get("agent_id", ""), name=msg.get("name", ""),
+                                         background=msg.get("background", ""),
+                                         personality=msg.get("personality") or None)
+            await ws.send(json.dumps({"type": "divine_authored", **(res or {"error": "no such agent"})}))
         elif mtype == "admin_kill":
             self.sim.kill(msg.get("id", ""), cause=msg.get("cause", "an unseen hand"))
+
+    # ---- divine influence ---------------------------------------------
+    async def _divine_suggest_nearest(self, ws, player, text: str) -> None:
+        import math
+        target, best = None, 8.0
+        for a in self.sim.living():
+            d = math.hypot(a.x - player["x"], a.y - player["y"])
+            if d <= best:
+                best, target = d, a
+        if target is None:
+            await ws.send(json.dumps({"type": "divine_result",
+                                      "reaction": "(No one is near enough to hear the divine whisper.)"}))
+            return
+        low = text.lower()
+        goal_kind = "seek_adventure" if any(w in low for w in
+                    ("bigger", "greater", "adventure", "explore", "more", "beyond")) else ""
+        res = self.sim.divine.suggest(target.id, text, goal_kind=goal_kind)
+        await ws.send(json.dumps({"type": "divine_result", **(res or {})}))
 
     # ---- player quests -------------------------------------------------
     async def _accept_player_quest(self, ws, player, quest_id: str) -> None:

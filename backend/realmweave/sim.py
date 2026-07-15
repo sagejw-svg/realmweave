@@ -30,6 +30,7 @@ from .cognition.personality import seed_personality
 from .economy.market import Economy
 from .economy.goods import make_item
 from .quests.board import QuestBoard
+from .divine.influence import DivineInfluence
 from .llm.router import LLMRouter, LLMRequest, Tier
 
 EventSink = Callable[[dict], None]
@@ -60,6 +61,7 @@ class Simulation:
         self.mind = Mind(self)
         self.economy = Economy(self)
         self.quests = QuestBoard(self)
+        self.divine = DivineInfluence(self)
 
         embedder = router.embedder()
         for a in default_agents():
@@ -346,6 +348,7 @@ class Simulation:
 
         self.economy.maybe_trade()
         self.quests.maybe_generate()
+        self.divine.regen()
 
         self.emit("tick", tick=self.tick_count)
 
