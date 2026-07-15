@@ -17,8 +17,8 @@ from .memory import MemoryEntry
 from .cognition.goals import Goal
 from .economy.goods import Item
 
-SAVE_VERSION = 6
-SUPPORTED_VERSIONS = (1, 2, 3, 4, 5, 6)
+SAVE_VERSION = 7
+SUPPORTED_VERSIONS = (1, 2, 3, 4, 5, 6, 7)
 
 
 def save_world(sim, path: str) -> None:
@@ -49,6 +49,7 @@ def save_world(sim, path: str) -> None:
             "coin": a.coin,
             "inventory": [it.to_dict() for it in a.inventory],
             "god_disposition": a.god_disposition,
+            "known_facts": sorted(a.known_facts),
             "memory": [
                 {"text": e.text, "importance": e.importance, "created_at": e.created_at,
                  "last_accessed": e.last_accessed, "kind": e.kind}
@@ -116,6 +117,8 @@ def load_world(sim, path: str) -> bool:
         # v6+: restore disposition toward the god
         if "god_disposition" in ad:
             a.god_disposition = float(ad["god_disposition"])
+        # v7+: restore known facts (what the agent has learned/heard)
+        a.known_facts = set(ad.get("known_facts", []))
         if a.memory is not None:
             a.memory.entries = [
                 MemoryEntry(

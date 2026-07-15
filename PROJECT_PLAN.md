@@ -313,7 +313,7 @@ ordered so that every later capstone rests on foundations proven earlier.
 | 3 | Livelihoods | Economy, professions, agent-built shops | **Done** |
 | 4 | Quests | Cross-domain quests; players play them; agents may ignore them | **Done** |
 | 5 | Divine influence | God suggestions the AI weighs and may refuse; god-authored creation | **Done** |
-| 6 | Perception | Sense-limited knowledge; foundation for POV and fair crime detection | 2-3 wk |
+| 6 | Perception | Sense-limited knowledge; foundation for POV and fair crime detection | **Done** |
 | 7 | Reputation & justice | Identity/aliases, per-faction reputation, crime, bounties; the wanted are hunted | 2-3 wk |
 | 8 | Through their eyes | First-person observation mode (panel + inner life + forward view) | 3-5 wk |
 | 9 | World feel | Tilemap + sprite art, day/night, animations | 3-6 wk |
@@ -514,9 +514,13 @@ The first concrete work items, each a small, reviewable change:
    weighs against personality and disposition, then accepts / partially accepts /
    bargains / refuses, in character; a `favor` resource meters it; god-authored
    name/background/personality seeds identity without dictating behavior; save v6.
-6. **Next - Phase 6 (perception):** agents only know what they can sense, the
-   foundation for the first-person view and fair crime detection.
-7. **In parallel (cheap wins):** drop in CC0/public-domain placeholder art and
+6. **Phase 6 - done** (PR #9): a perception model (sight by distance/light,
+   hearing); agents only learn events they witness, and news (like a death)
+   spreads only through those who saw it or were told, via rumor in conversation;
+   save v7.
+7. **Next - Phase 7 (reputation & justice):** identity/aliases, per-faction
+   reputation, witnessed crime, bounties, and pursuit of the wanted.
+8. **In parallel (cheap wins):** drop in CC0/public-domain placeholder art and
    audio (see `RESOURCES.md`) to start giving Oakhollow a classic look and feel
    without blocking the simulation work.
 
