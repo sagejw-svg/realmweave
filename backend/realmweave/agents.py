@@ -72,6 +72,7 @@ class Agent:
     goal: Optional["Goal"] = None                                # current self-set aim
     coin: int = 0                                                # money
     inventory: List = field(default_factory=list)               # List[economy.Item]
+    god_disposition: float = 0.0                                 # feeling toward the god -1..1
 
     # ---- scheduling ----------------------------------------------------
     def scheduled_block(self, hour: int) -> ScheduleBlock:

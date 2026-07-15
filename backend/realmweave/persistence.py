@@ -17,8 +17,8 @@ from .memory import MemoryEntry
 from .cognition.goals import Goal
 from .economy.goods import Item
 
-SAVE_VERSION = 5
-SUPPORTED_VERSIONS = (1, 2, 3, 4, 5)
+SAVE_VERSION = 6
+SUPPORTED_VERSIONS = (1, 2, 3, 4, 5, 6)
 
 
 def save_world(sim, path: str) -> None:
@@ -48,6 +48,7 @@ def save_world(sim, path: str) -> None:
             "goal": a.goal.to_dict() if a.goal else None,
             "coin": a.coin,
             "inventory": [it.to_dict() for it in a.inventory],
+            "god_disposition": a.god_disposition,
             "memory": [
                 {"text": e.text, "importance": e.importance, "created_at": e.created_at,
                  "last_accessed": e.last_accessed, "kind": e.kind}
@@ -57,6 +58,7 @@ def save_world(sim, path: str) -> None:
 
     data["economy"] = sim.economy.to_dict()
     data["quest_board"] = sim.quests.to_dict()
+    data["divine"] = sim.divine.to_dict()
 
     abspath = os.path.abspath(path)
     os.makedirs(os.path.dirname(abspath), exist_ok=True)
@@ -111,6 +113,9 @@ def load_world(sim, path: str) -> bool:
         if "coin" in ad:
             a.coin = int(ad["coin"])
         a.inventory = [Item.from_dict(it) for it in ad.get("inventory", [])]
+        # v6+: restore disposition toward the god
+        if "god_disposition" in ad:
+            a.god_disposition = float(ad["god_disposition"])
         if a.memory is not None:
             a.memory.entries = [
                 MemoryEntry(
@@ -126,4 +131,6 @@ def load_world(sim, path: str) -> bool:
     sim.economy.load(data.get("economy", {}))
     # v5+: restore the quest board
     sim.quests.load(data.get("quest_board", {}))
+    # v6+: restore divine favor
+    sim.divine.load(data.get("divine", {}))
     return True

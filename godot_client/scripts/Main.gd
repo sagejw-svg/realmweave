@@ -131,6 +131,12 @@ func _on_message(text: String) -> void:
 				_log(data.get("text", ""))
 			else:
 				_log("%s (to you): \"%s\"" % [who, data.get("text", "")])
+		"divine_result":
+			var nm: String = data.get("agent_name", "")
+			if nm == "":
+				_log(data.get("reaction", "(the whisper fades)"))
+			else:
+				_log("%s [%s]: \"%s\"" % [nm, data.get("outcome", "?"), data.get("reaction", "")])
 
 
 func _on_event(evt: Dictionary) -> void:
