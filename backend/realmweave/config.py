@@ -17,7 +17,8 @@ _DEFAULT: Dict[str, Any] = {
     "dialogue_max_importance": 7.0,
     "sim": {"minutes_per_tick": 10, "seed": 7, "social_chance": 0.5, "reflection_interval": 720},
     "server": {"host": "127.0.0.1", "port": 8765, "broadcast_hz": 4, "ticks_per_second": 8,
-               "save_path": "data/world_save.json", "autosave_seconds": 60},
+               "save_path": "data/world_save.json", "autosave_seconds": 60,
+               "interest_radius": 24.0, "max_players": 16},
 }
 
 

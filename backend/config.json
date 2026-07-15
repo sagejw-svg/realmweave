@@ -21,6 +21,8 @@
     "broadcast_hz": 4,
     "ticks_per_second": 8,
     "save_path": "data/world_save.json",
-    "autosave_seconds": 60
+    "autosave_seconds": 60,
+    "interest_radius": 24.0,
+    "max_players": 16
   }
 }
