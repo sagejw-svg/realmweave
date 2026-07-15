@@ -528,9 +528,14 @@ The first concrete work items, each a small, reviewable change:
    awareness like being wanted), an on-demand inner-monologue line, and a light
    possess-and-nudge. Delivered as `docs/eyes.html` (pick any villager) and an
    observe panel in the Godot client.
-9. **Next - Phase 9 (world feel):** real tilemap + CC0 sprite art, day/night,
-   and animations so Oakhollow looks like a village, not labeled dots.
-10. **In parallel (cheap wins):** drop in CC0/public-domain placeholder art and
+9. **Phase 9 - first pass** (PR #12): world feel without a binary-asset
+   dependency yet - a live rendered map (`docs/map.html`) with day/night lighting,
+   buildings, paths, trees and agent figures; day/night + props in the Godot
+   client; decorative props authored in the world. Real CC0 sprite tilesets slot
+   in on top next (see `docs/ART.md`).
+10. **Then:** Phase 10 multiplayer (hostable server, roster, interest
+   management) and Phase 11 release.
+11. **In parallel (cheap wins):** drop in CC0/public-domain placeholder art and
    audio (see `RESOURCES.md`) to start giving Oakhollow a classic look and feel
    without blocking the simulation work.
 

@@ -42,10 +42,23 @@ def default_village() -> Dict[str, Location]:
     return {l.id: l for l in locs}
 
 
+def default_props() -> List[dict]:
+    """Decorative, non-interactive scenery for the client to render (trees, a
+    pond, rocks). Hand-placed around the edges so the village reads as a place,
+    not a scatter of labels. Purely visual; the simulation ignores these."""
+    trees = [(8, 8), (12, 40), (52, 8), (56, 40), (6, 26), (58, 24), (24, 4),
+             (40, 46), (18, 44), (48, 4), (2, 16), (60, 34), (30, 48), (34, 2)]
+    props = [{"kind": "tree", "x": x, "y": y} for (x, y) in trees]
+    props += [{"kind": "rock", "x": 26, "y": 6}, {"kind": "rock", "x": 44, "y": 42}]
+    props += [{"kind": "pond", "x": 12, "y": 32}]
+    return props
+
+
 @dataclass
 class World:
     name: str = "Oakhollow"
     locations: Dict[str, Location] = field(default_factory=default_village)
+    props: List[dict] = field(default_factory=default_props)   # decorative scenery
     # free-form world facts other systems can read/write (weather, rumors, etc.)
     weather: str = "clear"
     rumors: List[str] = field(default_factory=list)
@@ -66,5 +79,6 @@ class World:
             "name": self.name,
             "weather": self.weather,
             "locations": [l.to_dict() for l in self.locations.values()],
+            "props": self.props,
             "rumors": self.rumors[-10:],
         }

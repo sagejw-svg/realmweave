@@ -163,10 +163,14 @@ See [PROJECT_PLAN.md](PROJECT_PLAN.md) for the detail.
 
 ## Dashboards
 
-Two auto-updating dashboards live under `docs/` and are published via GitHub Pages
+Four auto-updating pages live under `docs/` and are published via GitHub Pages
 at https://sagejw-svg.github.io/realmweave/ :
 
 - **World dashboard** (`index.html`) - the live game world (below).
+- **Map** (`map.html`) - a rendered top-down view of Oakhollow with day/night
+  lighting, buildings, trees, and agent figures, updating live.
+- **Through their eyes** (`eyes.html`) - a first-person view: pick any villager
+  and see and think from their perspective.
 - **Development status** (`dev.html`) - phase roadmap plus live GitHub data (CI
   status, recent commits, open PRs, and open issues by triage label). This one
   reads the public GitHub API, so it shows real data straight from GitHub Pages
