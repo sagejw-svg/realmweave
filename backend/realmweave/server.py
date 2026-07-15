@@ -109,9 +109,15 @@ class RealmweaveServer:
         self._observing.pop(ws, None)
         pid = self._ws_player.pop(ws, None)
         if pid and pid in self.players:
-            name = self.players[pid]["name"]
-            del self.players[pid]
-            self.sim.emit("player_leave", player=pid, name=name)
+            p = self.players.pop(pid)
+            # log-out safe bubble: preserve the character's state (coin, position,
+            # active quest) in a protected store. While offline they are not in the
+            # world, so they cannot be robbed, harmed, or starve; they simply rest.
+            self.sim.offline_players[p["name"]] = {
+                "name": p["name"], "x": p["x"], "y": p["y"],
+                "coin": p.get("coin", 150), "quest": p.get("quest"),
+            }
+            self.sim.emit("player_leave", player=pid, name=p["name"], resting=True)
 
     async def _handle_client_message(self, ws, raw: str) -> None:
         try:
@@ -126,11 +132,19 @@ class RealmweaveServer:
             self._player_counter += 1
             name = str(msg.get("name", "Wanderer"))[:24] or "Wanderer"
             pid = f"player:{self._player_counter}:{name}"
-            self.players[pid] = {"id": pid, "name": name, "x": 32.0, "y": 24.0, "say": "",
-                                 "role": "Player", "coin": 150, "quest": None}
+            # returning from the safe bubble? restore preserved state
+            saved = self.sim.offline_players.pop(name, None)
+            resumed = saved is not None
+            self.players[pid] = {"id": pid, "name": name,
+                                 "x": saved["x"] if resumed else 32.0,
+                                 "y": saved["y"] if resumed else 24.0,
+                                 "say": "", "role": "Player",
+                                 "coin": saved["coin"] if resumed else 150,
+                                 "quest": saved["quest"] if resumed else None}
             self._ws_player[ws] = pid
-            self.sim.emit("player_join", player=pid, name=name)
-            await ws.send(json.dumps({"type": "joined", "id": pid}))
+            self.sim.emit("player_join", player=pid, name=name, resumed=resumed)
+            await ws.send(json.dumps({"type": "joined", "id": pid, "resumed": resumed,
+                                      "coin": self.players[pid]["coin"]}))
         elif mtype == "player_move":
             p = self.players.get(msg.get("id"))
             # authority: a client may only move its own character, and only a

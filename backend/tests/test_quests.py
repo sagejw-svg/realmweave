@@ -80,6 +80,7 @@ class TestPlayerQuest(unittest.TestCase):
     def test_player_accepts_and_completes_for_reward(self):
         cfg = load_config()
         cfg["force_stub"] = True
+        cfg["server"]["save_path"] = os.path.join(tempfile.gettempdir(), "rw_test_never_saved.json")
 
         class FakeWS:
             def __init__(self):

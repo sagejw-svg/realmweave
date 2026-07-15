@@ -17,8 +17,8 @@ from .memory import MemoryEntry
 from .cognition.goals import Goal
 from .economy.goods import Item
 
-SAVE_VERSION = 8
-SUPPORTED_VERSIONS = (1, 2, 3, 4, 5, 6, 7, 8)
+SAVE_VERSION = 9
+SUPPORTED_VERSIONS = (1, 2, 3, 4, 5, 6, 7, 8, 9)
 
 
 def save_world(sim, path: str) -> None:
@@ -67,6 +67,7 @@ def save_world(sim, path: str) -> None:
     data["quest_board"] = sim.quests.to_dict()
     data["divine"] = sim.divine.to_dict()
     data["justice"] = sim.justice.to_dict()
+    data["offline_players"] = sim.offline_players
 
     abspath = os.path.abspath(path)
     os.makedirs(os.path.dirname(abspath), exist_ok=True)
@@ -153,4 +154,6 @@ def load_world(sim, path: str) -> bool:
     sim.divine.load(data.get("divine", {}))
     # v8+: restore the crime log
     sim.justice.load(data.get("justice", {}))
+    # v9+: restore logged-out characters resting in the safe bubble
+    sim.offline_players = dict(data.get("offline_players", {}))
     return True
