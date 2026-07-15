@@ -43,6 +43,7 @@ class RealmweaveServer:
         self.sim = Simulation(router, SimConfig(**config["sim"]))
         self.clients: Set = set()
         self.players: Dict[str, dict] = {}
+        self._observing: Dict[object, str] = {}    # ws -> agent id being watched
         self._event_queue: "asyncio.Queue[dict]" = asyncio.Queue()
         self.sim.subscribe(self._on_event)
 
@@ -93,6 +94,7 @@ class RealmweaveServer:
             pass
         finally:
             self.clients.discard(ws)
+            self._observing.pop(ws, None)
 
     async def _handle_client_message(self, ws, raw: str) -> None:
         try:
@@ -144,6 +146,44 @@ class RealmweaveServer:
             res = self.sim.justice.commit_crime(msg.get("perp", ""), msg.get("kind", "theft"),
                                                 victim_id=msg.get("victim", ""))
             await ws.send(json.dumps({"type": "crime_result", **res}))
+        elif mtype == "observe":
+            aid = msg.get("agent_id", "")
+            self._observing[ws] = aid
+            await ws.send(json.dumps({"type": "observing", "agent_id": aid}))
+        elif mtype == "stop_observe":
+            self._observing.pop(ws, None)
+        elif mtype == "inner_thought":
+            t = self.sim.inner_thought(msg.get("agent_id", ""))
+            await ws.send(json.dumps({"type": "thought", "agent_id": msg.get("agent_id", ""),
+                                      "text": t or "..."}))
+        elif mtype == "possess":
+            aid = msg.get("agent_id", "")
+            a = self.sim.agents.get(aid)
+            cost = 2.0
+            if a is None or not a.alive:
+                await ws.send(json.dumps({"type": "possess_result", "ok": False, "reason": "no such soul"}))
+            elif self.sim.divine.favor < cost:
+                await ws.send(json.dumps({"type": "possess_result", "ok": False, "reason": "not enough favor"}))
+            else:
+                self.sim.divine.favor -= cost
+                a._possessed = True
+                self.sim.emit("possess", agent=aid, agent_name=a.name)
+                await ws.send(json.dumps({"type": "possess_result", "ok": True, "agent_id": aid,
+                                          "favor": round(self.sim.divine.favor, 1)}))
+        elif mtype == "possess_act":
+            a = self.sim.agents.get(msg.get("agent_id", ""))
+            if a is not None and getattr(a, "_possessed", False):
+                from .cognition.planner import build_plan, goal_description
+                from .cognition.goals import Goal
+                gk = msg.get("goal_kind", "explore")
+                a.goal = Goal(kind=gk, description=goal_description(gk), priority=1.0,
+                              steps=build_plan(gk, a), created_at=self.sim.clock.minutes)
+                await ws.send(json.dumps({"type": "possess_result", "ok": True, "acted": gk}))
+        elif mtype == "release":
+            a = self.sim.agents.get(msg.get("agent_id", ""))
+            if a is not None:
+                a._possessed = False
+                await ws.send(json.dumps({"type": "possess_result", "ok": True, "released": True}))
 
     # ---- divine influence ---------------------------------------------
     async def _divine_suggest_nearest(self, ws, player, text: str) -> None:
@@ -246,6 +286,11 @@ class RealmweaveServer:
             snap["type"] = "snapshot"
             snap["players"] = list(self.players.values())
             await self._broadcast(snap)
+            # send each observer the subjective view of the agent they're watching
+            for ws, aid in list(self._observing.items()):
+                view = self.sim.subjective_view(aid)
+                if view is not None:
+                    await self._safe_send(ws, json.dumps(view))
             await asyncio.sleep(dt)
 
     async def run(self) -> None:

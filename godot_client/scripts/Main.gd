@@ -31,6 +31,9 @@ var _player_id := ""
 var _player_pos := Vector2(32, 24)
 var _send_accum := 0.0
 var _chat_input: LineEdit
+var _subjective: Dictionary = {}     # 'through their eyes' view of the observed agent
+var _observe_id := ""
+var _o_down := false
 
 const KIND_COLORS := {
 	"tavern": Color(0.72, 0.45, 0.20),
@@ -137,6 +140,8 @@ func _on_message(text: String) -> void:
 				_log(data.get("reaction", "(the whisper fades)"))
 			else:
 				_log("%s [%s]: \"%s\"" % [nm, data.get("outcome", "?"), data.get("reaction", "")])
+		"subjective":
+			_subjective = data
 
 
 func _on_event(evt: Dictionary) -> void:
@@ -164,6 +169,33 @@ func _handle_input(delta: float) -> void:
 	if _send_accum >= SEND_INTERVAL:
 		_send_accum = 0.0
 		_send({"type": "player_move", "id": _player_id, "x": _player_pos.x, "y": _player_pos.y})
+	# press O to see through the eyes of the nearest villager (toggle)
+	var o := Input.is_key_pressed(KEY_O)
+	if o and not _o_down:
+		_observe_nearest()
+	_o_down = o
+
+
+func _observe_nearest() -> void:
+	var best_id := ""
+	var best_d := 1.0e9
+	for id in _agents.keys():
+		var a: Dictionary = _agents[id]
+		if not a.get("alive", true):
+			continue
+		var d: float = Vector2(a.get("x", 0.0) - _player_pos.x, a.get("y", 0.0) - _player_pos.y).length()
+		if d < best_d:
+			best_d = d
+			best_id = id
+	if best_id == "":
+		return
+	if _observe_id == best_id:
+		_observe_id = ""
+		_subjective = {}
+		_send({"type": "stop_observe"})
+	else:
+		_observe_id = best_id
+		_send({"type": "observe", "agent_id": best_id})
 
 
 func _draw() -> void:
@@ -198,7 +230,41 @@ func _draw() -> void:
 		draw_arc(p, AGENT_R + 1, 0, TAU, 20, Color.WHITE, 1.5)
 		draw_string(font, p + Vector2(-20, -12), pl.get("name", "You"), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.6, 0.9, 1.0))
 
+	_draw_subjective(font)
 	_draw_hud(font)
+
+
+func _draw_subjective(font: Font) -> void:
+	if _subjective.is_empty():
+		return
+	var v := _subjective
+	var vp := get_viewport_rect().size
+	var w := 300.0
+	var x := vp.x - w - 10.0
+	var y := 60.0
+	draw_rect(Rect2(x, y, w, 280), Color(0.05, 0.05, 0.08, 0.9), true)
+	draw_rect(Rect2(x, y, w, 280), Color(0.6, 0.55, 0.35), false, 1.0)
+	var ag: Dictionary = v.get("agent", {})
+	draw_string(font, Vector2(x + 10, y + 20), "Through the eyes of " + str(ag.get("name", "?")),
+		HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.9, 0.85, 0.6))
+	draw_string(font, Vector2(x + 10, y + 38), str(v.get("where", "")) + " - " + str(v.get("mood", "")),
+		HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.75, 0.8, 0.85))
+	draw_string(font, Vector2(x + 10, y + 56), "Aim: " + str(v.get("goal", "")).substr(0, 40),
+		HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.8, 0.8, 0.85))
+	var yy := y + 78.0
+	draw_string(font, Vector2(x + 10, yy), "I see:", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.6, 0.6, 0.65))
+	yy += 15
+	for s in v.get("seen", []):
+		draw_string(font, Vector2(x + 16, yy), "- %s (%s), %s" % [s.get("name", "?"), s.get("role", ""), s.get("feel", "")],
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.85, 0.85, 0.9))
+		yy += 14
+	yy += 6
+	draw_string(font, Vector2(x + 10, yy), "On my mind:", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.6, 0.6, 0.65))
+	yy += 15
+	for m in v.get("memories", []):
+		draw_string(font, Vector2(x + 16, yy), "- " + str(m.get("text", "")).substr(0, 40),
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(0.8, 0.8, 0.85))
+		yy += 13
 
 
 func _draw_bubble(font: Font, p: Vector2, text: String) -> void:
@@ -226,7 +292,7 @@ func _draw_hud(font: Font) -> void:
 	for line in _events.slice(max(0, _events.size() - 7), _events.size()):
 		draw_string(font, Vector2(20, y), line, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.8, 0.8, 0.85))
 		y += 16
-	draw_string(font, Vector2(vp.x - 200, 27), "WASD to walk", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.6, 0.6, 0.65))
+	draw_string(font, Vector2(vp.x - 260, 27), "WASD walk  ·  O: through their eyes", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.6, 0.6, 0.65))
 
 
 func _log(msg: String) -> void:

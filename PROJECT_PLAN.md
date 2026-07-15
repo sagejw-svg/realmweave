@@ -315,7 +315,7 @@ ordered so that every later capstone rests on foundations proven earlier.
 | 5 | Divine influence | God suggestions the AI weighs and may refuse; god-authored creation | **Done** |
 | 6 | Perception | Sense-limited knowledge; foundation for POV and fair crime detection | **Done** |
 | 7 | Reputation & justice | Identity/aliases, per-faction reputation, crime, bounties; the wanted are hunted | **Done** |
-| 8 | Through their eyes | First-person observation mode (panel + inner life + forward view) | 3-5 wk |
+| 8 | Through their eyes | First-person observation mode (panel + inner life + forward view) | **Done** |
 | 9 | World feel | Tilemap + sprite art, day/night, animations | 3-6 wk |
 | 10 | Multiplayer | Hostable server, roster, interest management | 4-6 wk |
 | 11 | Release | Content tooling, performance, Steam build | ongoing |
@@ -522,9 +522,15 @@ The first concrete work items, each a small, reviewable change:
    witnessed crime (Perception vs Stealth), wanted status + bounties, pursuit and
    capture by the guard and lawful NPCs, and time/restitution-based redemption.
    An alias holds until a witness recognizes the true face. Save v8.
-8. **Next - Phase 8 (through their eyes):** the first-person observation mode -
-   select any villager and see the world and their inner life from their view.
-9. **In parallel (cheap wins):** drop in CC0/public-domain placeholder art and
+8. **Phase 8 - done** (PR #11): the first-person "through their eyes" observation
+   mode. A subjective view exposes only what an agent can perceive plus its inner
+   life (mood, aim, surfacing memories, feelings toward who is in view, self-
+   awareness like being wanted), an on-demand inner-monologue line, and a light
+   possess-and-nudge. Delivered as `docs/eyes.html` (pick any villager) and an
+   observe panel in the Godot client.
+9. **Next - Phase 9 (world feel):** real tilemap + CC0 sprite art, day/night,
+   and animations so Oakhollow looks like a village, not labeled dots.
+10. **In parallel (cheap wins):** drop in CC0/public-domain placeholder art and
    audio (see `RESOURCES.md`) to start giving Oakhollow a classic look and feel
    without blocking the simulation work.
 
