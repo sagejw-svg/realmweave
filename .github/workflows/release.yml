@@ -24,7 +24,9 @@ jobs:
         run: |
           python -m pip install --quiet pyinstaller websockets
           python -m PyInstaller --onefile --name RealmweaveServer `
-            --distpath build --workpath build/tmp --specpath build/tmp `
+            --distpath "${{ github.workspace }}/build" `
+            --workpath "${{ github.workspace }}/build/tmp" `
+            --specpath "${{ github.workspace }}/build/tmp" `
             backend/run_server.py
 
       - name: Set up Godot (with export templates)
@@ -35,7 +37,9 @@ jobs:
 
       - name: Export the client
         run: |
-          godot --headless --path godot_client --export-release "Windows Desktop" ../build/RealmweaveClient.exe
+          New-Item -ItemType Directory -Force -Path "${{ github.workspace }}/build" | Out-Null
+          godot --headless --path godot_client --export-release "Windows Desktop" "${{ github.workspace }}/build/RealmweaveClient.exe"
+          if (!(Test-Path "${{ github.workspace }}/build/RealmweaveClient.exe")) { throw "client export missing" }
 
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y

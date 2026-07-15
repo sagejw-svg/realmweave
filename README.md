@@ -17,6 +17,17 @@ look at the [live pages](https://sagejw-svg.github.io/realmweave/) in a browser
 --ticks 200 --stub`), or play the interactive Godot client (start the server,
 open `godot_client/project.godot` in Godot 4, press Play).
 
+### Downloads
+
+- **All releases:** https://github.com/sagejw-svg/realmweave/releases
+- **Windows installer (latest):**
+  [RealmweaveSetup.exe](https://github.com/sagejw-svg/realmweave/releases/latest/download/RealmweaveSetup.exe)
+  (available once a tagged release finishes building)
+
+Prefer to host a persistent world? See [docs/HOSTING.md](docs/HOSTING.md) for a
+24/7 storage-host deployment where the server keeps the world and players run the
+AI themselves.
+
 See [DESIGN.md](DESIGN.md) for the current architecture, and
 [PROJECT_PLAN.md](PROJECT_PLAN.md) for the full phased roadmap from here to
 seeing the world through an AI's eyes (skills, autonomy, economy, quests, and
