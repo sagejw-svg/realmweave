@@ -97,6 +97,36 @@ sudo systemctl enable --now realmweave
 sudo systemctl status realmweave
 ```
 
+### Co-hosting on an existing droplet (e.g. behind nginx)
+
+If your droplet already runs nginx + Let's Encrypt for another site, add a
+subdomain (say `realm.example.com`, an A record to the droplet) and reverse-proxy
+`wss://` to the Realmweave port. nginx server block:
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name realm.example.com;
+    # reuse certbot/Let's Encrypt certs
+    ssl_certificate     /etc/letsencrypt/live/realm.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/realm.example.com/privkey.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:8765;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_read_timeout 3600s;
+    }
+}
+```
+
+`sudo certbot --nginx -d realm.example.com` to issue the cert, then run the
+Realmweave server (systemd unit above, or a container). Players connect to
+`wss://realm.example.com`. On a small (1 GB) droplet already running another app,
+watch memory; a resize to 2 GB gives comfortable headroom for both.
+
 ### Secure it with wss:// (TLS)
 
 Browsers and public clients should connect over `wss://`, not raw `ws://`. Put a
