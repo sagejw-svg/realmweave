@@ -140,6 +140,7 @@ class Agent:
             "goal": self.goal.description if self.goal else "",
             "goal_step": (self.goal.current_step.name if (self.goal and self.goal.current_step) else ""),
             "coin": self.coin,
+            "disposition": round(self.god_disposition, 2),
         }
 
 

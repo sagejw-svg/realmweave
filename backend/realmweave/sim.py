@@ -366,5 +366,6 @@ class Simulation:
                         "reward_coin": q.reward_coin}
                        for q in self.quests.quests.values()
                        if q.status in ("open", "active")],
+            "favor": round(self.divine.favor, 1),
             "tick": self.tick_count,
         }
