@@ -35,6 +35,10 @@ from .llm.ollama_client import OllamaClient
 from .sim import Simulation, SimConfig
 
 
+def _clamp(v: float, lo: float, hi: float) -> float:
+    return lo if v < lo else hi if v > hi else v
+
+
 class RealmweaveServer:
     def __init__(self, config: dict):
         self.cfg = config
@@ -44,6 +48,10 @@ class RealmweaveServer:
         self.clients: Set = set()
         self.players: Dict[str, dict] = {}
         self._observing: Dict[object, str] = {}    # ws -> agent id being watched
+        self._ws_player: Dict[object, str] = {}    # ws -> player id (their character)
+        self._player_counter = 0
+        self.interest_radius = float(self.scfg.get("interest_radius", 24.0))
+        self.max_players = int(self.scfg.get("max_players", 16))
         self._event_queue: "asyncio.Queue[dict]" = asyncio.Queue()
         self.sim.subscribe(self._on_event)
 
@@ -61,7 +69,8 @@ class RealmweaveServer:
         if evt["kind"] in ("dialogue", "death", "reflection", "shop_founded",
                            "trade", "quest_posted", "quest_accepted", "quest_completed",
                            "divine_suggestion", "divine_authored", "rumor",
-                           "crime", "bounty", "arrest", "escape"):
+                           "crime", "bounty", "arrest", "escape",
+                           "player_join", "player_leave"):
             try:
                 self._event_queue.put_nowait(evt)
             except asyncio.QueueFull:
@@ -93,8 +102,16 @@ class RealmweaveServer:
         except Exception:
             pass
         finally:
-            self.clients.discard(ws)
-            self._observing.pop(ws, None)
+            self._drop_client(ws)
+
+    def _drop_client(self, ws) -> None:
+        self.clients.discard(ws)
+        self._observing.pop(ws, None)
+        pid = self._ws_player.pop(ws, None)
+        if pid and pid in self.players:
+            name = self.players[pid]["name"]
+            del self.players[pid]
+            self.sim.emit("player_leave", player=pid, name=name)
 
     async def _handle_client_message(self, ws, raw: str) -> None:
         try:
@@ -103,15 +120,26 @@ class RealmweaveServer:
             return
         mtype = msg.get("type")
         if mtype == "player_join":
-            pid = f"player:{msg.get('name','wanderer')}"
-            self.players[pid] = {"id": pid, "name": msg.get("name", "Wanderer"),
-                                 "x": 32.0, "y": 24.0, "say": "", "role": "Player",
-                                 "coin": 150, "quest": None}
+            if len([p for p in self.players]) >= self.max_players:
+                await ws.send(json.dumps({"type": "join_denied", "reason": "server full"}))
+                return
+            self._player_counter += 1
+            name = str(msg.get("name", "Wanderer"))[:24] or "Wanderer"
+            pid = f"player:{self._player_counter}:{name}"
+            self.players[pid] = {"id": pid, "name": name, "x": 32.0, "y": 24.0, "say": "",
+                                 "role": "Player", "coin": 150, "quest": None}
+            self._ws_player[ws] = pid
+            self.sim.emit("player_join", player=pid, name=name)
             await ws.send(json.dumps({"type": "joined", "id": pid}))
         elif mtype == "player_move":
             p = self.players.get(msg.get("id"))
-            if p:
-                p["x"], p["y"] = float(msg.get("x", p["x"])), float(msg.get("y", p["y"]))
+            # authority: a client may only move its own character, and only a
+            # sane distance per update (no teleporting), clamped to the world
+            if p and self._ws_player.get(ws) == p["id"]:
+                nx = _clamp(float(msg.get("x", p["x"])), 0.0, 64.0)
+                ny = _clamp(float(msg.get("y", p["y"])), 0.0, 52.0)
+                if abs(nx - p["x"]) + abs(ny - p["y"]) <= 6.0:   # max step per update
+                    p["x"], p["y"] = nx, ny
                 await self._progress_player_quest(ws, p)
         elif mtype == "player_accept_quest":
             p = self.players.get(msg.get("id"))
@@ -282,16 +310,40 @@ class RealmweaveServer:
     async def broadcast_loop(self) -> None:
         dt = 1.0 / max(1, self.scfg["broadcast_hz"])
         while True:
-            snap = self.sim.snapshot()
-            snap["type"] = "snapshot"
-            snap["players"] = list(self.players.values())
-            await self._broadcast(snap)
+            base = self.sim.snapshot()
+            base["type"] = "snapshot"
+            base["players"] = list(self.players.values())
+            for ws in list(self.clients):
+                await self._safe_send(ws, json.dumps(self._client_snapshot(ws, base)))
             # send each observer the subjective view of the agent they're watching
             for ws, aid in list(self._observing.items()):
                 view = self.sim.subjective_view(aid)
                 if view is not None:
                     await self._safe_send(ws, json.dumps(view))
             await asyncio.sleep(dt)
+
+    def _client_snapshot(self, ws, base: dict) -> dict:
+        """Interest management: a client controlling a character receives only the
+        agents near it (plus any it is observing), which bounds bandwidth as the
+        world and player count grow. Spectator clients (dashboards, no character)
+        get the full world."""
+        pid = self._ws_player.get(ws)
+        if pid is None or pid not in self.players:
+            return base
+        p = self.players[pid]
+        r = self.interest_radius
+        watch = self._observing.get(ws, "")
+        near = [a for a in base["agents"]
+                if abs(a["x"] - p["x"]) <= r and abs(a["y"] - p["y"]) <= r]
+        near_ids = {a["id"] for a in near}
+        if watch and watch not in near_ids:
+            extra = next((a for a in base["agents"] if a["id"] == watch), None)
+            if extra:
+                near.append(extra)
+        view = dict(base)
+        view["agents"] = near
+        view["interest_radius"] = r
+        return view
 
     async def run(self) -> None:
         if websockets is None:

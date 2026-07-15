@@ -6,7 +6,7 @@ the world; you don't own it. Single-player now, multiplayer by design. MIT.
 
 [![CI](https://github.com/sagejw-svg/realmweave/actions/workflows/ci.yml/badge.svg)](https://github.com/sagejw-svg/realmweave/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-d9c46b.svg)](LICENSE)
-[![Roadmap](https://img.shields.io/badge/roadmap-9%2F12%20phases-5aa0c0)](PROJECT_PLAN.md)
+[![Roadmap](https://img.shields.io/badge/roadmap-10%2F12%20phases-5aa0c0)](PROJECT_PLAN.md)
 [![Live dashboard](https://img.shields.io/badge/live-dashboard-5ab97a)](https://sagejw-svg.github.io/realmweave/)
 [![Through their eyes](https://img.shields.io/badge/first-person-d9c46b)](https://sagejw-svg.github.io/realmweave/eyes.html)
 [![Dev status](https://img.shields.io/badge/dev-status-9a7bd0)](https://sagejw-svg.github.io/realmweave/dev.html)
@@ -158,7 +158,7 @@ Key files to read first: `backend/realmweave/sim.py` (the loop),
 Done: **0** living village, **1** rules & 1-100 skills, **2** agent autonomy,
 **3** livelihoods & economy, **4** cross-domain quests, **5** divine influence,
 **6** perception, **7** reputation & justice, **8** through-their-eyes first-person
-view. Next: **9** world feel (art), **10** multiplayer, **11** release.
+view, **9** world feel (first pass), **10** multiplayer. Next: **11** release.
 See [PROJECT_PLAN.md](PROJECT_PLAN.md) for the detail.
 
 ## Dashboards
@@ -192,6 +192,32 @@ over WebSocket and refreshes in real time.
   a local `ws://localhost` server (browser mixed-content rules), so on Pages it
   shows built-in **demo data**. For live data, open the file locally as above, or
   run the server behind a `wss://` (TLS) endpoint and point the URL bar at it.
+
+## Multiplayer & hosting
+
+The server has always been authoritative and multi-client; Phase 10 makes it a
+real multiplayer host:
+
+- **Player roster** with unique ids (same display name is fine), join/leave
+  events, and a shared world all clients see.
+- **Interest management:** a client controlling a character receives only the
+  agents near it (`interest_radius` in `config.json`), which bounds bandwidth as
+  the world and player count grow. Spectator clients with no character (the
+  dashboards) still get the full world.
+- **Basic authority / anti-cheat:** the server is the source of truth. A client
+  may only move its own character, only a sane distance per update (no
+  teleporting), clamped to the world bounds. `max_players` caps the lobby.
+
+To host for others, set the server to bind all interfaces and pick your limits in
+`backend/config.json`:
+
+```json
+"server": { "host": "0.0.0.0", "port": 8765, "interest_radius": 24.0, "max_players": 16 }
+```
+
+Then `python run_server.py`, open the port on your firewall/router, and players
+point their client (or the dashboards) at `ws://YOUR_IP:8765`. For anything
+public, run it behind a `wss://` (TLS) reverse proxy.
 
 ## Contributing
 

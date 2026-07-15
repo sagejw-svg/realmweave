@@ -99,14 +99,24 @@ class TestPlayerQuest(unittest.TestCase):
                 {"type": "player_accept_quest", "id": pid, "quest_id": q.id}))
             self.assertTrue(any(m.get("event") == "accepted" for m in ws.sent))
             start_coin = srv.players[pid]["coin"]
-            # walk to each objective location in order to complete it
+            # walk to each objective in small steps (server authority forbids teleporting)
             for obj in q.objectives:
                 loc = srv.sim.world.locations[obj.location]
-                # 'wait' objectives need several ticks at the spot
+                for _ in range(300):
+                    p = srv.players[pid]
+                    dx, dy = loc.x - p["x"], loc.y - p["y"]
+                    if abs(dx) + abs(dy) < 1.0:
+                        break
+                    mx = max(-3.0, min(3.0, dx))
+                    my = max(-2.0, min(2.0, dy))
+                    await srv._handle_client_message(ws, json.dumps(
+                        {"type": "player_move", "id": pid, "x": p["x"] + mx, "y": p["y"] + my}))
+                # 'wait' objectives accumulate while standing at the spot
                 reps = obj.target if obj.kind == "wait" else 1
                 for _ in range(reps):
+                    p = srv.players[pid]
                     await srv._handle_client_message(ws, json.dumps(
-                        {"type": "player_move", "id": pid, "x": loc.x, "y": loc.y}))
+                        {"type": "player_move", "id": pid, "x": p["x"], "y": p["y"]}))
             done = [m for m in ws.sent if m.get("event") == "completed"]
             self.assertTrue(done, "player should complete the quest")
             self.assertEqual(srv.players[pid]["coin"], start_coin + q.reward_coin)

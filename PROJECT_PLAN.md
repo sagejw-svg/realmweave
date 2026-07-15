@@ -316,8 +316,8 @@ ordered so that every later capstone rests on foundations proven earlier.
 | 6 | Perception | Sense-limited knowledge; foundation for POV and fair crime detection | **Done** |
 | 7 | Reputation & justice | Identity/aliases, per-faction reputation, crime, bounties; the wanted are hunted | **Done** |
 | 8 | Through their eyes | First-person observation mode (panel + inner life + forward view) | **Done** |
-| 9 | World feel | Tilemap + sprite art, day/night, animations | 3-6 wk |
-| 10 | Multiplayer | Hostable server, roster, interest management | 4-6 wk |
+| 9 | World feel | Tilemap + sprite art, day/night, animations | **First pass** |
+| 10 | Multiplayer | Hostable server, roster, interest management | **Done** |
 | 11 | Release | Content tooling, performance, Steam build | ongoing |
 
 *Phases 1-7 are backend-heavy and testable headless (fast, no GPU needed for the
@@ -533,9 +533,14 @@ The first concrete work items, each a small, reviewable change:
    buildings, paths, trees and agent figures; day/night + props in the Godot
    client; decorative props authored in the world. Real CC0 sprite tilesets slot
    in on top next (see `docs/ART.md`).
-10. **Then:** Phase 10 multiplayer (hostable server, roster, interest
-   management) and Phase 11 release.
-11. **In parallel (cheap wins):** drop in CC0/public-domain placeholder art and
+10. **Phase 10 - done** (PR #13): real multiplayer. Player roster with unique
+   ids and join/leave; interest management (each character-controlling client
+   receives only nearby agents; dashboards/spectators get the full world); basic
+   authority (own-character-only moves, anti-teleport, world-bounds clamp,
+   `max_players`); hostable config (`host: 0.0.0.0`, `interest_radius`).
+11. **Next - Phase 11 (release):** content/authoring tooling, performance passes
+   for many agents, real CC0 sprite art, and a Steam build. Ongoing.
+12. **In parallel (cheap wins):** drop in CC0/public-domain placeholder art and
    audio (see `RESOURCES.md`) to start giving Oakhollow a classic look and feel
    without blocking the simulation work.
 
