@@ -15,6 +15,10 @@ _DEFAULT: Dict[str, Any] = {
     },
     "reflex_max_importance": 3.0,
     "dialogue_max_importance": 7.0,
+    # optional remote model (Claude / OpenAI-compatible / any endpoint). Off by
+    # default (local-first). Set enabled + model; the key comes from the env var.
+    "api": {"enabled": False, "provider": "anthropic", "model": "",
+            "base_url": "", "api_key_env": "ANTHROPIC_API_KEY", "tiers": ["narrative"]},
     "sim": {"minutes_per_tick": 10, "seed": 7, "social_chance": 0.5, "reflection_interval": 720},
     "server": {"host": "127.0.0.1", "port": 8765, "broadcast_hz": 4, "ticks_per_second": 8,
                "save_path": "data/world_save.json", "autosave_seconds": 60,
