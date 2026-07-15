@@ -54,26 +54,33 @@ jobs:
         id: client
         continue-on-error: true
         run: |
-          # Godot logs warnings to stderr; do NOT let that abort the step.
           $ErrorActionPreference = 'Continue'
           New-Item -ItemType Directory -Force -Path build | Out-Null
-          # The setup-godot 'bin/godot' shim has no extension and won't execute
-          # on Windows, so find the real engine exe the action unpacked.
-          $godot = (Get-ChildItem "$env:USERPROFILE\godot" -Recurse -Filter "Godot_*.exe" -ErrorAction SilentlyContinue |
-                    Where-Object { $_.Name -notlike '*console*' } | Select-Object -First 1).FullName
-          if (-not $godot) { $godot = (Get-ChildItem "$env:USERPROFILE" -Recurse -Filter "Godot_*win64*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1).FullName }
-          if (-not $godot -and (Test-Path "$env:GODOT.exe")) { $godot = "$env:GODOT.exe" }
+          # Prefer the CONSOLE wrapper: the plain Godot_win64.exe is a Windows
+          # GUI-subsystem binary, so PowerShell does not wait for it and import/
+          # export never finish. The *_console.exe blocks and returns an exit code.
+          $godot = (Get-ChildItem "$env:USERPROFILE\godot" -Recurse -Filter "Godot_*console*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
+          if (-not $godot) { $godot = (Get-ChildItem "$env:USERPROFILE\godot" -Recurse -Filter "Godot_*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1).FullName }
           Write-Host "using godot: $godot"
-          & $godot --version
-          Write-Host "version exit: $LASTEXITCODE"
-          # import assets (run twice; the first pass can return before resources settle)
-          & $godot --headless --path godot_client --import
-          & $godot --headless --path godot_client --import
-          Write-Host "import exit: $LASTEXITCODE"
-          & $godot --headless --path godot_client --export-release "Windows Desktop" "$env:GITHUB_WORKSPACE/build/RealmweaveClient.exe"
-          Write-Host "export exit: $LASTEXITCODE"
+          function Run-Godot([string]$a,[string]$tag) {
+            # Start-Process -Wait blocks regardless of the exe's subsystem.
+            $p = Start-Process -FilePath $godot -ArgumentList $a -Wait -PassThru -NoNewWindow `
+                   -RedirectStandardOutput "build/$tag.out.txt" -RedirectStandardError "build/$tag.err.txt"
+            Write-Host "$tag exit: $($p.ExitCode)"
+            foreach ($f in @("build/$tag.out.txt","build/$tag.err.txt")) {
+              if ((Test-Path $f) -and (Get-Item $f).Length -gt 0) {
+                Get-Content $f | Select-Object -Last 20 | ForEach-Object { Write-Host "   [$tag] $_" }
+              }
+            }
+          }
+          Run-Godot '--version' 'version'
+          # import assets (twice; first pass can return before resources settle)
+          Run-Godot '--headless --path godot_client --import' 'import1'
+          Run-Godot '--headless --path godot_client --import' 'import2'
+          $out = "$env:GITHUB_WORKSPACE/build/RealmweaveClient.exe"
+          Run-Godot ('--headless --path godot_client --export-release "Windows Desktop" "' + $out + '"') 'export'
           Get-ChildItem "$env:GITHUB_WORKSPACE/build" | ForEach-Object { Write-Host "  build/ $($_.Name)" }
-          if (Test-Path "$env:GITHUB_WORKSPACE/build/RealmweaveClient.exe") {
+          if (Test-Path $out) {
             "ok=true"  | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           } else {
             "ok=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
