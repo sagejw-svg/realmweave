@@ -40,6 +40,9 @@ fallback font)*
 | Item | Source | License | Commercial | Attribution | License file |
 |------|--------|---------|------------|-------------|--------------|
 | `godot_client/icon.svg` | Original (this project) | MIT | Yes | none | `LICENSE` |
+| Procedural map/world art (drawn in `docs/map.html` and Godot `Main.gd`: tiles, trees, buildings, figures, day/night) | Original (this project) | MIT | Yes | none | `LICENSE` |
+
+*Real sprite tiles will be added on top of the procedural placeholders; see `docs/ART.md` for the drop-in process. Each such asset must be logged here first.*
 
 ## Reference note (not a dependency)
 

@@ -21,6 +21,7 @@ var _connected := false
 var _server_url := "ws://127.0.0.1:8765"
 
 var _locations: Array = []          # [{id,name,x,y,kind}]
+var _props: Array = []              # decorative scenery [{kind,x,y}]
 var _agents: Dictionary = {}        # id -> latest agent dict
 var _render_pos: Dictionary = {}    # id -> Vector2 (smoothed screen pos)
 var _players: Array = []
@@ -117,6 +118,7 @@ func _on_message(text: String) -> void:
 	match data.get("type", ""):
 		"hello":
 			_locations = data.get("world", {}).get("locations", [])
+			_props = data.get("world", {}).get("props", [])
 			_log("Entered %s (%d locations)" % [data.get("world", {}).get("name", "?"), _locations.size()])
 		"joined":
 			_player_id = data.get("id", "")
@@ -200,6 +202,8 @@ func _observe_nearest() -> void:
 
 func _draw() -> void:
 	var font := ThemeDB.fallback_font
+	# decorative scenery behind everything
+	_draw_props()
 	# locations
 	for loc in _locations:
 		var p := world_to_screen(loc["x"], loc["y"])
@@ -230,8 +234,36 @@ func _draw() -> void:
 		draw_arc(p, AGENT_R + 1, 0, TAU, 20, Color.WHITE, 1.5)
 		draw_string(font, p + Vector2(-20, -12), pl.get("name", "You"), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.6, 0.9, 1.0))
 
+	_draw_daynight()
 	_draw_subjective(font)
 	_draw_hud(font)
+
+
+func _draw_props() -> void:
+	for pr in _props:
+		var p := world_to_screen(pr.get("x", 0), pr.get("y", 0))
+		match pr.get("kind", ""):
+			"tree":
+				draw_rect(Rect2(p + Vector2(-2, -2), Vector2(4, 14)), Color(0.35, 0.25, 0.13), true)
+				draw_circle(p + Vector2(0, -10), 13.0, Color(0.24, 0.42, 0.20))
+				draw_circle(p + Vector2(-4, -14), 8.0, Color(0.30, 0.50, 0.25))
+			"rock":
+				draw_circle(p, 8.0, Color(0.42, 0.44, 0.48))
+			"pond":
+				draw_circle(p, 34.0, Color(0.18, 0.35, 0.44))
+
+
+func _draw_daynight() -> void:
+	var pod := "afternoon"
+	if not _clock.is_empty():
+		pod = _clock.get("part_of_day", "afternoon")
+	var tint := Color(0, 0, 0, 0)
+	match pod:
+		"night": tint = Color(0.05, 0.09, 0.24, 0.50)
+		"evening": tint = Color(0.47, 0.24, 0.08, 0.24)
+		"morning": tint = Color(0.78, 0.67, 0.47, 0.10)
+	if tint.a > 0.0:
+		draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), tint, true)
 
 
 func _draw_subjective(font: Font) -> void:
