@@ -6,6 +6,7 @@ import os
 import sys
 import json
 import asyncio
+import tempfile
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -25,6 +26,7 @@ class FakeWS:
 
 def make_server():
     cfg = load_config(); cfg["force_stub"] = True
+    cfg["server"]["save_path"] = os.path.join(tempfile.gettempdir(), "rw_test_never_saved.json")
     return RealmweaveServer(cfg)
 
 

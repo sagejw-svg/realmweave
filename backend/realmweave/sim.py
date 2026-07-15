@@ -59,6 +59,9 @@ class Simulation:
         self.event_sinks: List[EventSink] = []
         self.tick_count = 0
         self._last_reflect: Dict[str, int] = {}
+        # logged-out player characters, frozen in a protected "resting" bubble
+        # keyed by name: state is preserved and untouchable until they return
+        self.offline_players: Dict[str, dict] = {}
 
         self.mind = Mind(self)
         self.economy = Economy(self)

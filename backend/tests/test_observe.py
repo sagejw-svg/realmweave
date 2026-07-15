@@ -8,6 +8,7 @@ import os
 import sys
 import json
 import asyncio
+import tempfile
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -71,6 +72,7 @@ class TestSubjectiveView(unittest.TestCase):
 class TestObserveOverServer(unittest.TestCase):
     def test_observe_and_thought_commands(self):
         cfg = load_config(); cfg["force_stub"] = True
+        cfg["server"]["save_path"] = os.path.join(tempfile.gettempdir(), "rw_test_never_saved.json")
 
         class FakeWS:
             def __init__(self): self.sent = []

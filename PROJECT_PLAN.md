@@ -537,7 +537,10 @@ The first concrete work items, each a small, reviewable change:
    ids and join/leave; interest management (each character-controlling client
    receives only nearby agents; dashboards/spectators get the full world); basic
    authority (own-character-only moves, anti-teleport, world-bounds clamp,
-   `max_players`); hostable config (`host: 0.0.0.0`, `interest_radius`).
+   `max_players`); hostable config (`host: 0.0.0.0`, `interest_radius`). Also a
+   **log-out safe bubble** (PR #14): offline characters are frozen and protected
+   (coin/position/quest preserved, untouchable) and resume on rejoin, surviving a
+   server restart (save v9). Player-run instructions live in `docs/PLAY.md`.
 11. **Next - Phase 11 (release):** content/authoring tooling, performance passes
    for many agents, real CC0 sprite art, and a Steam build. Ongoing.
 12. **In parallel (cheap wins):** drop in CC0/public-domain placeholder art and

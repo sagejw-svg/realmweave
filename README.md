@@ -11,6 +11,12 @@ the world; you don't own it. Single-player now, multiplayer by design. MIT.
 [![Through their eyes](https://img.shields.io/badge/first-person-d9c46b)](https://sagejw-svg.github.io/realmweave/eyes.html)
 [![Dev status](https://img.shields.io/badge/dev-status-9a7bd0)](https://sagejw-svg.github.io/realmweave/dev.html)
 
+**Want to play or run it now? See [docs/PLAY.md](docs/PLAY.md).** Three paths:
+look at the [live pages](https://sagejw-svg.github.io/realmweave/) in a browser
+(no install), watch the world run headless (`python backend/run_headless.py
+--ticks 200 --stub`), or play the interactive Godot client (start the server,
+open `godot_client/project.godot` in Godot 4, press Play).
+
 See [DESIGN.md](DESIGN.md) for the current architecture, and
 [PROJECT_PLAN.md](PROJECT_PLAN.md) for the full phased roadmap from here to
 seeing the world through an AI's eyes (skills, autonomy, economy, quests, and
