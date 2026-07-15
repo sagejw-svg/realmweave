@@ -51,13 +51,14 @@
 </head>
 <body>
 <header>
-  <h1>Realmweave <small>through their eyes</small></h1>
+  <h1>Realmweave <small>character details</small></h1>
   <nav>
-    <a href="index.html">World</a><a href="map.html">Map</a><a href="eyes.html" class="active">Eyes</a><a href="dev.html">Dev status</a>
+    <a href="index.html">World</a><a href="map.html">Map</a><a href="eyes.html" class="active">Characters</a><a href="dev.html">Dev status</a>
   </nav>
   <span class="status"><span class="dot" id="dot"></span><span id="statusText">connecting...</span></span>
   <span class="spacer"></span>
-  <select id="picker" title="whose eyes to see through"><option>...</option></select>
+  <label for="picker" style="opacity:.75;font-size:13px">Viewing:</label>
+  <select id="picker" title="choose an NPC / AI character to inspect"><option>...</option></select>
   <input id="url" spellcheck="false" style="width:190px" />
   <button id="connectBtn">Connect</button>
 </header>
@@ -164,15 +165,18 @@ function connect(){
   ws.onclose=()=>{ setStatus("off","disconnected"); if(!isDemo) demoTimer=setTimeout(startDemo,1500); };
 }
 
-$("#picker").addEventListener("change",e=>observe(e.target.value));
+$("#picker").addEventListener("change",e=>{
+  const id=e.target.value;
+  if(isDemo){ watching=id; render(DEMO[id]); $("#voice").textContent=DEMO[id]._voice; return; }
+  $("#nm").textContent="loading..."; $("#voice").textContent="";
+  observe(id);
+});
 $("#connectBtn").onclick=connect;
 $("#thinkBtn").onclick=()=>{ if(isDemo){ $("#voice").textContent="“Another armor to hammer before dusk. The coin is good, but is this all there is?”"; } else send({type:"inner_thought",agent_id:watching}); };
 $("#possessBtn").onclick=()=>{ if(isDemo){ $("#voice").textContent="(A divine will stirs in me... I resolve to seek adventure.)"; return; } send({type:"possess",agent_id:watching}); setTimeout(()=>send({type:"possess_act",agent_id:watching,goal_kind:"seek_adventure"}),120); };
 
-function startDemo(){
-  isDemo=true; setStatus("demo","demo data (no live server)"); $("#mode").textContent="demo";
-  $("#picker").innerHTML=`<option>Toft Bellow</option><option>Bram Cask</option>`;
-  render({
+const DEMO = {
+  toft:{
     agent:{id:"toft",name:"Toft Bellow",role:"Blacksmith",char_class:"Merchant",alias:"",wanted:0,coin:581},
     where:"Toft's Shop", time:"Day 3 (Wodensday), 14:20, afternoon", part_of_day:"afternoon",
     mood:"even-keeled", activity:"work", goal:"become a true master of my craft", goal_step:"practice my craft in earnest",
@@ -181,9 +185,28 @@ function startDemo(){
     memories:[{text:"Sold a piece of armor to Pip for 88 coin."},{text:"The gods urged me to seek something greater; I heeded."},
               {text:"Bram still owes me for the last blades."}],
     self_notes:["My purse is heavy these days.","I feel the gods favor me."],
-    needs:{energy:0.7,hunger:0.6,thirst:0.6,social:0.4}
-  });
-  $("#voice").textContent="“The forge is warm and the coin flows. Perhaps the gods were right that I am meant for more.”";
+    needs:{energy:0.7,hunger:0.6,thirst:0.6,social:0.4},
+    _voice:"“The forge is warm and the coin flows. Perhaps the gods were right that I am meant for more.”"
+  },
+  bram:{
+    agent:{id:"bram",name:"Bram Cask",role:"Tavernkeeper",char_class:"Commoner",alias:"",wanted:0,coin:214},
+    where:"The Leaky Barrel", time:"Day 3 (Wodensday), 14:20, afternoon", part_of_day:"afternoon",
+    mood:"weary but warm", activity:"serve", goal:"keep the tavern the heart of Oakhollow", goal_step:"wash the tankards before the evening rush",
+    seen:[{name:"Toft Bellow",role:"Blacksmith",activity:"visit",feel:"warmly",known_wanted:false},
+          {name:"Mabel Reed",role:"Farmer",activity:"drink",feel:"warmly",known_wanted:false}],
+    memories:[{text:"Toft still owes me nothing - it's I who owe him for the blades."},{text:"A quiet afternoon; good for the soul."},
+              {text:"Mabel's crop came in thin this season."}],
+    self_notes:["I should settle up with Toft soon.","The roof over the cellar needs mending."],
+    needs:{energy:0.5,hunger:0.5,thirst:0.7,social:0.8},
+    _voice:"“Wipe the bar, pour the ale, listen to their troubles. Somebody has to hold this town together.”"
+  }
+};
+function startDemo(){
+  isDemo=true; setStatus("demo","demo data (no live server)"); $("#mode").textContent="demo";
+  $("#picker").innerHTML=`<option value="toft">Toft Bellow</option><option value="bram">Bram Cask</option>`;
+  watching = $("#picker").value || "toft";
+  render(DEMO[watching]);
+  $("#voice").textContent=DEMO[watching]._voice;
 }
 
 connect();
