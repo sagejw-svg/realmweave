@@ -57,7 +57,8 @@ class RealmweaveServer:
 
     def _on_event(self, evt: dict) -> None:
         # only push interesting events to clients (skip per-tick noise)
-        if evt["kind"] in ("dialogue", "death", "reflection"):
+        if evt["kind"] in ("dialogue", "death", "reflection", "shop_founded",
+                           "trade", "quest_posted", "quest_accepted", "quest_completed"):
             try:
                 self._event_queue.put_nowait(evt)
             except asyncio.QueueFull:
@@ -100,12 +101,17 @@ class RealmweaveServer:
         if mtype == "player_join":
             pid = f"player:{msg.get('name','wanderer')}"
             self.players[pid] = {"id": pid, "name": msg.get("name", "Wanderer"),
-                                 "x": 32.0, "y": 24.0, "say": "", "role": "Player"}
+                                 "x": 32.0, "y": 24.0, "say": "", "role": "Player",
+                                 "coin": 150, "quest": None}
             await ws.send(json.dumps({"type": "joined", "id": pid}))
         elif mtype == "player_move":
             p = self.players.get(msg.get("id"))
             if p:
                 p["x"], p["y"] = float(msg.get("x", p["x"])), float(msg.get("y", p["y"]))
+                await self._progress_player_quest(ws, p)
+        elif mtype == "player_accept_quest":
+            p = self.players.get(msg.get("id"))
+            await self._accept_player_quest(ws, p, msg.get("quest_id", ""))
         elif mtype == "player_say":
             p = self.players.get(msg.get("id"))
             if p:
@@ -118,6 +124,62 @@ class RealmweaveServer:
                                               "text": "(No one is close enough to hear you.)"}))
         elif mtype == "admin_kill":
             self.sim.kill(msg.get("id", ""), cause=msg.get("cause", "an unseen hand"))
+
+    # ---- player quests -------------------------------------------------
+    async def _accept_player_quest(self, ws, player, quest_id: str) -> None:
+        if not player:
+            return
+        q = self.sim.quests.get(quest_id)
+        if q is None or q.status != "open":
+            await ws.send(json.dumps({"type": "quest_update", "event": "unavailable"}))
+            return
+        q.status = "active"
+        q.taker_id = player["id"]
+        player["quest"] = {"id": q.id, "title": q.title,
+                           "objectives": [o.to_dict() for o in q.fresh_objectives()], "index": 0}
+        self.sim.emit("quest_accepted", quest=q.id, title=q.title,
+                      agent=player["id"], agent_name=player["name"])
+        await ws.send(json.dumps({"type": "quest_update", "event": "accepted",
+                                  "id": q.id, "title": q.title,
+                                  "objective": player["quest"]["objectives"][0]["name"]}))
+
+    async def _progress_player_quest(self, ws, player) -> None:
+        pq = player.get("quest")
+        if not pq:
+            return
+        objs = pq["objectives"]
+        i = pq["index"]
+        if i >= len(objs):
+            return
+        obj = objs[i]
+        loc = self.sim.world.locations.get(obj["location"])
+        if loc is None:
+            return
+        near = abs(loc.x - player["x"]) <= 2.5 and abs(loc.y - player["y"]) <= 2.5
+        if not near:
+            return
+        obj["progress"] = obj["target"] if obj["kind"] == "visit" else obj["progress"] + 1
+        if obj["progress"] >= obj["target"]:
+            pq["index"] += 1
+            if pq["index"] >= len(objs):
+                await self._complete_player_quest(ws, player)
+            else:
+                await ws.send(json.dumps({"type": "quest_update", "event": "objective",
+                                          "objective": objs[pq["index"]]["name"]}))
+
+    async def _complete_player_quest(self, ws, player) -> None:
+        pq = player.get("quest")
+        q = self.sim.quests.get(pq["id"]) if pq else None
+        if q is None:
+            return
+        q.status = "completed"
+        player["coin"] = player.get("coin", 0) + q.reward_coin
+        player["quest"] = None
+        self.sim.emit("quest_completed", quest=q.id, title=q.title, taker=player["id"],
+                      taker_name=player["name"], reward_coin=q.reward_coin, reward_skill=q.reward_skill)
+        await ws.send(json.dumps({"type": "quest_update", "event": "completed",
+                                  "title": q.title, "reward_coin": q.reward_coin,
+                                  "coin": player["coin"]}))
 
     async def sim_loop(self) -> None:
         dt = 1.0 / max(1, self.scfg["ticks_per_second"])

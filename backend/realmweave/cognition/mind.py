@@ -59,6 +59,18 @@ class Mind:
         # rather than instantly grabbing a new quest every tick
         if self.sim.rng.random() > 0.05:
             return
+        # first, glance at the quest board. An open quest is only taken if it
+        # genuinely appeals to this agent; otherwise they ignore it and pursue
+        # their own aims. This is where "agents may ignore quests" lives.
+        board = getattr(self.sim, "quests", None)
+        if board is not None:
+            quest_goal = board.try_offer(agent)
+            if quest_goal is not None:
+                agent.goal = quest_goal
+                self.sim.emit("goal_new", agent=agent.id, agent_name=agent.name,
+                              goal=quest_goal.kind, description=quest_goal.description,
+                              priority=round(quest_goal.priority, 2), steps=len(quest_goal.steps))
+                return
         goal = self.propose_goal(agent)
         if goal is None:
             return

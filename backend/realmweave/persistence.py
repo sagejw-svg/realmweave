@@ -17,8 +17,8 @@ from .memory import MemoryEntry
 from .cognition.goals import Goal
 from .economy.goods import Item
 
-SAVE_VERSION = 4
-SUPPORTED_VERSIONS = (1, 2, 3, 4)
+SAVE_VERSION = 5
+SUPPORTED_VERSIONS = (1, 2, 3, 4, 5)
 
 
 def save_world(sim, path: str) -> None:
@@ -56,6 +56,7 @@ def save_world(sim, path: str) -> None:
         }
 
     data["economy"] = sim.economy.to_dict()
+    data["quest_board"] = sim.quests.to_dict()
 
     abspath = os.path.abspath(path)
     os.makedirs(os.path.dirname(abspath), exist_ok=True)
@@ -123,4 +124,6 @@ def load_world(sim, path: str) -> bool:
 
     # v4+: restore shops (also re-adds their locations to the world)
     sim.economy.load(data.get("economy", {}))
+    # v5+: restore the quest board
+    sim.quests.load(data.get("quest_board", {}))
     return True
