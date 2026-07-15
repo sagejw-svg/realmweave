@@ -74,6 +74,13 @@ class Agent:
     inventory: List = field(default_factory=list)               # List[economy.Item]
     god_disposition: float = 0.0                                 # feeling toward the god -1..1
     known_facts: set = field(default_factory=set)               # keyed facts this agent knows
+    # identity, reputation & justice (Phase 7)
+    alias: str = ""                                              # public name if hiding true identity
+    reputation: Dict[str, float] = field(default_factory=lambda: {"village": 0.0})
+    notoriety: float = 0.0                                       # how infamous, 0..100
+    wanted: int = 0                                              # wanted level (>0 = hunted)
+    bounty: int = 0                                              # coin on their head
+    recognized_by: set = field(default_factory=set)             # ids who know the true face behind an alias
 
     # ---- scheduling ----------------------------------------------------
     def scheduled_block(self, hour: int) -> ScheduleBlock:
@@ -142,6 +149,9 @@ class Agent:
             "goal_step": (self.goal.current_step.name if (self.goal and self.goal.current_step) else ""),
             "coin": self.coin,
             "disposition": round(self.god_disposition, 2),
+            "alias": self.alias,
+            "wanted": self.wanted,
+            "notoriety": round(self.notoriety, 1),
         }
 
 

@@ -32,6 +32,7 @@ from .economy.goods import make_item
 from .quests.board import QuestBoard
 from .divine.influence import DivineInfluence
 from .perception import senses as perception
+from .reputation.justice import Justice
 from .llm.router import LLMRouter, LLMRequest, Tier
 
 EventSink = Callable[[dict], None]
@@ -63,6 +64,7 @@ class Simulation:
         self.economy = Economy(self)
         self.quests = QuestBoard(self)
         self.divine = DivineInfluence(self)
+        self.justice = Justice(self)
 
         embedder = router.embedder()
         for a in default_agents():
@@ -117,7 +119,15 @@ class Simulation:
 
     # ---- decision + movement ------------------------------------------
     def _decide(self, a: Agent) -> None:
-        # survival needs still hard-override everything
+        # chasing a wanted criminal overrides ordinary life
+        target_id = getattr(a, "_pursuing", "")
+        if target_id:
+            target = self.agents.get(target_id)
+            if target is not None and target.alive and target.wanted > 0:
+                a.activity, a.target_location = "pursue", target.current_location
+                return
+            a._pursuing = ""
+        # survival needs still hard-override the rest
         urgent = a.urgent_need()
         if urgent is not None:
             a.activity, a.target_location = urgent
@@ -379,8 +389,17 @@ class Simulation:
         self.economy.maybe_trade()
         self.quests.maybe_generate()
         self.divine.regen()
+        self.justice.step()
 
         self.emit("tick", tick=self.tick_count)
+
+    # ---- identity ------------------------------------------------------
+    def display_name(self, agent: Agent, viewer_id: str = "") -> str:
+        """The name a given viewer knows this agent by. An alias holds unless the
+        viewer has seen the true face behind it (e.g. witnessed a crime)."""
+        if agent.alias and viewer_id not in agent.recognized_by:
+            return agent.alias
+        return agent.name
 
     # ---- serialization -------------------------------------------------
     def snapshot(self) -> dict:

@@ -6,7 +6,7 @@ the world; you don't own it. Single-player now, multiplayer by design. MIT.
 
 [![CI](https://github.com/sagejw-svg/realmweave/actions/workflows/ci.yml/badge.svg)](https://github.com/sagejw-svg/realmweave/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-d9c46b.svg)](LICENSE)
-[![Roadmap](https://img.shields.io/badge/roadmap-7%2F12%20phases-5aa0c0)](PROJECT_PLAN.md)
+[![Roadmap](https://img.shields.io/badge/roadmap-8%2F12%20phases-5aa0c0)](PROJECT_PLAN.md)
 [![Live dashboard](https://img.shields.io/badge/live-dashboard-5ab97a)](https://sagejw-svg.github.io/realmweave/)
 [![Dev status](https://img.shields.io/badge/dev-status-9a7bd0)](https://sagejw-svg.github.io/realmweave/dev.html)
 
@@ -156,7 +156,7 @@ Key files to read first: `backend/realmweave/sim.py` (the loop),
 
 Done: **0** living village, **1** rules & 1-100 skills, **2** agent autonomy,
 **3** livelihoods & economy, **4** cross-domain quests, **5** divine influence,
-**6** perception. Next: **7** reputation & justice, **8** through-their-eyes
+**6** perception, **7** reputation & justice. Next: **8** through-their-eyes
 first-person view, **9** world feel (art), **10** multiplayer, **11** release.
 See [PROJECT_PLAN.md](PROJECT_PLAN.md) for the detail.
 

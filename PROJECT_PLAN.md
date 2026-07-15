@@ -314,7 +314,7 @@ ordered so that every later capstone rests on foundations proven earlier.
 | 4 | Quests | Cross-domain quests; players play them; agents may ignore them | **Done** |
 | 5 | Divine influence | God suggestions the AI weighs and may refuse; god-authored creation | **Done** |
 | 6 | Perception | Sense-limited knowledge; foundation for POV and fair crime detection | **Done** |
-| 7 | Reputation & justice | Identity/aliases, per-faction reputation, crime, bounties; the wanted are hunted | 2-3 wk |
+| 7 | Reputation & justice | Identity/aliases, per-faction reputation, crime, bounties; the wanted are hunted | **Done** |
 | 8 | Through their eyes | First-person observation mode (panel + inner life + forward view) | 3-5 wk |
 | 9 | World feel | Tilemap + sprite art, day/night, animations | 3-6 wk |
 | 10 | Multiplayer | Hostable server, roster, interest management | 4-6 wk |
@@ -518,9 +518,13 @@ The first concrete work items, each a small, reviewable change:
    hearing); agents only learn events they witness, and news (like a death)
    spreads only through those who saw it or were told, via rumor in conversation;
    save v7.
-7. **Next - Phase 7 (reputation & justice):** identity/aliases, per-faction
-   reputation, witnessed crime, bounties, and pursuit of the wanted.
-8. **In parallel (cheap wins):** drop in CC0/public-domain placeholder art and
+7. **Phase 7 - done** (PR #10): identity + aliases, per-faction reputation,
+   witnessed crime (Perception vs Stealth), wanted status + bounties, pursuit and
+   capture by the guard and lawful NPCs, and time/restitution-based redemption.
+   An alias holds until a witness recognizes the true face. Save v8.
+8. **Next - Phase 8 (through their eyes):** the first-person observation mode -
+   select any villager and see the world and their inner life from their view.
+9. **In parallel (cheap wins):** drop in CC0/public-domain placeholder art and
    audio (see `RESOURCES.md`) to start giving Oakhollow a classic look and feel
    without blocking the simulation work.
 

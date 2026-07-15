@@ -102,10 +102,10 @@ const $=s=>document.querySelector(s);
 const PHASES=[
   [0,"Living village","done"],[1,"Rules & 1-100 skills","done"],[2,"Agent autonomy","done"],
   [3,"Livelihoods & economy","done"],[4,"Cross-domain quests","done"],[5,"Divine influence","done"],
-  [6,"Perception","done"],[7,"Reputation & justice","next"],[8,"Through their eyes (first-person)","plan"],
+  [6,"Perception","done"],[7,"Reputation & justice","done"],[8,"Through their eyes (first-person)","next"],
   [9,"World feel (art/audio)","plan"],[10,"Multiplayer","plan"],[11,"Release","plan"]
 ];
-const STATIC={tests:43,saveVersion:7,modules:["rules","cognition","economy","quests","divine","perception"]};
+const STATIC={tests:49,saveVersion:8,modules:["rules","cognition","economy","quests","divine","perception","reputation"]};
 
 function relTime(iso){
   const s=(Date.now()-new Date(iso))/1000;
