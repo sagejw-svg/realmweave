@@ -73,6 +73,7 @@ class Agent:
     coin: int = 0                                                # money
     inventory: List = field(default_factory=list)               # List[economy.Item]
     god_disposition: float = 0.0                                 # feeling toward the god -1..1
+    known_facts: set = field(default_factory=set)               # keyed facts this agent knows
 
     # ---- scheduling ----------------------------------------------------
     def scheduled_block(self, hour: int) -> ScheduleBlock:

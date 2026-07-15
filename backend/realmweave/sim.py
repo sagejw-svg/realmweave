@@ -31,6 +31,7 @@ from .economy.market import Economy
 from .economy.goods import make_item
 from .quests.board import QuestBoard
 from .divine.influence import DivineInfluence
+from .perception import senses as perception
 from .llm.router import LLMRouter, LLMRequest, Tier
 
 EventSink = Callable[[dict], None]
@@ -175,6 +176,23 @@ class Simulation:
         self.emit("dialogue", speaker=a.id, speaker_name=a.name, listener=b.id,
                   listener_name=b.name, location=loc_id, text=line,
                   tier=resp.tier.value, model=resp.model, backend=resp.backend)
+        # gossip: news travels through conversation, both directions
+        self._spread_rumor(a, b)
+        self._spread_rumor(b, a)
+
+    def _spread_rumor(self, speaker: Agent, listener: Agent) -> None:
+        """The speaker may pass on a fact the listener does not yet know."""
+        fresh = speaker.known_facts - listener.known_facts
+        if not fresh:
+            return
+        fact = sorted(fresh)[0]
+        listener.known_facts.add(fact)
+        if fact.startswith("death:"):
+            who = self.agents.get(fact.split(":", 1)[1])
+            name = who.name if who else "someone"
+            self._observe(listener, f"{speaker.name} told me that {name} has died.", 6.0, "event")
+            self.emit("rumor", fact=fact, from_agent=speaker.id, from_name=speaker.name,
+                      to_agent=listener.id, to_name=listener.name, subject=name)
 
     def _persona_system(self, a: Agent) -> str:
         skills = ""
@@ -202,17 +220,29 @@ class Simulation:
         a.speak("")
         self.world.add_rumor(f"{a.name} died ({cause}).")
         self.emit("death", agent=a.id, name=a.name, cause=cause, location=a.current_location)
-        # every living agent remembers the loss; grief scales with affinity
-        for other in self.living():
+        # only those who WITNESS the death learn of it now (a death is loud, so it
+        # also carries to anyone within earshot). Everyone else stays unaware until
+        # the news reaches them by rumor. This is the core of the perception model.
+        fact = f"death:{a.id}"
+        dx, dy = a.x, a.y
+        for other in self.witnesses(dx, dy, loud=True, exclude=a.id):
+            other.known_facts.add(fact)
             aff = other.affinity(a.id)
             importance = 6.0 + max(0.0, aff) * 4.0
-            self._observe(other, f"{a.name} died ({cause}). I feel the loss.", importance, "event")
+            self._observe(other, f"I saw that {a.name} died ({cause}). I feel the loss.", importance, "event")
             if aff > 0.2:
                 req = LLMRequest(prompt=f"grief: {a.name} has died. React.",
                                  system=self._persona_system(other),
                                  importance=8.5, tier=Tier.NARRATIVE, other=a.name, num_predict=60)
                 resp = self.router.generate(req)
                 other.speak(resp.text.split("\n")[0][:180], ttl=12)
+
+    # ---- perception ----------------------------------------------------
+    def witnesses(self, x: float, y: float, loud: bool = False, exclude: str = ""):
+        """Living agents who can perceive something happening at (x, y)."""
+        night = self.clock.is_night
+        return [a for a in self.living()
+                if a.id != exclude and perception.can_perceive(a, x, y, night, loud)]
 
     # ---- reflection ----------------------------------------------------
     def _maybe_reflect(self, a: Agent) -> None:
