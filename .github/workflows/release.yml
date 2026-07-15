@@ -38,7 +38,12 @@ jobs:
       - name: Export the client
         run: |
           New-Item -ItemType Directory -Force -Path "${{ github.workspace }}/build" | Out-Null
-          godot --headless --path godot_client --export-release "Windows Desktop" "${{ github.workspace }}/build/RealmweaveClient.exe"
+          # import resources first, then export. The output path comes from the
+          # preset (export_presets.cfg -> ../build/RealmweaveClient.exe, i.e.
+          # repo/build), so we do NOT pass an explicit path (that would resolve
+          # against the runner cwd and escape the repo).
+          godot --headless --path godot_client --import
+          godot --headless --path godot_client --export-release "Windows Desktop"
           if (!(Test-Path "${{ github.workspace }}/build/RealmweaveClient.exe")) { throw "client export missing" }
 
       - name: Install Inno Setup
