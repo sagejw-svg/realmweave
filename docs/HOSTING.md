@@ -99,16 +99,29 @@ sudo systemctl status realmweave
 
 ### Quick deploy on an existing Ubuntu droplet (one command)
 
-On the droplet as root, this clones Realmweave, installs it, writes a
-storage-host config (AI off, bound to localhost), and runs it as a service:
+On the droplet as root, run **only this one line** (do not paste the whole
+script). It clones Realmweave, installs it, writes a storage-host config
+(AI off), runs it as a service, and sets up **auto-update from GitHub**:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/sagejw-svg/realmweave/main/deploy/dxedge_deploy.sh | sudo bash
 ```
 
-Then add a DNS record (e.g. `realm.dxedge.net`) and put it behind nginx with the
-template in `deploy/realmweave.nginx` + `certbot` (see below). Update later with
-`cd /opt/realmweave && git pull && systemctl restart realmweave`.
+The server comes up on `ws://<droplet-ip>:8765` immediately (connect the Godot
+client, or a locally opened dashboard). A systemd timer pulls `main` every 5
+minutes and restarts only when there are new commits, so pushes go live on their
+own, no manual redeploy.
+
+For the **https browser dashboards** you need `wss://` (TLS). Add a DNS record
+(e.g. `realm.dxedge.net`) and reverse-proxy to `127.0.0.1:8765`:
+
+- If nginx runs **on the host**: use `deploy/realmweave.nginx` + `certbot --nginx`.
+- If nginx runs **in Docker** (like the DXEdge stack): add a `server` block for
+  `realm.dxedge.net` to that nginx's config proxying to the host (the droplet's
+  private IP, or add `extra_hosts: ["host.docker.internal:host-gateway"]` and use
+  `host.docker.internal:8765`), mount a cert for the new domain, and reload the
+  nginx container. Cleanest of all: once the other site is retired, let Realmweave
+  own 80/443 with Caddy (automatic TLS).
 
 ### Co-hosting on an existing droplet (e.g. behind nginx)
 
