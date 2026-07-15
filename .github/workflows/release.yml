@@ -53,9 +53,11 @@ jobs:
         id: client
         continue-on-error: true
         run: |
-          New-Item -ItemType Directory -Force -Path "${{ github.workspace }}/build" | Out-Null
-          & "$env:GODOT4" --headless --path godot_client --import
-          & "$env:GODOT4" --headless --path godot_client --export-release "Windows Desktop"
+          New-Item -ItemType Directory -Force -Path build | Out-Null
+          # Godot resolves the export path relative to the current directory
+          # (the repo root here), so use a plain repo-relative path with forward
+          # slashes -> repo/build/RealmweaveClient.exe (where the installer looks).
+          godot --headless --path godot_client --export-release "Windows Desktop" build/RealmweaveClient.exe
           if (Test-Path "${{ github.workspace }}/build/RealmweaveClient.exe") {
             "ok=true"  | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           } else {
