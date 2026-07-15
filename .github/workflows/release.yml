@@ -48,6 +48,7 @@ jobs:
         with:
           version: 4.3.0
           include-templates: true
+          use-dotnet: false
 
       - name: Export the client (best effort)
         id: client
@@ -56,10 +57,15 @@ jobs:
           # Godot logs warnings to stderr; do NOT let that abort the step.
           $ErrorActionPreference = 'Continue'
           New-Item -ItemType Directory -Force -Path build | Out-Null
-          godot --version
-          godot --headless --path godot_client --import
+          # resolve the Godot binary the action installed (env var, else PATH)
+          $godot = $env:GODOT
+          if (-not $godot) { $godot = (Get-Command godot -ErrorAction SilentlyContinue).Source }
+          if ($godot -and -not (Test-Path $godot) -and (Test-Path "$godot.exe")) { $godot = "$godot.exe" }
+          Write-Host "using godot: $godot"
+          & $godot --version
+          & $godot --headless --path godot_client --import
           Write-Host "import exit: $LASTEXITCODE"
-          godot --headless --path godot_client --export-release "Windows Desktop" build/RealmweaveClient.exe
+          & $godot --headless --path godot_client --export-release "Windows Desktop" build/RealmweaveClient.exe
           Write-Host "export exit: $LASTEXITCODE"
           Get-ChildItem "$env:GITHUB_WORKSPACE/build" | ForEach-Object { Write-Host "  build/ $($_.Name)" }
           if (Test-Path "$env:GITHUB_WORKSPACE/build/RealmweaveClient.exe") {
