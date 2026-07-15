@@ -44,6 +44,7 @@ class Goal:
     step_index: int = 0
     status: str = "active"          # active | complete | abandoned
     created_at: int = 0
+    quest_id: str = ""              # set when this goal is a quest the agent took on
 
     @property
     def current_step(self) -> Optional[Step]:
@@ -62,11 +63,12 @@ class Goal:
     def to_dict(self) -> dict:
         return {"kind": self.kind, "description": self.description, "priority": self.priority,
                 "step_index": self.step_index, "status": self.status,
-                "created_at": self.created_at, "steps": [s.to_dict() for s in self.steps]}
+                "created_at": self.created_at, "quest_id": self.quest_id,
+                "steps": [s.to_dict() for s in self.steps]}
 
     @classmethod
     def from_dict(cls, d: dict) -> "Goal":
         return cls(kind=d["kind"], description=d["description"], priority=float(d["priority"]),
                    steps=[Step.from_dict(s) for s in d.get("steps", [])],
                    step_index=int(d.get("step_index", 0)), status=d.get("status", "active"),
-                   created_at=int(d.get("created_at", 0)))
+                   created_at=int(d.get("created_at", 0)), quest_id=d.get("quest_id", ""))

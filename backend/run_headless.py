@@ -58,6 +58,13 @@ def main() -> None:
                                   f"(stock: {e['stock']})") if e["kind"] == "shop_founded" else None)
     trades = []
     sim.subscribe(lambda e: trades.append(e) if e["kind"] == "trade" else None)
+    sim.subscribe(lambda e: print(f"  ?? QUEST  posted: {e['title']} {e['domains']}")
+                  if e["kind"] == "quest_posted" else None)
+    sim.subscribe(lambda e: print(f"  >! QUEST  {e['agent_name']} took on '{e['title']}'")
+                  if e["kind"] == "quest_accepted" else None)
+    sim.subscribe(lambda e: print(f"  *! QUEST  {e['taker_name']} completed '{e['title']}' "
+                                  f"(+{e['reward_coin']} coin, +{e['reward_skill']})")
+                  if e["kind"] == "quest_completed" else None)
 
     if args.load:
         if sim.load(args.load):

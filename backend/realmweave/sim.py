@@ -29,6 +29,7 @@ from .cognition.mind import Mind
 from .cognition.personality import seed_personality
 from .economy.market import Economy
 from .economy.goods import make_item
+from .quests.board import QuestBoard
 from .llm.router import LLMRouter, LLMRequest, Tier
 
 EventSink = Callable[[dict], None]
@@ -58,6 +59,7 @@ class Simulation:
 
         self.mind = Mind(self)
         self.economy = Economy(self)
+        self.quests = QuestBoard(self)
 
         embedder = router.embedder()
         for a in default_agents():
@@ -69,6 +71,8 @@ class Simulation:
             a.current_location = a.home
             self.agents[a.id] = a
             self._last_reflect[a.id] = 0
+
+        self.quests.seed()               # the world begins with opportunity
 
     # ---- events --------------------------------------------------------
     def subscribe(self, sink: EventSink) -> None:
@@ -259,9 +263,12 @@ class Simulation:
 
     def _on_goal_complete(self, agent: Agent, goal) -> None:
         """Hook the Mind calls when an agent finishes a goal. Turning a
-        'build a livelihood' aim into an actual shop happens here."""
+        'build a livelihood' aim into a shop, or a quest into its reward,
+        happens here."""
         if goal.kind == "build_livelihood":
             self.economy.found_shop(agent)
+        elif goal.kind == "quest" and goal.quest_id:
+            self.quests.complete(agent, goal.quest_id)
 
     # ---- player interaction -------------------------------------------
     def player_speak(self, player_name: str, x: float, y: float, text: str,
@@ -338,6 +345,7 @@ class Simulation:
             self._maybe_socialize(loc_id)
 
         self.economy.maybe_trade()
+        self.quests.maybe_generate()
 
         self.emit("tick", tick=self.tick_count)
 
@@ -350,5 +358,10 @@ class Simulation:
             "shops": [{"name": s.name, "location": s.location_id, "owner": s.owner_id,
                        "x": s.x, "y": s.y, "stock": len(s.stock)}
                       for s in self.economy.shops.values()],
+            "quests": [{"id": q.id, "title": q.title, "domains": q.domains,
+                        "status": q.status, "taker": q.taker_id,
+                        "reward_coin": q.reward_coin}
+                       for q in self.quests.quests.values()
+                       if q.status in ("open", "active")],
             "tick": self.tick_count,
         }

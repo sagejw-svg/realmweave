@@ -311,7 +311,7 @@ ordered so that every later capstone rests on foundations proven earlier.
 | 1 | Rules foundation | Character sheets, 1-100 skills, checks driving outcomes | **Done** |
 | 2 | Autonomy | Goals + plans + utility selection; agents pursue self-set aims | **Done** |
 | 3 | Livelihoods | Economy, professions, agent-built shops | **Done** |
-| 4 | Quests | Cross-domain quests; players play them; agents may ignore them | 2-3 wk |
+| 4 | Quests | Cross-domain quests; players play them; agents may ignore them | **Done** |
 | 5 | Divine influence | God suggestions the AI weighs and may refuse; god-authored creation | 1-2 wk |
 | 6 | Perception | Sense-limited knowledge; foundation for POV and fair crime detection | 2-3 wk |
 | 7 | Reputation & justice | Identity/aliases, per-faction reputation, crime, bounties; the wanted are hunted | 2-3 wk |
@@ -507,9 +507,12 @@ The first concrete work items, each a small, reviewable change:
 3. **Phase 3 - done** (PR #4): money, inventory, goods, and agent-built shops.
    A "build a livelihood" goal now founds a real storefront that stocks and
    sells; prices flex with Bargaining; save format v4.
-4. **Next - Phase 4 (quests):** cross-domain quests players can take, which
-   agents may ignore because they do not serve their own goals.
-5. **In parallel (cheap wins):** drop in CC0/public-domain placeholder art and
+4. **Phase 4 - done** (PR #5): a quest board with cross-domain, authored +
+   emergent quests. Agents take quests that fit their personality and ignore ones
+   that do not; players accept and complete quests for coin and skill; save v5.
+5. **Next - Phase 5 (divine influence):** the god suggests, seeds character
+   backgrounds, and the AI weighs it and may refuse.
+6. **In parallel (cheap wins):** drop in CC0/public-domain placeholder art and
    audio (see `RESOURCES.md`) to start giving Oakhollow a classic look and feel
    without blocking the simulation work.
 
