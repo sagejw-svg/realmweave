@@ -17,30 +17,34 @@ apt-get update -y
 apt-get install -y python3 python3-pip git
 
 # code
+git config --global --add safe.directory "$APP_DIR" || true
 if [ -d "$APP_DIR/.git" ]; then
+  # discard any local edits from older deploys so the pull can fast-forward
+  git -C "$APP_DIR" checkout -- . 2>/dev/null || true
   git -C "$APP_DIR" pull --ff-only
 else
   git clone "$REPO" "$APP_DIR"
 fi
-git config --global --add safe.directory "$APP_DIR" || true
 
 # dependency (websockets): distro package, else pip
 apt-get install -y python3-websockets \
   || pip3 install --break-system-packages websockets \
   || pip3 install websockets
 
-# storage-host config: AI off (scripted NPCs); listen on all interfaces
-python3 - "$APP_DIR/backend/config.json" <<'PY'
-import json, sys
-p = sys.argv[1]
-cfg = json.load(open(p))
-cfg["force_stub"] = True
-cfg["server"]["host"] = "0.0.0.0"
-cfg["server"]["port"] = 8765
-cfg["server"]["max_players"] = 32
-json.dump(cfg, open(p, "w"), indent=2)
-print("configured", p)
-PY
+# storage-host config lives OUTSIDE the repo so `git pull` (auto-update) never
+# conflicts. The server reads it via $REALMWEAVE_CONFIG (set in the unit below).
+# AI off (scripted NPCs), listen on all interfaces, gentler world clock, and the
+# save file lives in /var/lib so the working tree stays pristine.
+mkdir -p /etc/realmweave /var/lib/realmweave
+cat >/etc/realmweave/config.json <<'JSON'
+{
+  "force_stub": true,
+  "sim":    {"minutes_per_tick": 2},
+  "server": {"host": "0.0.0.0", "port": 8765, "ticks_per_second": 1,
+             "max_players": 32, "save_path": "/var/lib/realmweave/world_save.json"}
+}
+JSON
+echo "wrote /etc/realmweave/config.json"
 
 # main service (restart on crash / reboot)
 cat >/etc/systemd/system/realmweave.service <<EOF
@@ -50,6 +54,7 @@ After=network.target
 
 [Service]
 WorkingDirectory=$APP_DIR/backend
+Environment=REALMWEAVE_CONFIG=/etc/realmweave/config.json
 ExecStart=/usr/bin/python3 run_server.py
 Restart=always
 RestartSec=5
@@ -106,6 +111,9 @@ IP=$(hostname -I | awk '{print $1}')
 echo
 echo "Realmweave is LIVE on  ws://${IP}:${PORT}   (AI off / scripted NPCs)"
 echo "Auto-updates from GitHub every 5 minutes."
+echo "World clock: ~2 in-game minutes per real second (a day every ~12 min)."
+echo "Tune it in /etc/realmweave/config.json (sim.minutes_per_tick, server.ticks_per_second)"
+echo "then: systemctl restart realmweave"
 echo
 echo "Connect the Godot client (or a locally opened dashboard) to that ws:// address."
 echo "For https browser dashboards you need wss:// - see docs/HOSTING.md for the"
