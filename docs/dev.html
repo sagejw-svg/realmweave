@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Realmweave - Development Status</title>
+<style>
+  :root{--bg:#12141a;--panel:#1a1d26;--panel2:#20242f;--line:#2b3040;--ink:#e7e8ee;
+    --dim:#9aa0b4;--gold:#d9c46b;--blue:#5aa0c0;--green:#5ab97a;--red:#c85a5a;--purple:#9a7bd0}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif}
+  a{color:var(--blue);text-decoration:none}
+  header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:12px 18px;
+    background:linear-gradient(#191c25,#14161d);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+  h1{font-size:18px;margin:0;color:var(--gold);letter-spacing:.5px}
+  h1 small{color:var(--dim);font-weight:400;font-size:12px}
+  nav{display:flex;gap:6px;font-size:12px}
+  nav a{border:1px solid var(--line);padding:3px 9px;border-radius:6px;color:var(--dim)}
+  nav a.active{color:var(--gold);background:var(--panel2)}
+  .spacer{flex:1}
+  button{background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:5px 12px;cursor:pointer;font:inherit}
+  button:hover{border-color:var(--blue)}
+  .ci{font-size:12px;padding:3px 10px;border-radius:20px;border:1px solid var(--line)}
+  .ci.pass{color:var(--green);border-color:#2f5b41}.ci.fail{color:var(--red)}.ci.run{color:var(--gold)}
+  main{padding:16px 18px;display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));max-width:1400px;margin:0 auto}
+  .full{grid-column:1/-1}
+  .stats{display:flex;flex-wrap:wrap;gap:12px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 16px;min-width:120px}
+  .stat .n{font-size:22px;font-weight:700}.stat .l{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .card h2{margin:0;padding:10px 14px;font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--dim);border-bottom:1px solid var(--line);background:var(--panel2)}
+  .card .body{padding:10px 14px;max-height:460px;overflow:auto}
+  .bar{height:14px;background:#0e1016;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .bar i{display:block;height:100%;background:linear-gradient(90deg,#5ab97a,#5aa0c0)}
+  .phase{display:flex;align-items:center;gap:10px;padding:7px 4px;border-bottom:1px solid #23283455}
+  .badge{font-size:10px;text-transform:uppercase;letter-spacing:.5px;padding:2px 8px;border-radius:20px;white-space:nowrap}
+  .b-done{background:#1c3a2a;color:var(--green)}.b-next{background:#3a341c;color:var(--gold)}.b-plan{background:#262a36;color:var(--dim)}
+  .phase .nm{flex:1}.phase .no{color:var(--dim);width:28px}
+  .row{padding:6px 2px;border-bottom:1px solid #23283455;font-size:12.5px;display:flex;gap:8px}
+  .row .t{flex:1}.row .m{color:var(--dim);white-space:nowrap;font-size:11px}
+  .pill{display:inline-block;padding:1px 7px;border-radius:20px;font-size:11px;background:#2a2f3d;color:var(--dim)}
+  .muted{color:var(--dim)}
+  footer{color:var(--dim);font-size:11px;text-align:center;padding:18px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Realmweave <small>development status</small></h1>
+  <nav>
+    <a href="index.html">World</a>
+    <a href="dev.html" class="active">Dev status</a>
+  </nav>
+  <span class="spacer"></span>
+  <span class="ci" id="ci">CI: ...</span>
+  <span class="muted" id="updated" style="font-size:11px"></span>
+  <button id="refresh">Refresh</button>
+</header>
+
+<main>
+  <div class="stats full" id="stats"></div>
+
+  <div class="card full">
+    <h2>Roadmap <span class="muted" id="progresspct" style="text-transform:none;letter-spacing:0"></span></h2>
+    <div class="body">
+      <div class="bar" style="margin-bottom:12px"><i id="progressbar" style="width:0%"></i></div>
+      <div id="phases"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Recent commits</h2>
+    <div class="body" id="commits"><div class="muted">Loading from GitHub...</div></div>
+  </div>
+
+  <div class="card">
+    <h2>Open pull requests</h2>
+    <div class="body" id="prs"><div class="muted">Loading...</div></div>
+  </div>
+
+  <div class="card">
+    <h2>Contribution pipeline <span class="muted" style="text-transform:none;letter-spacing:0">(open issues by label)</span></h2>
+    <div class="body" id="pipeline"><div class="muted">Loading...</div></div>
+  </div>
+
+  <div class="card">
+    <h2>At a glance</h2>
+    <div class="body" id="glance"></div>
+  </div>
+</main>
+
+<footer>
+  Live from the GitHub API for <a href="https://github.com/sagejw-svg/realmweave" target="_blank" rel="noopener">sagejw-svg/realmweave</a>.
+  Auto-refreshes every 5 minutes (unauthenticated GitHub API, 60 requests/hour). Roadmap is maintained in PROJECT_PLAN.md.
+</footer>
+
+<script>
+const OWNER="sagejw-svg", REPO="realmweave";
+const API=`https://api.github.com/repos/${OWNER}/${REPO}`;
+const $=s=>document.querySelector(s);
+
+// Roadmap mirrors PROJECT_PLAN.md. Update statuses as phases land.
+const PHASES=[
+  [0,"Living village","done"],[1,"Rules & 1-100 skills","done"],[2,"Agent autonomy","done"],
+  [3,"Livelihoods & economy","done"],[4,"Cross-domain quests","done"],[5,"Divine influence","done"],
+  [6,"Perception","next"],[7,"Reputation & justice","plan"],[8,"Through their eyes (first-person)","plan"],
+  [9,"World feel (art/audio)","plan"],[10,"Multiplayer","plan"],[11,"Release","plan"]
+];
+const STATIC={tests:37,saveVersion:6,modules:["rules","cognition","economy","quests","divine"]};
+
+function relTime(iso){
+  const s=(Date.now()-new Date(iso))/1000;
+  if(s<60)return"just now"; if(s<3600)return Math.floor(s/60)+"m ago";
+  if(s<86400)return Math.floor(s/3600)+"h ago"; return Math.floor(s/86400)+"d ago";
+}
+function esc(t){return (t||"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
+
+function renderRoadmap(){
+  const done=PHASES.filter(p=>p[2]==="done").length, pct=Math.round(done/PHASES.length*100);
+  $("#progressbar").style.width=pct+"%";
+  $("#progresspct").textContent=`${done} of ${PHASES.length} phases complete (${pct}%)`;
+  const bmap={done:"b-done",next:"b-next",plan:"b-plan"}, lmap={done:"Done",next:"In progress",plan:"Planned"};
+  $("#phases").innerHTML=PHASES.map(([n,nm,st])=>
+    `<div class="phase"><span class="no">${n}</span><span class="nm">${nm}</span>
+     <span class="badge ${bmap[st]}">${lmap[st]}</span></div>`).join("");
+}
+
+function renderGlance(repo){
+  const done=PHASES.filter(p=>p[2]==="done").length;
+  const items=[
+    ["Phases complete",`${done}/${PHASES.length}`],
+    ["Unit tests",STATIC.tests],
+    ["Save format","v"+STATIC.saveVersion],
+    ["Backend modules",STATIC.modules.length],
+    ["Stars", repo? repo.stargazers_count : "-"],
+    ["Open issues", repo? repo.open_issues_count : "-"],
+  ];
+  $("#stats").innerHTML=items.map(([l,n])=>
+    `<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`).join("");
+  $("#glance").innerHTML=
+    `<div class="row"><span class="t">License</span><span class="m">${repo? (repo.license? repo.license.spdx_id:"-"):"MIT"}</span></div>`+
+    `<div class="row"><span class="t">Default branch</span><span class="m">${repo? repo.default_branch:"main"}</span></div>`+
+    `<div class="row"><span class="t">Backend modules</span><span class="m">${STATIC.modules.join(", ")}</span></div>`+
+    `<div class="row"><span class="t">Last pushed</span><span class="m">${repo? relTime(repo.pushed_at):"-"}</span></div>`;
+}
+
+async function gh(path){
+  const r=await fetch(API+path,{headers:{Accept:"application/vnd.github+json"}});
+  if(r.status===403) throw new Error("rate-limited");
+  if(!r.ok) throw new Error("http "+r.status);
+  return r.json();
+}
+
+async function refresh(){
+  renderRoadmap();
+  $("#updated").textContent="updating...";
+  try{
+    const repo=await gh("");
+    renderGlance(repo);
+    try{ localStorage.setItem("rw_repo",JSON.stringify(repo)); }catch(e){}
+
+    const commits=await gh("/commits?per_page=8");
+    $("#commits").innerHTML=commits.map(c=>{
+      const msg=(c.commit.message||"").split("\n")[0];
+      const who=c.author? c.author.login : (c.commit.author? c.commit.author.name:"?");
+      return `<div class="row"><span class="t">${esc(msg)}</span>
+        <span class="m">${esc(who)} &middot; ${relTime(c.commit.author.date)}</span></div>`;
+    }).join("");
+
+    const prs=await gh("/pulls?state=open&per_page=20");
+    $("#prs").innerHTML= prs.length? prs.map(p=>
+      `<div class="row"><span class="t"><a href="${p.html_url}" target="_blank" rel="noopener">#${p.number}</a> ${esc(p.title)}</span>
+       <span class="m">${relTime(p.created_at)}</span></div>`).join("")
+      : `<div class="muted">No open pull requests. main is clean.</div>`;
+
+    const issues=await gh("/issues?state=open&per_page=50");
+    const real=issues.filter(i=>!i.pull_request);
+    const byLabel={};
+    real.forEach(i=>(i.labels||[]).forEach(l=>{byLabel[l.name]=(byLabel[l.name]||0)+1;}));
+    const order=["idea","needs-triage","approved","ai-eligible","code","bug","out-of-scope"];
+    const keys=Object.keys(byLabel).sort((a,b)=>(order.indexOf(a)+99*(order.indexOf(a)<0))-(order.indexOf(b)+99*(order.indexOf(b)<0)));
+    $("#pipeline").innerHTML = real.length
+      ? `<div style="margin-bottom:8px">${real.length} open issue(s).</div>`+
+        keys.map(k=>`<div class="row"><span class="t"><span class="pill">${esc(k)}</span></span><span class="m">${byLabel[k]}</span></div>`).join("")
+      : `<div class="muted">No open issues yet. Submit one via the repo's guided forms.</div>`;
+
+    const runs=await gh("/actions/runs?branch=main&per_page=1");
+    const run=runs.workflow_runs&&runs.workflow_runs[0];
+    const ci=$("#ci");
+    if(run){
+      const ok=run.conclusion==="success", running=run.status!=="completed";
+      ci.className="ci "+(running?"run":ok?"pass":"fail");
+      ci.textContent="CI: "+(running?"running":(run.conclusion||"?"));
+    } else { ci.textContent="CI: n/a"; }
+
+    $("#updated").textContent="updated "+new Date().toLocaleTimeString();
+  }catch(err){
+    $("#updated").textContent=(""+err).includes("rate")?"GitHub rate limit reached; showing roadmap only":"offline; showing roadmap only";
+    try{ const cached=JSON.parse(localStorage.getItem("rw_repo")||"null"); if(cached) renderGlance(cached); }catch(e){}
+  }
+}
+
+$("#refresh").onclick=refresh;
+refresh();
+setInterval(refresh, 300000);   // every 5 minutes
+</script>
+</body>
+</html>

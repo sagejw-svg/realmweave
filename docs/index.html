@@ -66,6 +66,10 @@
 <body>
 <header>
   <h1>Realmweave <small>live world dashboard</small></h1>
+  <nav style="display:flex;gap:6px;font-size:12px">
+    <a href="index.html" style="color:var(--gold);text-decoration:none;border:1px solid var(--line);padding:3px 9px;border-radius:6px;background:#20242f">World</a>
+    <a href="dev.html" style="color:var(--dim);text-decoration:none;border:1px solid var(--line);padding:3px 9px;border-radius:6px">Dev status</a>
+  </nav>
   <span class="status"><span class="dot" id="dot"></span><span id="statusText">connecting...</span></span>
   <div class="spacer"></div>
   <span class="clock" id="clock">--</span>
@@ -77,13 +81,21 @@
   <div class="stats" id="stats"></div>
 
   <div class="card" style="grid-column:1/-1">
-    <h2>Villagers</h2>
+    <h2>Villagers <span class="muted" style="text-transform:none;letter-spacing:0">(AI-run NPCs)</span></h2>
     <div class="body">
       <table id="agents"><thead><tr>
         <th>Name</th><th>Class</th><th>Doing</th><th>Where</th>
-        <th>Coin</th><th>Aim</th><th>God</th><th>Needs</th>
+        <th>Coin</th><th>Aim</th>
+        <th title="How this villager feels about the player-god (deity/overseer) who can send divine suggestions. Positive = devoted, negative = resentful.">Devotion</th>
+        <th>Needs</th>
       </tr></thead><tbody></tbody></table>
     </div>
+  </div>
+
+  <div class="card">
+    <h2>Human players <span class="muted" style="text-transform:none;letter-spacing:0">(online)</span></h2>
+    <div class="body"><table id="players"><thead><tr>
+      <th>Player</th><th>Where</th><th>Coin</th></tr></thead><tbody></tbody></table></div>
   </div>
 
   <div class="card">
@@ -105,8 +117,15 @@
 </main>
 
 <footer>
-  Realmweave &middot; open the game server (<code>python run_server.py</code>) and this page updates live.
-  &middot; <span id="mode"></span>
+  <div style="max-width:820px;margin:0 auto;text-align:left;line-height:1.7">
+    <b style="color:var(--dim)">Who's who:</b>
+    <b style="color:var(--gold)">Villagers</b> are AI-run NPCs with their own goals.
+    <b style="color:var(--blue)">Human players</b> are people playing an embodied character in the world.
+    The <b style="color:var(--purple)">god / overseer</b> is a human influencing from above via divine suggestions;
+    <b>Devotion</b> is each villager's feeling toward that overseer (+ devoted, - resentful), and
+    <b>Divine favor</b> is the overseer's remaining influence budget.
+  </div>
+  <div style="margin-top:10px">Realmweave &middot; open the game server (<code>python run_server.py</code>) and this page updates live. &middot; <span id="mode"></span></div>
 </footer>
 
 <script>
@@ -144,8 +163,8 @@ function render(s){
     ["Villagers", `${alive}/${(s.agents||[]).length}`],
     ["Shops", (s.shops||[]).length],
     ["Open quests", (s.quests||[]).filter(q=>q.status==="open").length],
+    ["Players online", (s.players||[]).length],
     ["Divine favor", s.favor!=null? s.favor : "-"],
-    ["Day", s.clock? s.clock.day_index : "-"],
     ["Tick", s.tick!=null? s.tick : "-"],
   ];
   $("#stats").innerHTML = stats.map(([l,n])=>
@@ -174,6 +193,12 @@ function render(s){
     `<tr><td>${q.title}</td><td><span class="pill">${(q.domains||[]).join(", ")}</span></td>
      <td>${q.status}</td><td class="muted">${q.taker? nameOf(q.taker,s.agents||[]) : "-"}</td></tr>`
    ).join("") || `<tr><td colspan=4 class="muted">No quests posted.</td></tr>`;
+
+  $("#players tbody").innerHTML = (s.players||[]).map(p=>
+    `<tr><td>&#9670; <b style="color:var(--blue)">${p.name}</b></td>
+     <td class="muted">${p.location||("~"+Math.round(p.x)+","+Math.round(p.y))}</td>
+     <td class="coin">${p.coin!=null?p.coin:"-"}</td></tr>`
+   ).join("") || `<tr><td colspan=3 class="muted">No human players connected.</td></tr>`;
 }
 
 const feedEl = $("#feed");
@@ -234,7 +259,8 @@ function startDemo(){
     ],
     shops:[{name:"Toft's Shop",owner:"toft",stock:84},{name:"Elda's Shop",owner:"elda",stock:5}],
     quests:[{id:"q1",title:"Clear the North Road",domains:["Combat","Exploration"],status:"active",taker:"pip",reward_coin:70},
-            {id:"q2",title:"Supply the Gilded Stag",domains:["Trade"],status:"open",taker:"",reward_coin:45}]
+            {id:"q2",title:"Supply the Gilded Stag",domains:["Trade"],status:"open",taker:"",reward_coin:45}],
+    players:[{id:"player:Ada",name:"Ada",x:32,y:24,coin:150}]
   };
   render(demo);
   [{kind:"quest_completed",taker_name:"Dora Meel",title:"Gather Healing Herbs",reward_coin:40},

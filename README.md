@@ -155,12 +155,24 @@ Phase 2: agent goals/plans, factions, rumor spread, economy, illness.
 Phase 3: hostable dedicated server, player roster, interest management.
 Phase 4: content tooling, performance, Steam build.
 
-## Live dashboard
+## Dashboards
 
-`docs/index.html` is a self-contained, auto-updating dashboard: world clock,
-villagers (class, activity, coin, aim, disposition, needs), shops, quests, and a
-live event chronicle. It connects to the game server over WebSocket and refreshes
-in real time.
+Two auto-updating dashboards live under `docs/` and are published via GitHub Pages
+at https://sagejw-svg.github.io/realmweave/ :
+
+- **World dashboard** (`index.html`) - the live game world (below).
+- **Development status** (`dev.html`) - phase roadmap plus live GitHub data (CI
+  status, recent commits, open PRs, and open issues by triage label). This one
+  reads the public GitHub API, so it shows real data straight from GitHub Pages
+  or any browser, no local server needed.
+
+### World dashboard
+
+`docs/index.html` is a self-contained, auto-updating view of the world: clock,
+villagers (AI NPCs), human players online, shops, quests, and a live event
+chronicle. It separates NPCs, human players, and the god/overseer, and shows each
+villager's Devotion (feeling toward the overseer). It connects to the game server
+over WebSocket and refreshes in real time.
 
 - **Live (recommended):** start the server (`python run_server.py`), then open
   `docs/index.html` in your browser. It connects to `ws://127.0.0.1:8765` and
