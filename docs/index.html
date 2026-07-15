@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Realmweave - Live World Dashboard</title>
+<style>
+  :root{
+    --bg:#12141a; --panel:#1a1d26; --panel2:#20242f; --line:#2b3040;
+    --ink:#e7e8ee; --dim:#9aa0b4; --gold:#d9c46b; --blue:#5aa0c0;
+    --green:#5ab97a; --red:#c85a5a; --purple:#9a7bd0;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif}
+  a{color:var(--blue)}
+  header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;
+    padding:12px 18px;background:linear-gradient(#191c25,#14161d);
+    border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+  h1{font-size:18px;margin:0;color:var(--gold);letter-spacing:.5px}
+  h1 small{color:var(--dim);font-weight:400;font-size:12px}
+  .status{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--dim)}
+  .dot{width:10px;height:10px;border-radius:50%;background:var(--dim)}
+  .dot.on{background:var(--green);box-shadow:0 0 8px var(--green)}
+  .dot.off{background:var(--red)}
+  .dot.demo{background:var(--gold)}
+  input,button{font:inherit}
+  input{background:#0e1016;border:1px solid var(--line);color:var(--ink);
+    border-radius:6px;padding:5px 8px;width:210px}
+  button{background:var(--panel2);border:1px solid var(--line);color:var(--ink);
+    border-radius:6px;padding:5px 12px;cursor:pointer}
+  button:hover{border-color:var(--blue)}
+  .spacer{flex:1}
+  .clock{color:var(--gold);font-weight:600}
+  main{padding:16px 18px;display:grid;gap:16px;
+    grid-template-columns:repeat(auto-fit,minmax(320px,1fr));max-width:1500px;margin:0 auto}
+  .stats{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:12px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:10px 16px;min-width:120px}
+  .stat .n{font-size:22px;font-weight:700}
+  .stat .l{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .card h2{margin:0;padding:10px 14px;font-size:13px;text-transform:uppercase;
+    letter-spacing:.6px;color:var(--dim);border-bottom:1px solid var(--line);background:var(--panel2)}
+  .card .body{padding:6px 10px;max-height:420px;overflow:auto}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{ text-align:left;color:var(--dim);font-weight:600;padding:6px 8px;
+    border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel)}
+  td{padding:6px 8px;border-bottom:1px solid #23283400}
+  tr:hover td{background:#ffffff08}
+  .pill{display:inline-block;padding:1px 7px;border-radius:20px;font-size:11px;
+    background:#2a2f3d;color:var(--dim)}
+  .dead{color:var(--red)}
+  .coin{color:var(--gold)}
+  .needbars{display:flex;gap:2px}
+  .nb{width:16px;height:6px;border-radius:2px;background:#2a2f3d;overflow:hidden}
+  .nb i{display:block;height:100%}
+  .feed div{padding:4px 6px;border-bottom:1px solid #23283455;font-size:12.5px}
+  .feed .k{color:var(--dim);font-size:10px;text-transform:uppercase;margin-right:6px}
+  .k-trade{color:var(--green)} .k-quest{color:var(--blue)} .k-divine{color:var(--purple)}
+  .k-death{color:var(--red)} .k-shop{color:var(--gold)}
+  .muted{color:var(--dim)}
+  footer{color:var(--dim);font-size:11px;text-align:center;padding:18px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Realmweave <small>live world dashboard</small></h1>
+  <span class="status"><span class="dot" id="dot"></span><span id="statusText">connecting...</span></span>
+  <div class="spacer"></div>
+  <span class="clock" id="clock">--</span>
+  <input id="url" spellcheck="false" />
+  <button id="connectBtn">Connect</button>
+</header>
+
+<main>
+  <div class="stats" id="stats"></div>
+
+  <div class="card" style="grid-column:1/-1">
+    <h2>Villagers</h2>
+    <div class="body">
+      <table id="agents"><thead><tr>
+        <th>Name</th><th>Class</th><th>Doing</th><th>Where</th>
+        <th>Coin</th><th>Aim</th><th>God</th><th>Needs</th>
+      </tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Shops</h2>
+    <div class="body"><table id="shops"><thead><tr>
+      <th>Shop</th><th>Owner</th><th>Stock</th></tr></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="card">
+    <h2>Quests</h2>
+    <div class="body"><table id="quests"><thead><tr>
+      <th>Quest</th><th>Domains</th><th>Status</th><th>Taker</th></tr></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="card" style="grid-column:1/-1">
+    <h2>Chronicle (live events)</h2>
+    <div class="body feed" id="feed"></div>
+  </div>
+</main>
+
+<footer>
+  Realmweave &middot; open the game server (<code>python run_server.py</code>) and this page updates live.
+  &middot; <span id="mode"></span>
+</footer>
+
+<script>
+const DEFAULT_URL = "ws://127.0.0.1:8765";
+const $ = s => document.querySelector(s);
+let ws=null, demoTimer=null, isDemo=false;
+
+const urlInput = $("#url");
+try { urlInput.value = localStorage.getItem("rw_url") || DEFAULT_URL; }
+catch(e){ urlInput.value = DEFAULT_URL; }
+
+function setStatus(kind, text){
+  const dot=$("#dot");
+  dot.className = "dot " + (kind==="on"?"on":kind==="demo"?"demo":"off");
+  $("#statusText").textContent = text;
+}
+
+function nameOf(id, agents){ const a=agents.find(x=>x.id===id); return a?a.name:id; }
+
+function needBars(n){
+  if(!n) return "";
+  const col=v=> v>0.5?"var(--green)":v>0.25?"var(--gold)":"var(--red)";
+  return `<span class="needbars" title="energy/hunger/thirst/social">`+
+    ["energy","hunger","thirst","social"].map(k=>
+      `<span class="nb"><i style="width:${Math.round((n[k]||0)*100)}%;background:${col(n[k]||0)}"></i></span>`
+    ).join("")+`</span>`;
+}
+
+function render(s){
+  $("#clock").textContent = s.clock
+    ? `Day ${s.clock.day_index} - ${s.clock.day_name} - ${s.clock.hhmm} (${s.clock.part_of_day})`
+    : "--";
+  const alive = (s.agents||[]).filter(a=>a.alive).length;
+  const stats=[
+    ["Villagers", `${alive}/${(s.agents||[]).length}`],
+    ["Shops", (s.shops||[]).length],
+    ["Open quests", (s.quests||[]).filter(q=>q.status==="open").length],
+    ["Divine favor", s.favor!=null? s.favor : "-"],
+    ["Day", s.clock? s.clock.day_index : "-"],
+    ["Tick", s.tick!=null? s.tick : "-"],
+  ];
+  $("#stats").innerHTML = stats.map(([l,n])=>
+    `<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`).join("");
+
+  const arows=(s.agents||[]).map(a=>{
+    const disp = a.disposition||0;
+    const dcol = disp>0.15?"var(--green)":disp<-0.15?"var(--red)":"var(--dim)";
+    return `<tr>
+      <td>${a.alive?"":"&#128128; "}<b class="${a.alive?"":"dead"}">${a.name}</b></td>
+      <td class="muted">${a.char_class||""}</td>
+      <td>${a.alive? a.activity : '<span class="dead">dead</span>'}</td>
+      <td class="muted">${a.location||""}</td>
+      <td class="coin">${a.coin!=null?a.coin:""}</td>
+      <td class="muted">${a.goal? (a.goal_step? a.goal_step : a.goal) : "-"}</td>
+      <td style="color:${dcol}">${disp>0?"+":""}${disp}</td>
+      <td>${needBars(a.needs)}</td></tr>`;
+  }).join("");
+  $("#agents tbody").innerHTML = arows;
+
+  $("#shops tbody").innerHTML = (s.shops||[]).map(sh=>
+    `<tr><td>${sh.name}</td><td class="muted">${nameOf(sh.owner,s.agents||[])}</td>
+     <td>${sh.stock}</td></tr>`).join("") || `<tr><td colspan=3 class="muted">No shops yet.</td></tr>`;
+
+  $("#quests tbody").innerHTML = (s.quests||[]).map(q=>
+    `<tr><td>${q.title}</td><td><span class="pill">${(q.domains||[]).join(", ")}</span></td>
+     <td>${q.status}</td><td class="muted">${q.taker? nameOf(q.taker,s.agents||[]) : "-"}</td></tr>`
+   ).join("") || `<tr><td colspan=4 class="muted">No quests posted.</td></tr>`;
+}
+
+const feedEl = $("#feed");
+function addEvent(e){
+  const kmap={trade:"k-trade",quest_posted:"k-quest",quest_accepted:"k-quest",
+    quest_completed:"k-quest",divine_suggestion:"k-divine",death:"k-death",shop_founded:"k-shop"};
+  let txt="";
+  switch(e.kind){
+    case "dialogue": txt=`${e.speaker_name} &rarr; ${e.listener_name}: "${e.text}"`; break;
+    case "trade": txt=`${e.buyer_name} bought ${e.item} (q${e.quality}) from ${e.seller_name} for ${e.price} coin`; break;
+    case "shop_founded": txt=`${e.agent_name} opened ${e.shop} (stock ${e.stock})`; break;
+    case "quest_posted": txt=`New quest posted: ${e.title}`; break;
+    case "quest_accepted": txt=`${e.agent_name} took on '${e.title}'`; break;
+    case "quest_completed": txt=`${e.taker_name} completed '${e.title}' (+${e.reward_coin} coin)`; break;
+    case "divine_suggestion": txt=`${e.agent_name} ${e.outcome.toUpperCase()}s the god: "${e.reaction}"`; break;
+    case "death": txt=`${e.name} has died (${e.cause})`; break;
+    default: return;
+  }
+  const div=document.createElement("div");
+  div.innerHTML=`<span class="k ${kmap[e.kind]||''}">${e.kind.replace('_',' ')}</span>${txt}`;
+  feedEl.prepend(div);
+  while(feedEl.children.length>120) feedEl.removeChild(feedEl.lastChild);
+}
+
+function connect(){
+  const url=urlInput.value.trim()||DEFAULT_URL;
+  try{ localStorage.setItem("rw_url",url); }catch(e){}
+  if(ws){ try{ws.onclose=null;ws.close();}catch(e){} }
+  setStatus("off","connecting...");
+  clearTimeout(demoTimer);
+  demoTimer=setTimeout(()=>{ if(!ws||ws.readyState!==1){ startDemo(); } }, 2500);
+  try{ ws=new WebSocket(url); }catch(e){ startDemo(); return; }
+  ws.onopen=()=>{ isDemo=false; clearTimeout(demoTimer); setStatus("on","connected: "+url);
+    $("#mode").textContent="live data"; };
+  ws.onmessage=ev=>{
+    let m; try{ m=JSON.parse(ev.data); }catch(e){ return; }
+    if(m.type==="snapshot") render(m);
+    else if(m.type==="event") addEvent(m.event);
+    else if(m.type==="hello" && m.world) { /* world meta */ }
+  };
+  ws.onclose=()=>{ setStatus("off","disconnected"); if(!isDemo) demoTimer=setTimeout(startDemo,1500); };
+  ws.onerror=()=>{ /* onclose will follow */ };
+}
+
+/* Demo data so the page is never blank (e.g. on GitHub Pages or a preview,
+   where it cannot reach your local game server). */
+function startDemo(){
+  isDemo=true; setStatus("demo","demo data (no live server reachable)");
+  $("#mode").textContent="demo data";
+  const demo={ tick:428, favor:8.4,
+    clock:{day_index:3,day_name:"Wodensday",hhmm:"14:20",part_of_day:"afternoon"},
+    agents:[
+      {id:"toft",name:"Toft Bellow",char_class:"Merchant",activity:"work",location:"shop_toft",alive:true,coin:581,goal:"master my craft",goal_step:"practice my craft",disposition:0.24,needs:{energy:.7,hunger:.6,thirst:.6,social:.4}},
+      {id:"isla",name:"Isla Fenn",char_class:"Scout",activity:"visit",location:"gate",alive:true,coin:120,goal:"seek adventure",goal_step:"linger at the gate",disposition:0.1,needs:{energy:.5,hunger:.7,thirst:.6,social:.5}},
+      {id:"bram",name:"Bram Cask",char_class:"Diplomat",activity:"socialize",location:"tavern",alive:true,coin:150,goal:"find good company",goal_step:"go where folk gather",disposition:-0.06,needs:{energy:.6,hunger:.5,thirst:.4,social:.8}},
+      {id:"dora",name:"Dora Meel",char_class:"Woodsman",activity:"work",location:"field",alive:true,coin:98,goal:"gather healing herbs",goal_step:"forage in the fields",disposition:0,needs:{energy:.8,hunger:.6,thirst:.5,social:.3}},
+      {id:"pip",name:"Pip Thorne",char_class:"Scout",activity:"visit",location:"square",alive:true,coin:220,goal:"see through 'Clear the North Road'",goal_step:"hold the line",disposition:0.3,needs:{energy:.4,hunger:.5,thirst:.6,social:.7}}
+    ],
+    shops:[{name:"Toft's Shop",owner:"toft",stock:84},{name:"Elda's Shop",owner:"elda",stock:5}],
+    quests:[{id:"q1",title:"Clear the North Road",domains:["Combat","Exploration"],status:"active",taker:"pip",reward_coin:70},
+            {id:"q2",title:"Supply the Gilded Stag",domains:["Trade"],status:"open",taker:"",reward_coin:45}]
+  };
+  render(demo);
+  [{kind:"quest_completed",taker_name:"Dora Meel",title:"Gather Healing Herbs",reward_coin:40},
+   {kind:"trade",buyer_name:"Pip Thorne",seller_name:"Toft Bellow",item:"a piece of armor",quality:92,price:88},
+   {kind:"divine_suggestion",agent_name:"Toft Bellow",outcome:"accept",reaction:"The gods speak, and I heed."},
+   {kind:"shop_founded",agent_name:"Toft Bellow",shop:"Toft's Shop",stock:1}
+  ].forEach(addEvent);
+}
+
+$("#connectBtn").onclick=connect;
+urlInput.addEventListener("keydown",e=>{ if(e.key==="Enter") connect(); });
+connect();
+</script>
+</body>
+</html>
