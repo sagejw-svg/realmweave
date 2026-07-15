@@ -20,9 +20,15 @@ open `godot_client/project.godot` in Godot 4, press Play).
 ### Downloads
 
 - **All releases:** https://github.com/sagejw-svg/realmweave/releases
-- **Windows installer (latest):**
+- **Windows server (standalone exe):**
+  [RealmweaveServer.exe](https://github.com/sagejw-svg/realmweave/releases/latest/download/RealmweaveServer.exe)
+- **Portable bundle (server + launcher + docs):**
+  [Realmweave-portable.zip](https://github.com/sagejw-svg/realmweave/releases/latest/download/Realmweave-portable.zip)
+- **Full Windows installer:**
   [RealmweaveSetup.exe](https://github.com/sagejw-svg/realmweave/releases/latest/download/RealmweaveSetup.exe)
-  (available once a tagged release finishes building)
+  (bundles the game client too; published when the client build succeeds)
+
+Each link resolves once a tagged release has finished building.
 
 Prefer to host a persistent world? See [docs/HOSTING.md](docs/HOSTING.md) for a
 24/7 storage-host deployment where the server keeps the world and players run the

@@ -1,6 +1,9 @@
 name: Build installer
 
-# Push a tag like v0.1.0 to build the Windows installer and attach it to a Release.
+# Push a tag like v0.1.0 to build downloads and attach them to a Release.
+# The server exe + a portable bundle always publish. The Godot client export and
+# the full installer are best-effort (they need Godot export templates in CI),
+# so a flaky export never blocks the release.
 on:
   push:
     tags: [ "v*" ]
@@ -10,7 +13,7 @@ permissions:
   contents: write
 
 jobs:
-  installer:
+  release:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,31 +32,48 @@ jobs:
             --specpath "${{ github.workspace }}/build/tmp" `
             backend/run_server.py
 
+      - name: Make the portable bundle (server + launcher + docs)
+        run: |
+          $stage = "${{ github.workspace }}/build/portable"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Copy-Item "${{ github.workspace }}/build/RealmweaveServer.exe" $stage
+          Copy-Item packaging/Launch-Realmweave.bat $stage -ErrorAction SilentlyContinue
+          Copy-Item backend/config.json $stage
+          Copy-Item README.md $stage
+          Copy-Item docs/PLAY.md $stage
+          Compress-Archive -Path "$stage/*" -DestinationPath "${{ github.workspace }}/build/Realmweave-portable.zip" -Force
+
       - name: Set up Godot (with export templates)
         uses: chickensoft-games/setup-godot@v2
         with:
           version: 4.3.0
           include-templates: true
 
-      - name: Export the client
+      - name: Export the client (best effort)
+        id: client
+        continue-on-error: true
         run: |
           New-Item -ItemType Directory -Force -Path "${{ github.workspace }}/build" | Out-Null
-          # import resources first, then export. The output path comes from the
-          # preset (export_presets.cfg -> ../build/RealmweaveClient.exe, i.e.
-          # repo/build), so we do NOT pass an explicit path (that would resolve
-          # against the runner cwd and escape the repo).
-          godot --headless --path godot_client --import
-          godot --headless --path godot_client --export-release "Windows Desktop"
-          if (!(Test-Path "${{ github.workspace }}/build/RealmweaveClient.exe")) { throw "client export missing" }
+          & "$env:GODOT4" --headless --path godot_client --import
+          & "$env:GODOT4" --headless --path godot_client --export-release "Windows Desktop"
+          if (Test-Path "${{ github.workspace }}/build/RealmweaveClient.exe") {
+            "ok=true"  | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          } else {
+            "ok=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          }
 
-      - name: Install Inno Setup
-        run: choco install innosetup --no-progress -y
-
-      - name: Build the installer
+      - name: Build the installer (if the client exported)
+        if: steps.client.outputs.ok == 'true'
+        continue-on-error: true
         run: |
+          choco install innosetup --no-progress -y
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" packaging\realmweave.iss
 
-      - name: Upload installer to the Release
+      - name: Publish the Release
         uses: softprops/action-gh-release@v2
         with:
-          files: build/RealmweaveSetup.exe
+          fail_on_unmatched_files: false
+          files: |
+            build/RealmweaveServer.exe
+            build/Realmweave-portable.zip
+            build/RealmweaveSetup.exe
