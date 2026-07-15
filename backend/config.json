@@ -9,6 +9,14 @@
   },
   "reflex_max_importance": 3.0,
   "dialogue_max_importance": 7.0,
+  "api": {
+    "enabled": false,
+    "provider": "anthropic",
+    "model": "",
+    "base_url": "",
+    "api_key_env": "ANTHROPIC_API_KEY",
+    "tiers": ["narrative"]
+  },
   "sim": {
     "minutes_per_tick": 10,
     "seed": 7,

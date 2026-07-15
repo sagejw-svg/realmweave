@@ -71,6 +71,14 @@ class LLMRouter:
         self.reflex_max = config.get("reflex_max_importance", 3.0)
         self.dialogue_max = config.get("dialogue_max_importance", 7.0)
         self._ollama_ok: Optional[bool] = None
+        # optional remote API model (Claude / OpenAI-compatible / any endpoint),
+        # applied to the configured tiers. Off unless config.api.enabled + a key.
+        api_cfg = config.get("api", {}) or {}
+        self.api_tiers = set(api_cfg.get("tiers", ["narrative"]))
+        from .api_backend import make_api_backend
+        backend = make_api_backend(api_cfg)
+        if backend is not None:
+            self.api_backend = backend
 
     # ---- configuration -------------------------------------------------
     def set_api_backend(self, backend: ApiBackend) -> None:
@@ -96,11 +104,12 @@ class LLMRouter:
         model = self.models.get(tier.value, self.models.get("dialogue", "qwen2.5:7b-instruct"))
         t0 = time.time()
 
-        # narrative tier may use a remote API backend when configured
-        if tier == Tier.NARRATIVE and self.api_backend is not None:
+        # configured tiers may use a remote API backend (Claude / OpenAI / etc.)
+        if self.api_backend is not None and tier.value in self.api_tiers:
             try:
                 text = self.api_backend(req, model)
-                return LLMResponse(text.strip(), tier, model, "api", int((time.time() - t0) * 1000))
+                if text:
+                    return LLMResponse(text.strip(), tier, model, "api", int((time.time() - t0) * 1000))
             except Exception:
                 pass  # fall through to local/stub
 

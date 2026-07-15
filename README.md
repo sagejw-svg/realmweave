@@ -88,6 +88,11 @@ ollama pull qwen2.5:14b-instruct    # narrative tier (deaths, big moments)
 ollama pull nomic-embed-text        # memory embeddings (RAG)
 ```
 
+**Want different models, or Claude / an API model?** See
+[docs/MODELS.md](docs/MODELS.md). You can swap any Ollama model, or enable a
+remote model (Claude / OpenAI-compatible) for chosen moments; it stays
+local-first by default and falls back automatically if the API is unreachable.
+
 Ollama serves on `http://127.0.0.1:11434` by default. On 12 GB, keep one large
 model resident at a time; the router is built around that constraint. If 14B is
 tight alongside everything else, set the `narrative` model to `qwen2.5:7b-instruct`
