@@ -59,7 +59,8 @@ class RealmweaveServer:
         # only push interesting events to clients (skip per-tick noise)
         if evt["kind"] in ("dialogue", "death", "reflection", "shop_founded",
                            "trade", "quest_posted", "quest_accepted", "quest_completed",
-                           "divine_suggestion", "divine_authored"):
+                           "divine_suggestion", "divine_authored", "rumor",
+                           "crime", "bounty", "arrest", "escape"):
             try:
                 self._event_queue.put_nowait(evt)
             except asyncio.QueueFull:
@@ -139,6 +140,10 @@ class RealmweaveServer:
             await ws.send(json.dumps({"type": "divine_authored", **(res or {"error": "no such agent"})}))
         elif mtype == "admin_kill":
             self.sim.kill(msg.get("id", ""), cause=msg.get("cause", "an unseen hand"))
+        elif mtype == "commit_crime":
+            res = self.sim.justice.commit_crime(msg.get("perp", ""), msg.get("kind", "theft"),
+                                                victim_id=msg.get("victim", ""))
+            await ws.send(json.dumps({"type": "crime_result", **res}))
 
     # ---- divine influence ---------------------------------------------
     async def _divine_suggest_nearest(self, ws, player, text: str) -> None:

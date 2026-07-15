@@ -173,8 +173,10 @@ function render(s){
   const arows=(s.agents||[]).map(a=>{
     const disp = a.disposition||0;
     const dcol = disp>0.15?"var(--green)":disp<-0.15?"var(--red)":"var(--dim)";
+    const wanted = a.wanted? ` <span style="background:#3a1c1c;color:var(--red);border-radius:20px;padding:1px 7px;font-size:10px">WANTED</span>`:"";
+    const alias = a.alias? ` <span class="muted" style="font-size:11px">aka ${a.alias}</span>`:"";
     return `<tr>
-      <td>${a.alive?"":"&#128128; "}<b class="${a.alive?"":"dead"}">${a.name}</b></td>
+      <td>${a.alive?"":"&#128128; "}<b class="${a.alive?"":"dead"}">${a.name}</b>${alias}${wanted}</td>
       <td class="muted">${a.char_class||""}</td>
       <td>${a.alive? a.activity : '<span class="dead">dead</span>'}</td>
       <td class="muted">${a.location||""}</td>
@@ -214,6 +216,9 @@ function addEvent(e){
     case "quest_accepted": txt=`${e.agent_name} took on '${e.title}'`; break;
     case "quest_completed": txt=`${e.taker_name} completed '${e.title}' (+${e.reward_coin} coin)`; break;
     case "divine_suggestion": txt=`${e.agent_name} ${e.outcome.toUpperCase()}s the god: "${e.reaction}"`; break;
+    case "crime": txt = e.detected? `${e.perp_name} was seen committing ${e.crime}! Bounty ${e.bounty}` : `${e.perp_name} committed ${e.crime} unseen`; break;
+    case "arrest": txt=`${e.by_name} arrested ${e.perp_name} (bounty ${e.bounty})`; break;
+    case "rumor": txt=`${e.from_name} told ${e.to_name} that ${e.subject} has died`; break;
     case "death": txt=`${e.name} has died (${e.cause})`; break;
     default: return;
   }

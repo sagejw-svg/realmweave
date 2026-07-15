@@ -17,8 +17,8 @@ from .memory import MemoryEntry
 from .cognition.goals import Goal
 from .economy.goods import Item
 
-SAVE_VERSION = 7
-SUPPORTED_VERSIONS = (1, 2, 3, 4, 5, 6, 7)
+SAVE_VERSION = 8
+SUPPORTED_VERSIONS = (1, 2, 3, 4, 5, 6, 7, 8)
 
 
 def save_world(sim, path: str) -> None:
@@ -50,6 +50,12 @@ def save_world(sim, path: str) -> None:
             "inventory": [it.to_dict() for it in a.inventory],
             "god_disposition": a.god_disposition,
             "known_facts": sorted(a.known_facts),
+            "alias": a.alias,
+            "reputation": dict(a.reputation),
+            "notoriety": a.notoriety,
+            "wanted": a.wanted,
+            "bounty": a.bounty,
+            "recognized_by": sorted(a.recognized_by),
             "memory": [
                 {"text": e.text, "importance": e.importance, "created_at": e.created_at,
                  "last_accessed": e.last_accessed, "kind": e.kind}
@@ -60,6 +66,7 @@ def save_world(sim, path: str) -> None:
     data["economy"] = sim.economy.to_dict()
     data["quest_board"] = sim.quests.to_dict()
     data["divine"] = sim.divine.to_dict()
+    data["justice"] = sim.justice.to_dict()
 
     abspath = os.path.abspath(path)
     os.makedirs(os.path.dirname(abspath), exist_ok=True)
@@ -119,6 +126,14 @@ def load_world(sim, path: str) -> bool:
             a.god_disposition = float(ad["god_disposition"])
         # v7+: restore known facts (what the agent has learned/heard)
         a.known_facts = set(ad.get("known_facts", []))
+        # v8+: restore identity, reputation and wanted status
+        a.alias = ad.get("alias", "")
+        if ad.get("reputation"):
+            a.reputation = {k: float(v) for k, v in ad["reputation"].items()}
+        a.notoriety = float(ad.get("notoriety", 0.0))
+        a.wanted = int(ad.get("wanted", 0))
+        a.bounty = int(ad.get("bounty", 0))
+        a.recognized_by = set(ad.get("recognized_by", []))
         if a.memory is not None:
             a.memory.entries = [
                 MemoryEntry(
@@ -136,4 +151,6 @@ def load_world(sim, path: str) -> bool:
     sim.quests.load(data.get("quest_board", {}))
     # v6+: restore divine favor
     sim.divine.load(data.get("divine", {}))
+    # v8+: restore the crime log
+    sim.justice.load(data.get("justice", {}))
     return True
