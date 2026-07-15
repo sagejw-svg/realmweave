@@ -8,7 +8,7 @@
 #define AppURL "https://github.com/sagejw-svg/realmweave"
 
 [Setup]
-AppId={{B7A5E8C0-1E2D-4A6F-9C3B-REALMWEAVE01}
+AppId={{7B3F2A10-9C4D-4E8A-BE21-6F0A5D3C1E92}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher={#AppPublisher}
