@@ -49,16 +49,22 @@ jobs:
           version: 4.3.0
           include-templates: true
 
-      - name: Export the client (best effort)
+      - name: Export the client (best effort, verbose)
         id: client
         continue-on-error: true
         run: |
           New-Item -ItemType Directory -Force -Path build | Out-Null
-          # Godot resolves the export path relative to the current directory
-          # (the repo root here), so use a plain repo-relative path with forward
-          # slashes -> repo/build/RealmweaveClient.exe (where the installer looks).
-          godot --headless --path godot_client --export-release "Windows Desktop" build/RealmweaveClient.exe
-          if (Test-Path "${{ github.workspace }}/build/RealmweaveClient.exe") {
+          Write-Host "GODOT bin: $env:GODOT"
+          & "$env:GODOT" --version
+          Write-Host "=== import pass ==="
+          & "$env:GODOT" --headless --path godot_client --import 2>&1 | Write-Host
+          Write-Host "import exit: $LASTEXITCODE"
+          Write-Host "=== export pass ==="
+          & "$env:GODOT" --headless --path godot_client --export-release "Windows Desktop" "$env:GITHUB_WORKSPACE/build/RealmweaveClient.exe" 2>&1 | Write-Host
+          Write-Host "export exit: $LASTEXITCODE"
+          Write-Host "=== build dir ==="
+          Get-ChildItem "$env:GITHUB_WORKSPACE/build" | ForEach-Object { Write-Host $_.Name }
+          if (Test-Path "$env:GITHUB_WORKSPACE/build/RealmweaveClient.exe") {
             "ok=true"  | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           } else {
             "ok=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
