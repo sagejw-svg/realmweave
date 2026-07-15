@@ -4,3 +4,9 @@ __pycache__/
 backend/data/*.json
 .godot/
 *.import
+
+# packaging build artifacts (produced by CI or the local build scripts)
+build/
+dist/
+*.spec
+packaging/Output/

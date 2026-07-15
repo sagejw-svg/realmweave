@@ -135,8 +135,16 @@ class Simulation:
         if urgent is not None:
             a.activity, a.target_location = urgent
             return
-        # otherwise the Mind scores needs, the active goal step, and routine,
-        # and picks the highest-utility action (personality bends the weights)
+        # commitment optimization: once an agent has chosen where to go, it keeps
+        # walking there and does NOT re-evaluate every tick. It only forms a new
+        # intent when it arrives at its destination (below) or is interrupted by a
+        # survival need or a pursuit (handled above). This makes movement
+        # purposeful and cuts decision churn.
+        if (a.target_location and a.target_location in self.world.locations
+                and a.current_location != a.target_location):
+            return
+        # arrived (or idle): the Mind scores needs, the active goal step, and
+        # routine, and picks the next highest-utility action.
         a.activity, a.target_location = self.mind.choose(a)
 
     def _move(self, a: Agent) -> None:
