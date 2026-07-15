@@ -1,0 +1,50 @@
+name: Build installer
+
+# Push a tag like v0.1.0 to build the Windows installer and attach it to a Release.
+on:
+  push:
+    tags: [ "v*" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Freeze the server (PyInstaller)
+        run: |
+          python -m pip install --quiet pyinstaller websockets
+          python -m PyInstaller --onefile --name RealmweaveServer `
+            --distpath build --workpath build/tmp --specpath build/tmp `
+            backend/run_server.py
+
+      - name: Set up Godot (with export templates)
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.3.0
+          include-templates: true
+
+      - name: Export the client
+        run: |
+          godot --headless --path godot_client --export-release "Windows Desktop" ../build/RealmweaveClient.exe
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Build the installer
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" packaging\realmweave.iss
+
+      - name: Upload installer to the Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/RealmweaveSetup.exe
