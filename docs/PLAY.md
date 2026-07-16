@@ -63,6 +63,14 @@ dialogue.
   villager (as the god). They may heed it or refuse.
 - **O** - see the world through the eyes of the nearest villager (press again to
   stop). A richer version is the browser `eyes.html` page.
+- **- / +** - slow down or speed up how fast time passes in the world. The speed
+  and current in-game minutes-per-second show in the top HUD.
+- **Space** - pause / resume the world.
+- **Esc** - open the in-game **Settings** menu (server address + reconnect, and
+  the same speed / pause controls as buttons).
+
+Time control is server-authoritative: changing speed affects the shared world,
+so in a hosted multiplayer world everyone sees the same clock.
 
 > The in-game art is currently placeholder (drawn shapes and labels). Real CC0
 > sprite tiles slot in on top; see `docs/ART.md`.

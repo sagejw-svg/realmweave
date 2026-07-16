@@ -36,6 +36,19 @@ var _subjective: Dictionary = {}     # 'through their eyes' view of the observed
 var _observe_id := ""
 var _o_down := false
 
+# live time control (server-authoritative; the client just requests changes)
+var _time_scale := 1.0
+var _game_min_per_sec := 0.0
+var _minutes_per_tick := 0.0
+var _paused := false
+# edge-detect keys so a held key fires once
+var _key_down := {}
+# settings menu
+var _settings_layer: CanvasLayer
+var _settings_open := false
+var _url_edit: LineEdit
+var _speed_value_label: Label
+
 const KIND_COLORS := {
 	"tavern": Color(0.72, 0.45, 0.20),
 	"home": Color(0.35, 0.38, 0.55),
@@ -60,7 +73,128 @@ func _ready() -> void:
 	_chat_input.position = Vector2(12, 58)
 	_chat_input.text_submitted.connect(_on_chat_submitted)
 	add_child(_chat_input)
+	_build_settings_ui()
 	set_process(true)
+
+
+func _build_settings_ui() -> void:
+	_settings_layer = CanvasLayer.new()
+	_settings_layer.layer = 10
+	_settings_layer.visible = false
+	add_child(_settings_layer)
+
+	# dim backdrop
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.55)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_settings_layer.add_child(dim)
+
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	panel.position = Vector2(-190, -140)
+	panel.custom_minimum_size = Vector2(380, 0)
+	_settings_layer.add_child(panel)
+
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 12)
+	panel.add_child(vb)
+
+	var title := Label.new()
+	title.text = "Settings"
+	title.add_theme_font_size_override("font_size", 20)
+	vb.add_child(title)
+
+	# --- server ---
+	vb.add_child(_row_label("Server"))
+	var srow := HBoxContainer.new()
+	_url_edit = LineEdit.new()
+	_url_edit.text = _server_url
+	_url_edit.custom_minimum_size = Vector2(240, 0)
+	srow.add_child(_url_edit)
+	var reconnect := Button.new()
+	reconnect.text = "Reconnect"
+	reconnect.pressed.connect(_on_reconnect_pressed)
+	srow.add_child(reconnect)
+	vb.add_child(srow)
+
+	# --- speed ---
+	vb.add_child(_row_label("World speed"))
+	var prow := HBoxContainer.new()
+	prow.add_theme_constant_override("separation", 8)
+	var slower := Button.new()
+	slower.text = "  -  "
+	slower.pressed.connect(func(): _change_speed(-1))
+	prow.add_child(slower)
+	_speed_value_label = Label.new()
+	_speed_value_label.custom_minimum_size = Vector2(150, 0)
+	_speed_value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	prow.add_child(_speed_value_label)
+	var faster := Button.new()
+	faster.text = "  +  "
+	faster.pressed.connect(func(): _change_speed(1))
+	prow.add_child(faster)
+	var pause := Button.new()
+	pause.text = "Pause / Resume"
+	pause.pressed.connect(_toggle_pause)
+	prow.add_child(pause)
+	vb.add_child(prow)
+
+	var hint := Label.new()
+	hint.text = "Tip: press - / + anytime to change speed, Space to pause, Esc to close."
+	hint.add_theme_font_size_override("font_size", 11)
+	hint.modulate = Color(0.7, 0.7, 0.75)
+	vb.add_child(hint)
+
+	var close := Button.new()
+	close.text = "Close"
+	close.pressed.connect(_toggle_settings)
+	vb.add_child(close)
+	_refresh_speed_label()
+
+
+func _row_label(t: String) -> Label:
+	var l := Label.new()
+	l.text = t
+	l.modulate = Color(0.65, 0.7, 0.8)
+	return l
+
+
+func _toggle_settings() -> void:
+	_settings_open = not _settings_open
+	_settings_layer.visible = _settings_open
+
+
+func _on_reconnect_pressed() -> void:
+	var url := _url_edit.text.strip_edges()
+	if url == "":
+		return
+	_server_url = url
+	_connected = false
+	_player_id = ""
+	_agents.clear()
+	_render_pos.clear()
+	_ws.close()
+	_ws = WebSocketPeer.new()
+	_ws.connect_to_url(_server_url)
+	_log("Reconnecting to " + _server_url + " ...")
+
+
+func _change_speed(delta: int) -> void:
+	_send({"type": "set_speed", "delta": delta})
+
+
+func _toggle_pause() -> void:
+	# ask the server to pause (scale 0) or resume (scale 1)
+	_send({"type": "set_speed", "scale": 0.0 if not _paused else 1.0})
+
+
+func _refresh_speed_label() -> void:
+	if _speed_value_label == null:
+		return
+	if _paused:
+		_speed_value_label.text = "PAUSED"
+	else:
+		_speed_value_label.text = "%sx  (%.0f min/s)" % [str(_time_scale), _game_min_per_sec]
 
 
 func _on_chat_submitted(text: String) -> void:
@@ -119,6 +253,12 @@ func _on_message(text: String) -> void:
 		"hello":
 			_locations = data.get("world", {}).get("locations", [])
 			_props = data.get("world", {}).get("props", [])
+			var cfg: Dictionary = data.get("config", {})
+			_minutes_per_tick = float(cfg.get("minutes_per_tick", 0.0))
+			_time_scale = float(cfg.get("time_scale", 1.0))
+			_game_min_per_sec = float(cfg.get("game_min_per_sec", 0.0))
+			_paused = _time_scale <= 0.0
+			_refresh_speed_label()
 			_log("Entered %s (%d locations)" % [data.get("world", {}).get("name", "?"), _locations.size()])
 		"joined":
 			_player_id = data.get("id", "")
@@ -126,8 +266,19 @@ func _on_message(text: String) -> void:
 		"snapshot":
 			_clock = data.get("clock", {})
 			_players = data.get("players", [])
+			if data.has("time_scale"):
+				_time_scale = float(data.get("time_scale", _time_scale))
+				_game_min_per_sec = float(data.get("game_min_per_sec", _game_min_per_sec))
+				_paused = _time_scale <= 0.0
+				_refresh_speed_label()
 			for a in data.get("agents", []):
 				_agents[a["id"]] = a
+		"speed":
+			_time_scale = float(data.get("time_scale", _time_scale))
+			_game_min_per_sec = float(data.get("game_min_per_sec", _game_min_per_sec))
+			_paused = bool(data.get("paused", _time_scale <= 0.0))
+			_refresh_speed_label()
+			_log("World speed: %s" % ("PAUSED" if _paused else "%sx" % str(_time_scale)))
 		"event":
 			_on_event(data.get("event", {}))
 		"npc_reply":
@@ -154,8 +305,28 @@ func _on_event(evt: Dictionary) -> void:
 			_log("** %s has died: %s **" % [evt.get("name", "?"), evt.get("cause", "")])
 
 
+func _input(event: InputEvent) -> void:
+	if not (event is InputEventKey) or not event.pressed or event.echo:
+		return
+	# while typing in any text field, keys belong to it (Esc just unfocuses)
+	var focused := get_viewport().gui_get_focus_owner()
+	if focused is LineEdit:
+		if event.keycode == KEY_ESCAPE:
+			focused.release_focus()
+		return
+	match event.keycode:
+		KEY_ESCAPE:
+			_toggle_settings()
+		KEY_EQUAL, KEY_KP_ADD:          # '=' shares the physical '+' key
+			_change_speed(1)
+		KEY_MINUS, KEY_KP_SUBTRACT:
+			_change_speed(-1)
+		KEY_SPACE:
+			_toggle_pause()
+
+
 func _handle_input(delta: float) -> void:
-	if _player_id == "":
+	if _player_id == "" or _settings_open:
 		return
 	# don't drive the character while typing in the chat box
 	if _chat_input and _chat_input.has_focus():
@@ -316,6 +487,10 @@ func _draw_hud(font: Font) -> void:
 		stamp = "Day %d  %s  %s  (%s)" % [_clock.get("day_index", 0), _clock.get("day_name", ""), _clock.get("hhmm", ""), _clock.get("part_of_day", "")]
 	draw_string(font, Vector2(20, 27), "Realmweave - Oakhollow", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.9, 0.85, 0.6))
 	draw_string(font, Vector2(20, 44), stamp, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.75, 0.8, 0.85))
+	# speed readout
+	var spd := "PAUSED" if _paused else "%sx  (%.0f min/s)" % [str(_time_scale), _game_min_per_sec]
+	var spd_col := Color(0.95, 0.6, 0.5) if _paused else Color(0.6, 0.85, 0.7)
+	draw_string(font, Vector2(230, 27), spd, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, spd_col)
 
 	# event log panel (bottom)
 	var vp := get_viewport_rect().size
@@ -324,7 +499,8 @@ func _draw_hud(font: Font) -> void:
 	for line in _events.slice(max(0, _events.size() - 7), _events.size()):
 		draw_string(font, Vector2(20, y), line, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.8, 0.8, 0.85))
 		y += 16
-	draw_string(font, Vector2(vp.x - 260, 27), "WASD walk  ·  O: through their eyes", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.6, 0.6, 0.65))
+	draw_string(font, Vector2(vp.x - 360, 27), "WASD walk · O: eyes · -/+ speed · Space pause · Esc settings",
+		HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.6, 0.6, 0.65))
 
 
 func _log(msg: String) -> void:
