@@ -39,6 +39,14 @@ def _clamp(v: float, lo: float, hi: float) -> float:
     return lo if v < lo else hi if v > hi else v
 
 
+def step_speed(steps, current, delta):
+    """Snap 'current' onto the nearest rung of the speed ladder, then move
+    'delta' rungs (clamped). Pure so it can be unit-tested."""
+    cur = min(range(len(steps)), key=lambda i: abs(steps[i] - current))
+    nxt = max(0, min(len(steps) - 1, cur + int(delta)))
+    return steps[nxt]
+
+
 class RealmweaveServer:
     def __init__(self, config: dict):
         self.cfg = config
@@ -52,6 +60,11 @@ class RealmweaveServer:
         self._player_counter = 0
         self.interest_radius = float(self.scfg.get("interest_radius", 24.0))
         self.max_players = int(self.scfg.get("max_players", 16))
+        # live time control: a runtime multiplier on the tick rate. 1.0 = the
+        # configured speed, <1 slower, 0 = paused. Adjustable by clients (+/-).
+        self.base_tps = float(self.scfg.get("ticks_per_second", 8))
+        self.time_scale = 1.0
+        self.SPEED_STEPS = [0.0, 0.25, 0.5, 1.0, 2.0, 4.0]
         self._event_queue: "asyncio.Queue[dict]" = asyncio.Queue()
         self.sim.subscribe(self._on_event)
 
@@ -94,7 +107,10 @@ class RealmweaveServer:
         await ws.send(json.dumps({
             "type": "hello",
             "world": self.sim.world.to_dict(),
-            "config": {"minutes_per_tick": self.sim.cfg.minutes_per_tick},
+            "config": {"minutes_per_tick": self.sim.cfg.minutes_per_tick,
+                       "ticks_per_second": self.base_tps,
+                       "time_scale": self.time_scale,
+                       "game_min_per_sec": round(self._game_min_per_sec(), 2)},
         }))
         try:
             async for raw in ws:
@@ -226,6 +242,22 @@ class RealmweaveServer:
             if a is not None:
                 a._possessed = False
                 await ws.send(json.dumps({"type": "possess_result", "ok": True, "released": True}))
+        elif mtype == "set_speed":
+            await self._set_speed(msg)
+
+    async def _set_speed(self, msg: dict) -> None:
+        """Live time control. 'delta' steps up/down the speed ladder; 'scale'
+        sets an absolute multiplier (0 pauses). Broadcast so every viewer agrees."""
+        if "scale" in msg:
+            self.time_scale = _clamp(float(msg.get("scale", 1.0)), 0.0, 8.0)
+        else:
+            self.time_scale = step_speed(self.SPEED_STEPS, self.time_scale, int(msg.get("delta", 0)))
+        await self._broadcast({"type": "speed", "time_scale": self.time_scale,
+                               "game_min_per_sec": round(self._game_min_per_sec(), 2),
+                               "paused": self.time_scale <= 0})
+
+    def _game_min_per_sec(self) -> float:
+        return self.sim.cfg.minutes_per_tick * self.base_tps * self.time_scale
 
     # ---- divine influence ---------------------------------------------
     async def _divine_suggest_nearest(self, ws, player, text: str) -> None:
@@ -302,10 +334,12 @@ class RealmweaveServer:
                                   "coin": player["coin"]}))
 
     async def sim_loop(self) -> None:
-        dt = 1.0 / max(1, self.scfg["ticks_per_second"])
         while True:
+            if self.time_scale <= 0:            # paused
+                await asyncio.sleep(0.1)
+                continue
             self.sim.tick()
-            await asyncio.sleep(dt)
+            await asyncio.sleep(1.0 / max(0.01, self.base_tps * self.time_scale))
 
     async def event_loop(self) -> None:
         while True:
@@ -327,6 +361,8 @@ class RealmweaveServer:
             base = self.sim.snapshot()
             base["type"] = "snapshot"
             base["players"] = list(self.players.values())
+            base["time_scale"] = self.time_scale
+            base["game_min_per_sec"] = round(self._game_min_per_sec(), 2)
             for ws in list(self.clients):
                 await self._safe_send(ws, json.dumps(self._client_snapshot(ws, base)))
             # send each observer the subjective view of the agent they're watching
