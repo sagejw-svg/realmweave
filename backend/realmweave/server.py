@@ -11,6 +11,8 @@ Protocol (JSON, newline-free frames):
     {"type":"player_join", "name":"..."}
     {"type":"player_move", "id":"...", "x":.., "y":..}
     {"type":"player_say", "id":"...", "text":"..."}
+    {"type":"player_buy", "id":"...", "item_index":N}        buy from a nearby shop
+    {"type":"player_give", "id":"...", "amount":N}           gift coin to nearest NPC
     {"type":"admin_kill", "id":"agent_id", "cause":"..."}   (dev only)
 
 The sim advances on a fixed real-time cadence (ticks_per_second) and snapshots
@@ -76,12 +78,18 @@ class RealmweaveServer:
             print(f"Resumed world from {self.save_path} at {self.sim.clock.stamp()}")
         else:
             print("Starting a fresh world (no save found).")
+        # mirror the economic ledger to a JSONL log beside the save
+        try:
+            self.sim.economy.ledger.attach(
+                os.path.join(os.path.dirname(self.save_path), "world_ledger.jsonl"))
+        except Exception as e:
+            print(f"[ledger] file mirror disabled: {e}")
 
     def _on_event(self, evt: dict) -> None:
         # only push interesting events to clients (skip per-tick noise)
         if evt["kind"] in ("dialogue", "death", "reflection", "shop_founded",
-                           "trade", "quest_posted", "quest_accepted", "quest_completed",
-                           "divine_suggestion", "divine_authored", "rumor",
+                           "trade", "gift", "stuck", "quest_posted", "quest_accepted",
+                           "quest_completed", "divine_suggestion", "divine_authored", "rumor",
                            "crime", "bounty", "arrest", "escape",
                            "player_join", "player_leave"):
             try:
@@ -189,6 +197,34 @@ class RealmweaveServer:
                 else:
                     await ws.send(json.dumps({"type": "npc_reply", "agent_name": "",
                                               "text": "(No one is close enough to hear you.)"}))
+        elif mtype == "player_buy":
+            p = self.players.get(msg.get("id"))
+            # authority: only for your own character; the server owns the coin and
+            # only debits it on a confirmed sale (the client cannot mint money or
+            # teleport to a shop - purchases use the character's real position).
+            if p and self._ws_player.get(ws) == p["id"]:
+                idx = msg.get("item_index")
+                idx = int(idx) if isinstance(idx, (int, float)) else None
+                res = self.sim.player_buy(p["name"], p["x"], p["y"], int(p.get("coin", 0)),
+                                          item_index=idx)
+                if res.get("ok"):
+                    p["coin"] = int(p.get("coin", 0)) - int(res["price"])
+                    res["coin"] = p["coin"]
+                await ws.send(json.dumps({"type": "buy_result", **res}))
+        elif mtype == "player_give":
+            p = self.players.get(msg.get("id"))
+            if p and self._ws_player.get(ws) == p["id"]:
+                amount = max(0, int(msg.get("amount", 0)))
+                if amount > int(p.get("coin", 0)):
+                    await ws.send(json.dumps({"type": "give_result", "ok": False,
+                                              "reason": "not enough coin"}))
+                    return
+                res = self.sim.player_give(p["name"], p["x"], p["y"], amount=amount,
+                                           gift=str(msg.get("gift", "a small gift"))[:60])
+                if res.get("ok") and amount > 0:
+                    p["coin"] = int(p.get("coin", 0)) - amount
+                    res["coin"] = p["coin"]
+                await ws.send(json.dumps({"type": "give_result", **res}))
         elif mtype == "divine_suggest":
             res = self.sim.divine.suggest(msg.get("agent_id", ""), str(msg.get("text", "")),
                                           goal_kind=msg.get("goal_kind", ""))

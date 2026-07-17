@@ -52,10 +52,13 @@ class Agent:
     schedule: List[ScheduleBlock] = field(default_factory=list)
     speed: float = 1.6
     # needs
-    energy: Need = field(default_factory=lambda: Need(0.8, 0.010))
-    hunger: Need = field(default_factory=lambda: Need(0.7, 0.015))
-    thirst: Need = field(default_factory=lambda: Need(0.7, 0.020))
-    social: Need = field(default_factory=lambda: Need(0.6, 0.008))
+    # decay is deliberately gentle: with needs now satisfiable only at their
+    # source (well/tavern/home), a single fetch must buy enough buffer that an
+    # agent can also get on with its life (work, goals) between trips.
+    energy: Need = field(default_factory=lambda: Need(0.8, 0.007))
+    hunger: Need = field(default_factory=lambda: Need(0.7, 0.008))
+    thirst: Need = field(default_factory=lambda: Need(0.7, 0.010))
+    social: Need = field(default_factory=lambda: Need(0.6, 0.006))
     # state
     health: float = 1.0
     alive: bool = True
@@ -72,6 +75,7 @@ class Agent:
     goal: Optional["Goal"] = None                                # current self-set aim
     coin: int = 0                                                # money
     inventory: List = field(default_factory=list)               # List[economy.Item]
+    materials: Dict[str, int] = field(default_factory=dict)     # raw material stock (name -> qty)
     god_disposition: float = 0.0                                 # feeling toward the god -1..1
     known_facts: set = field(default_factory=set)               # keyed facts this agent knows
     # identity, reputation & justice (Phase 7)
@@ -205,6 +209,11 @@ def default_agents() -> List[Agent]:
                              (10, "wander", "field"), (13, "eat", "tavern"),
                              (15, "chores", "square"), (20, "socialize", "tavern"),
                              (22, "sleep", "home_dora"))),
+        Agent("gart", "Gart Stone", "Miner", "home_gart", "mine", 56, 32,
+              persona="Broad, taciturn miner who works the Ironbark seam. Trusts stone over people, keeps a keen eye for a rich vein.",
+              schedule=sched((0, "sleep", "home_gart"), (6, "work", "mine"),
+                             (12, "eat", "tavern"), (13, "work", "mine"),
+                             (20, "socialize", "tavern"), (22, "sleep", "home_gart"))),
     ]
     # seed a few relationships
     cast_by = {a.id: a for a in cast}
@@ -213,4 +222,6 @@ def default_agents() -> List[Agent]:
     cast_by["isla"].adjust_affinity("dora", 0.4)
     cast_by["dora"].adjust_affinity("isla", 0.4)
     cast_by["wren"].adjust_affinity("elda", 0.3)
+    cast_by["gart"].adjust_affinity("toft", 0.3)   # miner supplies the smith
+    cast_by["toft"].adjust_affinity("gart", 0.3)
     return cast

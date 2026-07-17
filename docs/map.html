@@ -25,6 +25,10 @@
   canvas{width:100%;max-width:960px;height:auto;border:1px solid var(--line);border-radius:12px;background:#0b0d12}
   .legend{color:var(--dim);font-size:12px;margin-top:8px}
   footer{color:var(--dim);font-size:11px;text-align:center;padding:14px}
+  .wx{display:flex;gap:4px;align-items:center}
+  .wx b{color:var(--dim);font-weight:400;font-size:11px;margin-right:2px}
+  .wx button{padding:3px 7px;font-size:11px;color:var(--dim)}
+  .wx button.on{border-color:var(--gold);color:var(--gold);background:#20242f}
 </style>
 </head>
 <body>
@@ -36,6 +40,9 @@
   <span class="status"><span class="dot" id="dot"></span><span id="statusText">connecting...</span></span>
   <span class="spacer"></span>
   <span id="clock" style="color:var(--gold);font-weight:600"></span>
+  <span class="wx" id="wx"><b>Weather</b>
+    <button data-w="auto" class="on">Auto</button><button data-w="clear">Clear</button><button data-w="rain">Rain</button><button data-w="snow">Snow</button>
+  </span>
   <input id="url" spellcheck="false" style="width:190px" />
   <button id="connectBtn">Connect</button>
 </header>
@@ -45,7 +52,7 @@
   <div class="legend" id="mode"></div>
 </main>
 
-<footer>The map tints with the world clock - dawn, day, dusk and night. Start the server (<code>python run_server.py</code>) for the living world; otherwise a demo village is shown.</footer>
+<footer>Dynamic lighting follows the world clock - soft dawn, clear day, warm dusk and deep night, with lamplight pooling at the forge, tavern, well and square after dark. Weather (rain and snow) is a local cosmetic layer. Start the server (<code>python run_server.py</code>) for the living world; otherwise a demo village is shown.</footer>
 
 <script>
 const DEFAULT_URL="ws://127.0.0.1:8765";
@@ -55,81 +62,231 @@ const SCALE=cv.width/66, OX=18, OY=18;
 let ws=null, demoTimer=null, isDemo=false;
 let world=null, snap=null, rpos={};
 
+// --- Kenney Roguelike/RPG tiles (CC0). 16x16 tiles, 1px margin => 17px pitch.
+// See ASSETS.md for provenance and docs/ART.md for the tile-index reference.
+const TILES=new Image(); TILES.src="assets/tiles/roguelikeSheet_transparent.png";
+const CHARS=new Image(); CHARS.src="assets/sprites/roguelikeChar_transparent.png";
+let tilesReady=false, charsReady=false;
+TILES.onload=()=>tilesReady=true; CHARS.onload=()=>charsReady=true;
+ctx.imageSmoothingEnabled=false;
+// tile coordinates (col,row) on the base sheet
+const T_GRASS=[5,0], T_STONE=[8,0], T_FIELD=[2,7], T_WATER=[3,2],
+      T_TREE=[13,10], T_PINE=[16,10], T_ROCK=[6,15];
+const ROOF={tavern:[16,26],home:[13,25],stable:[18,28],smithy:[19,29],
+            shop:[15,26],gate:[14,25],well:[17,27],square:[13,25],field:[15,26]};
+// role -> character sprite (col,row) on the character sheet
+const ROLE_TILE={Tavernkeeper:[0,10],"Stable hand":[1,3],Blacksmith:[0,5],"Street sweeper":[1,6],
+  Farmer:[0,3],"Gate guard":[0,11],"Errand child":[0,9],Herbalist:[1,5]};
+
 const urlInput=$("#url");
 try{ urlInput.value=localStorage.getItem("rw_url")||DEFAULT_URL; }catch(e){ urlInput.value=DEFAULT_URL; }
 function setStatus(k,t){ $("#dot").className="dot "+(k==="on"?"on":k==="demo"?"demo":"off"); $("#statusText").textContent=t; }
 function px(x,y){ return [OX + x*SCALE, OY + y*SCALE]; }
-
-const ROLE_COLOR={Tavernkeeper:"#d9c46b","Stable hand":"#b08850",Blacksmith:"#c85a5a","Street sweeper":"#7fa0b0",
-  Farmer:"#7fb05a","Gate guard":"#9aa4b4","Errand child":"#5ac0c0",Herbalist:"#a77bd0"};
-const KIND_COLOR={tavern:"#7a4a20",home:"#4a4f6a",stable:"#6a5236",well:"#356f7f",square:"#3f5a3a",
-  smithy:"#6a3a3a",field:"#5a7a3a",gate:"#565a66",shop:"#b0842a"};
+function tile(img,col,row,cx,cy,size){ ctx.drawImage(img,col*17,row*17,16,16, cx-size/2, cy-size/2, size, size); }
 
 function loc(id){ return (world.locations||[]).find(l=>l.id===id); }
 
 function draw(){
-  if(!world){ return; }
+  if(!world || !tilesReady || !charsReady){ return; }
   ctx.clearRect(0,0,cv.width,cv.height);
-  // grass ground
-  ctx.fillStyle="#2b3b28"; ctx.fillRect(0,0,cv.width,cv.height);
-  ctx.fillStyle="#30422c";
-  for(let gx=0;gx<66;gx+=2) for(let gy=0;gy<52;gy+=2){ if((gx+gy)%4===0){ const [x,y]=px(gx,gy); ctx.fillRect(x,y,SCALE*2,SCALE*2);} }
-  // pond
-  (world.props||[]).filter(p=>p.kind==="pond").forEach(p=>{ const [x,y]=px(p.x,p.y);
-    ctx.fillStyle="#2f5a70"; ctx.beginPath(); ctx.ellipse(x,y,SCALE*4,SCALE*2.6,0,0,7); ctx.fill();
-    ctx.strokeStyle="#3f7088"; ctx.stroke(); });
-  // paths from the square hub to each place
+  // grass ground (one tile per 2 world units)
+  for(let gx=0;gx<68;gx+=2) for(let gy=0;gy<54;gy+=2){ const [x,y]=px(gx,gy); tile(TILES,T_GRASS[0],T_GRASS[1],x,y,SCALE*2+2); }
+  // stone paths radiating from the square hub
   const sq=loc("square");
-  if(sq){ ctx.strokeStyle="#5a4c33"; ctx.lineWidth=SCALE*0.7; ctx.lineCap="round";
-    (world.locations||[]).forEach(l=>{ if(l.id==="square"||l.kind==="home") return;
-      const [ax,ay]=px(sq.x,sq.y), [bx,by]=px(l.x,l.y);
-      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke(); }); }
-  // buildings
-  (world.locations||[]).forEach(l=>{ const [x,y]=px(l.x,l.y); const c=KIND_COLOR[l.kind]||"#555";
-    const w=SCALE*3.4,h=SCALE*2.4;
-    ctx.fillStyle=c; ctx.fillRect(x-w/2,y-h/2,w,h);
-    ctx.fillStyle="#0006"; ctx.fillRect(x-w/2,y-h/2,w,h*0.34); // roof shadow
-    ctx.strokeStyle="#0008"; ctx.lineWidth=1; ctx.strokeRect(x-w/2,y-h/2,w,h);
-    ctx.fillStyle="#c9cede"; ctx.font="10px system-ui"; ctx.textAlign="center";
-    ctx.fillText(l.name, x, y+h/2+11); });
+  if(sq){ (world.locations||[]).forEach(l=>{ if(l.id==="square"||l.kind==="home") return;
+    const n=Math.floor(Math.hypot(l.x-sq.x,l.y-sq.y)/1.4)+1;
+    for(let k=0;k<=n;k++){ const x=sq.x+(l.x-sq.x)*k/n, y=sq.y+(l.y-sq.y)*k/n; const [px_,py_]=px(x,y);
+      tile(TILES,T_STONE[0],T_STONE[1],px_,py_,SCALE*1.7); } }); }
+  // crop field patches
+  (world.locations||[]).filter(l=>l.kind==="field").forEach(l=>{
+    for(const dx of [-2,0,2]) for(const dy of [-2,0,2]){ const [x,y]=px(l.x+dx,l.y+dy); tile(TILES,T_FIELD[0],T_FIELD[1],x,y,SCALE*2+2); } });
+  // pond
+  (world.props||[]).filter(p=>p.kind==="pond").forEach(p=>{
+    for(const dx of [-3,-1,1,3]) for(const dy of [-2,0,2]){ const [x,y]=px(p.x+dx,p.y+dy); tile(TILES,T_WATER[0],T_WATER[1],x,y,SCALE*2+2); } });
+  // buildings (top-down = roofs); wells, gates and the square are special
+  (world.locations||[]).forEach(l=>{ const [x,y]=px(l.x,l.y); const k=l.kind;
+    if(k==="field"){ }
+    else if(k==="well"){ tile(TILES,T_STONE[0],T_STONE[1],x,y,SCALE*1.7); tile(TILES,T_WATER[0],T_WATER[1],x,y,SCALE*0.9); }
+    else if(k==="square"){ for(const dx of [-1.5,0,1.5]) for(const dy of [-1,1]){ const [a,b]=px(l.x+dx,l.y+dy); tile(TILES,T_STONE[0],T_STONE[1],a,b,SCALE*1.6); } }
+    else if(k==="gate"){ tile(TILES,T_ROCK[0],T_ROCK[1],x,y,SCALE*1.8); }
+    else { const r=ROOF[k]||ROOF.home; for(const dx of [-1.2,0,1.2]) for(const dy of [-0.9,0.9]){ const [a,b]=px(l.x+dx,l.y+dy); tile(TILES,r[0],r[1],a,b,SCALE*1.5+2); } }
+    ctx.fillStyle="#e7e8ee"; ctx.font="10px system-ui"; ctx.textAlign="center";
+    ctx.strokeStyle="#0009"; ctx.lineWidth=3; ctx.strokeText(l.name, x, y+SCALE*1.9); ctx.fillText(l.name, x, y+SCALE*1.9); });
   // trees & rocks
-  (world.props||[]).forEach(p=>{ const [x,y]=px(p.x,p.y);
-    if(p.kind==="tree"){ ctx.fillStyle="#5a3f22"; ctx.fillRect(x-1.5,y-2,3,SCALE*1.4);
-      ctx.fillStyle="#3c6b34"; ctx.beginPath(); ctx.arc(x,y-SCALE*0.6,SCALE*1.6,0,7); ctx.fill();
-      ctx.fillStyle="#4b8040"; ctx.beginPath(); ctx.arc(x-2,y-SCALE*0.9,SCALE*1.0,0,7); ctx.fill(); }
-    else if(p.kind==="rock"){ ctx.fillStyle="#6b6f78"; ctx.beginPath(); ctx.arc(x,y,SCALE*0.9,0,7); ctx.fill(); } });
-  // agents
+  (world.props||[]).forEach((p,i)=>{ const [x,y]=px(p.x,p.y);
+    if(p.kind==="tree"){ const tr=(i%2===0)?T_TREE:T_PINE; tile(TILES,tr[0],tr[1],x,y-SCALE*0.4,SCALE*2.6); }
+    else if(p.kind==="rock"){ tile(TILES,T_ROCK[0],T_ROCK[1],x,y,SCALE*1.4); } });
+  // agents (character sprites)
   (snap&&snap.agents||[]).forEach(a=>{
     const id=a.id, tgt=px(a.x,a.y);
     if(!rpos[id]) rpos[id]=tgt.slice();
     rpos[id][0]+=(tgt[0]-rpos[id][0])*0.2; rpos[id][1]+=(tgt[1]-rpos[id][1])*0.2;
     const [x,y]=rpos[id]; const alive=a.alive!==false;
-    const col=alive?(ROLE_COLOR[a.role]||"#cbb87a"):"#4a4040";
-    if(a.wanted){ ctx.strokeStyle="#c85a5a"; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(x,y-2,SCALE*1.5,0,7); ctx.stroke(); }
-    ctx.fillStyle=col; ctx.beginPath(); ctx.arc(x,y-SCALE*0.7,SCALE*0.7,0,7); ctx.fill();      // head
-    ctx.fillRect(x-SCALE*0.6,y-SCALE*0.2,SCALE*1.2,SCALE*1.3);                                  // body
+    if(a.wanted){ ctx.strokeStyle="#c85a5a"; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(x,y-SCALE*0.3,SCALE*1.5,0,7); ctx.stroke(); }
+    const c=ROLE_TILE[a.role]||[0,0];
+    ctx.save(); if(!alive) ctx.globalAlpha=0.45;
+    tile(CHARS,c[0],c[1],x,y-SCALE*0.3,SCALE*2.4);
+    ctx.restore();
     ctx.fillStyle=alive?"#e7e8ee":"#8a8a8a"; ctx.font="10px system-ui"; ctx.textAlign="center";
-    ctx.fillText(alive?a.name:(a.name+" +"), x, y-SCALE*1.6);
-    if(a.alias){ ctx.fillStyle="#9aa0b4"; ctx.font="9px system-ui"; ctx.fillText("aka "+a.alias, x, y+SCALE*1.9); }
+    ctx.strokeStyle="#0009"; ctx.lineWidth=3;
+    const nm=alive?a.name:(a.name+" +"); ctx.strokeText(nm,x,y-SCALE*1.7); ctx.fillText(nm,x,y-SCALE*1.7);
+    if(a.alias){ ctx.fillStyle="#c9cede"; ctx.font="9px system-ui"; ctx.fillText("aka "+a.alias, x, y+SCALE*1.6); }
   });
-  // players
+  // players (silver knight sprite)
   (snap&&snap.players||[]).forEach(p=>{ const [x,y]=px(p.x,p.y);
-    ctx.fillStyle="#5ac0f0"; ctx.beginPath(); ctx.arc(x,y-SCALE*0.7,SCALE*0.8,0,7); ctx.fill();
-    ctx.fillRect(x-SCALE*0.6,y-SCALE*0.2,SCALE*1.2,SCALE*1.3);
-    ctx.fillStyle="#bfe6ff"; ctx.font="10px system-ui"; ctx.textAlign="center"; ctx.fillText(p.name, x, y-SCALE*1.6); });
-  // day / night tint
-  applyTint();
+    tile(CHARS,1,11,x,y-SCALE*0.3,SCALE*2.5);
+    ctx.fillStyle="#bfe6ff"; ctx.font="10px system-ui"; ctx.textAlign="center";
+    ctx.strokeStyle="#0009"; ctx.lineWidth=3; ctx.strokeText(p.name,x,y-SCALE*1.7); ctx.fillText(p.name, x, y-SCALE*1.7); });
+  // atmosphere: darken by clock, then punch warm light pools through, then ambience
+  const amb=drawAmbient();
+  const nightness=clamp((amb[3]-0.05)/0.5,0,1);
+  drawLights(nightness);
+  drawAmbience(nightness);
+  drawWeather();
+  updateClock();
 }
 
-function applyTint(){
-  const pod = snap&&snap.clock? snap.clock.part_of_day : "afternoon";
-  const tint={ night:"rgba(12,22,60,0.5)", evening:"rgba(120,60,20,0.24)",
-               morning:"rgba(200,170,120,0.10)", afternoon:"rgba(0,0,0,0)" }[pod] || "rgba(0,0,0,0)";
-  ctx.fillStyle=tint; ctx.fillRect(0,0,cv.width,cv.height);
-  if(snap&&snap.clock){ $("#clock").textContent=`Day ${snap.clock.day_index} - ${snap.clock.hhmm} (${pod})`; }
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+
+// --- Day/night ambient ramp -------------------------------------------------
+// Continuous overlay colour keyed to the world clock (hour of day), so the
+// scene eases through soft dawn, clear day, golden dusk and deep-blue night
+// instead of snapping between four discrete tints.
+const AMB=[ [0,[8,14,46,0.62]], [5,[16,22,58,0.52]], [6.3,[120,78,54,0.34]],
+  [7.2,[210,165,112,0.13]], [8.5,[0,0,0,0.03]], [11,[0,0,0,0]], [16,[0,0,0,0]],
+  [17.8,[150,92,44,0.16]], [19,[126,58,22,0.30]], [20,[46,38,74,0.45]],
+  [21.2,[14,20,56,0.56]], [24,[8,14,46,0.62]] ];
+function clockHours(){
+  const c=snap&&snap.clock;
+  if(c&&/^\d\d?:\d\d$/.test(c.hhmm||"")){ const [h,m]=c.hhmm.split(":").map(Number); return h+m/60; }
+  return ({night:1,morning:6.5,afternoon:13,evening:19})[(c&&c.part_of_day)||"afternoon"] ?? 13;
+}
+function ambAt(h){
+  for(let i=0;i<AMB.length-1;i++){ const a=AMB[i],b=AMB[i+1];
+    if(h>=a[0]&&h<=b[0]){ const t=(h-a[0])/(b[0]-a[0]||1);
+      return a[1].map((v,k)=>v+(b[1][k]-v)*t); } }
+  return AMB[0][1];
+}
+function drawAmbient(){
+  const amb=ambAt(clockHours());
+  if(amb[3]>0.002){ ctx.fillStyle=`rgba(${amb[0]|0},${amb[1]|0},${amb[2]|0},${amb[3]})`; ctx.fillRect(0,0,cv.width,cv.height); }
+  return amb;
 }
 
-function loop(){ draw(); requestAnimationFrame(loop); }
+// --- Warm light pools (additive) --------------------------------------------
+function lightSources(){
+  const out=[];
+  (world&&world.locations||[]).forEach(l=>{
+    switch(l.kind){
+      case "smithy": out.push({x:l.x,y:l.y-0.3,r:5.5,c:[255,140,45],amp:0.35,sp:9,base:1.0}); break; // forge
+      case "tavern": out.push({x:l.x,y:l.y,r:5.0,c:[255,196,96],amp:0.14,sp:5,base:0.9}); break;      // lit windows
+      case "square": out.push({x:l.x,y:l.y,r:4.6,c:[255,210,150],amp:0.10,sp:4,base:0.85}); break;    // lamp post
+      case "well":   out.push({x:l.x,y:l.y,r:3.6,c:[255,205,140],amp:0.10,sp:4,base:0.7}); break;
+      case "gate":   out.push({x:l.x,y:l.y,r:3.6,c:[255,200,140],amp:0.12,sp:4,base:0.7}); break;
+      case "shop":   out.push({x:l.x,y:l.y,r:3.8,c:[255,198,120],amp:0.12,sp:5,base:0.7}); break;
+      case "home":   out.push({x:l.x,y:l.y,r:3.0,c:[255,182,110],amp:0.10,sp:3,base:0.55}); break;
+    }
+  });
+  return out;
+}
+function drawLights(nightness){
+  if(nightness<=0.01) return;
+  const t=performance.now()/1000;
+  ctx.save(); ctx.globalCompositeOperation="lighter";
+  for(const L of lightSources()){
+    const fl=Math.max(0.4, L.base*(1 + L.amp*Math.sin(t*L.sp+L.x) + L.amp*0.5*Math.sin(t*L.sp*2.3+L.y)));
+    const [cx,cy]=px(L.x,L.y), R=L.r*SCALE*fl, a=0.60*nightness*fl;
+    const g=ctx.createRadialGradient(cx,cy,0,cx,cy,R);
+    g.addColorStop(0,`rgba(${L.c[0]},${L.c[1]},${L.c[2]},${a})`);
+    g.addColorStop(0.45,`rgba(${L.c[0]},${L.c[1]},${L.c[2]},${a*0.35})`);
+    g.addColorStop(1,`rgba(${L.c[0]},${L.c[1]},${L.c[2]},0)`);
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx,cy,R,0,7); ctx.fill();
+  }
+  ctx.restore();
+}
+
+// --- Ambience: chimney smoke (always) + fireflies (night) -------------------
+let _fireflies=null;
+function drawAmbience(nightness){
+  const t=performance.now()/1000;
+  // hearth smoke rising from the smithy and tavern roofs
+  ctx.save(); ctx.globalCompositeOperation="lighter";
+  (world&&world.locations||[]).filter(l=>l.kind==="smithy"||l.kind==="tavern").forEach((l,li)=>{
+    const [bx,by]=px(l.x,l.y-1.2);
+    for(let i=0;i<5;i++){ const ph=(t*0.35+i*0.2+li*0.5)%1;
+      const y=by-ph*SCALE*3.2, x=bx+Math.sin((ph+li)*6.28)*SCALE*0.35;
+      const rad=SCALE*(0.3+ph*0.9), a=0.10*(1-ph);
+      ctx.fillStyle=`rgba(180,180,190,${a})`; ctx.beginPath(); ctx.arc(x,y,rad,0,7); ctx.fill(); }
+  });
+  ctx.restore();
+  // fireflies drifting near the treeline after dark
+  if(nightness>0.35){
+    if(!_fireflies){ _fireflies=[]; const trees=(world&&world.props||[]).filter(p=>p.kind==="tree");
+      for(let i=0;i<14;i++){ const base=trees.length?trees[i%trees.length]:{x:20+i*3,y:30};
+        _fireflies.push({bx:base.x,by:base.y,ph:Math.random()*6.28,sp:0.5+Math.random()}); } }
+    ctx.save(); ctx.globalCompositeOperation="lighter";
+    for(const f of _fireflies){ const wob=t*f.sp+f.ph;
+      const [x,y]=px(f.bx+Math.sin(wob)*2.2, f.by+Math.cos(wob*0.7)*1.6);
+      const a=(0.35+0.35*Math.sin(t*3+f.ph))*(nightness-0.35)/0.65;
+      if(a<=0) continue;
+      ctx.fillStyle=`rgba(210,230,140,${a})`; ctx.beginPath(); ctx.arc(x,y,1.7,0,7); ctx.fill(); }
+    ctx.restore();
+  }
+}
+
+// --- Weather (client-only cosmetic) -----------------------------------------
+const weather={mode:"auto",type:"clear",target:"clear",intensity:0,next:0};
+let RAIN=null, SNOW=null;
+function ensureWx(){
+  if(!RAIN){ RAIN=[]; for(let i=0;i<340;i++) RAIN.push({x:Math.random()*cv.width,y:Math.random()*cv.height,l:10+Math.random()*12,sp:9+Math.random()*7}); }
+  if(!SNOW){ SNOW=[]; for(let i=0;i<220;i++) SNOW.push({x:Math.random()*cv.width,y:Math.random()*cv.height,r:1+Math.random()*2.2,sp:0.7+Math.random()*1.3,sw:0.6+Math.random()*1.2,ph:Math.random()*6.28,a:0.5+Math.random()*0.5}); }
+}
+function updateWeather(dt){
+  const t=performance.now()/1000;
+  if(weather.mode==="auto"){
+    if(t>weather.next){ const r=Math.random();
+      weather.target = r<0.55?"clear": r<0.85?"rain":"snow";
+      weather.next = t + 22 + Math.random()*40; }
+  } else { weather.target=weather.mode; }
+  if(weather.type!==weather.target){
+    weather.intensity-=dt*0.45; if(weather.intensity<=0){ weather.intensity=0; weather.type=weather.target; }
+  } else {
+    const tgt = weather.type==="clear"?0:1;
+    weather.intensity=clamp(weather.intensity+(tgt-weather.intensity>0?1:-1)*dt*0.45,0,1);
+  }
+}
+function drawWeather(){
+  ensureWx();
+  const I=weather.intensity; if(I<=0.01||weather.type==="clear") return;
+  if(weather.type==="rain"){
+    ctx.save();
+    ctx.fillStyle=`rgba(54,64,86,${0.16*I})`; ctx.fillRect(0,0,cv.width,cv.height);
+    ctx.strokeStyle=`rgba(190,205,230,${0.5*I})`; ctx.lineWidth=1.1; ctx.beginPath();
+    const wind=2.6, n=Math.floor(RAIN.length*I);
+    for(let i=0;i<n;i++){ const d=RAIN[i];
+      ctx.moveTo(d.x,d.y); ctx.lineTo(d.x-wind*1.2,d.y-d.l);
+      d.y+=d.sp; d.x+=wind; if(d.y>cv.height){ d.y=-10; d.x=Math.random()*cv.width; } if(d.x>cv.width) d.x-=cv.width; }
+    ctx.stroke(); ctx.restore();
+  } else if(weather.type==="snow"){
+    const t=performance.now()/1000;
+    ctx.save();
+    ctx.fillStyle=`rgba(214,224,240,${0.10*I})`; ctx.fillRect(0,0,cv.width,cv.height);
+    const n=Math.floor(SNOW.length*I);
+    for(let i=0;i<n;i++){ const f=SNOW[i], sway=Math.sin(t*f.sw+f.ph)*8;
+      ctx.globalAlpha=f.a*I; ctx.fillStyle="#eef3fb";
+      ctx.beginPath(); ctx.arc(f.x+sway,f.y,f.r,0,7); ctx.fill();
+      f.y+=f.sp; f.x+=0.3; if(f.y>cv.height){ f.y=-6; f.x=Math.random()*cv.width; } if(f.x>cv.width) f.x-=cv.width; }
+    ctx.globalAlpha=1; ctx.restore();
+  }
+}
+// weather control buttons
+document.querySelectorAll("#wx button").forEach(b=>{ b.onclick=()=>{
+  weather.mode=b.dataset.w; weather.next=0;
+  document.querySelectorAll("#wx button").forEach(x=>x.classList.toggle("on",x===b)); }; });
+
+function updateClock(){
+  if(snap&&snap.clock){ const c=snap.clock; $("#clock").textContent=`Day ${c.day_index} - ${c.hhmm} (${c.part_of_day})`; }
+}
 
 function connect(){
   const url=urlInput.value.trim()||DEFAULT_URL;
@@ -167,6 +324,9 @@ function startDemo(){
 }
 
 $("#connectBtn").onclick=connect;
+let _last=performance.now();
+function loop(){ const now=performance.now(); const dt=Math.min(0.05,(now-_last)/1000); _last=now;
+  updateWeather(dt); draw(); requestAnimationFrame(loop); }
 connect(); loop();
 </script>
 </body>

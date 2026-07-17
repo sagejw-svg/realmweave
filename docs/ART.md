@@ -4,35 +4,67 @@ Target look: classic tabletop-fantasy, early-history, medieval villages and
 wilds, readable top-down 2D. See `RESOURCES.md` for vetted CC0/public-domain
 sources and `ASSETS.md` for the license ledger.
 
-## What ships today (Phase 9, first pass)
+## What ships today (Phase 9)
 
-World feel without any binary asset dependency yet:
+Real CC0 sprite tiles now drive both renderers:
 
+- **Kenney Roguelike/RPG tiles (CC0)** - the base sheet
+  (`roguelikeSheet_transparent.png`) and character sheet
+  (`roguelikeChar_transparent.png`) render the ground, stone paths, crop fields,
+  pond, tree/rock props, building roofs, and per-role villager sprites.
 - **Live rendered map** at `docs/map.html` (also on GitHub Pages) - draws
-  Oakhollow from the live world: grass, a pond, paths radiating from the square,
-  buildings colored by kind, trees and rocks, and agents as little figures with
-  nameplates and wanted/alias markers.
-- **Day/night lighting** - both the map view and the Godot client tint the scene
-  by the world clock: soft morning, clear afternoon, warm dusk, deep-blue night.
+  Oakhollow from the live world with the tiles above: grass, paths radiating from
+  the square, roofed buildings by kind, trees and rocks, agents as character
+  sprites with nameplates and wanted/alias markers.
+- **Godot client** (`Main.gd`) blits the same tiles in immediate mode via
+  `draw_texture_rect_region` (nearest-neighbour filtering), so the two clients
+  agree tile-for-tile. No `TileSet`/`TileMapLayer` needed for the current 2D view.
+- **Dynamic day/night lighting + ambience** - both views ease a *continuous*
+  ambient colour across the day (soft dawn, clear noon, golden dusk, deep-blue
+  night) and, after dark, punch warm light pools through it at the forge, tavern,
+  well, square and gate, with gentle flicker. Chimney smoke rises from the smithy
+  and tavern roofs; fireflies drift near the treeline at night.
+- **Weather (rain and snow)** - a client-only cosmetic layer with an Auto cycle
+  and manual Clear / Rain / Snow controls (header buttons on the web map, the
+  R key in the Godot client). By design it never touches the sim, saves, or
+  protocol.
 - **Decorative props** - trees, rocks, and a pond are authored in the world
-  (`world.props`) and streamed to every client, so the map and the game agree.
+  (`world.props`) and streamed to every client.
 
-All of the above is drawn procedurally (original, MIT with the project). It is a
-placeholder that already reads as a village; real sprite tiles slot in on top.
+Assets live in `godot_client/assets/{tiles,sprites}/` (loaded by Godot) and are
+mirrored under `docs/assets/{tiles,sprites}/` (served by GitHub Pages for the web
+map). All are logged in `ASSETS.md`.
 
-## Dropping in real CC0 tiles (Godot)
+## Tile-index reference (base sheet, col,row)
 
-1. Pick a coherent top-down set from a source in `RESOURCES.md` (Kenney's tiny
-   town / roguelike packs are CC0 and a great start).
-2. Put the images under `godot_client/assets/tiles/` and
-   `godot_client/assets/sprites/`.
-3. In Godot 4: create a `TileSet` from the tile image, add a `TileMapLayer` to
-   `Main.tscn`, and paint the ground/paths. Map the world's `locations` and
-   `props` coordinates (same 0..64 grid the map view uses) to tile cells.
-4. Replace the drawn circles in `Main.gd` (`_draw_props`, the agent circles) with
-   `Sprite2D`/`AnimatedSprite2D` nodes per agent, keyed by role. Keep the
-   day/night `_draw_daynight` tint on top.
-5. **Log every asset in `ASSETS.md`** with its source and license before it ships.
+16x16 tiles, 1px margin => 17px pitch. Both renderers share these:
+
+| Use | (col,row) | | Use | (col,row) |
+|-----|-----------|-|-----|-----------|
+| grass | (5,0) | | tree (round) | (13,10) |
+| stone path | (8,0) | | tree (pine) | (16,10) |
+| crop field | (2,7) | | rock/shrub | (6,15) |
+| water | (3,2) | | | |
+
+Building roofs by kind: tavern (16,26), home (13,25), stable (18,28),
+smithy (19,29), shop (15,26), gate (14,25), well (17,27), square (13,25).
+Character sprites (character sheet, col,row): Blacksmith (0,5), Herbalist (1,5),
+Tavernkeeper (0,10), Farmer (0,3), Stable hand (1,3), Gate guard (0,11),
+Errand child (0,9), Street sweeper (1,6); player = silver knight (1,11).
+
+## Swapping in a different tileset
+
+The renderers key off the constants above (`T_GRASS`, `ROOF`, `ROLE_TILE`, etc.
+in `Main.gd`, and the matching block in `docs/map.html`). To try another CC0 set:
+
+1. Drop the new sheet(s) under `godot_client/assets/{tiles,sprites}/` (and mirror
+   to `docs/assets/...` for the web map).
+2. Update the tile-index constants in `Main.gd` and `map.html` to point at the new
+   sheet's cells (and the pitch, if it is not 17px).
+3. For a larger world you may prefer a real Godot `TileSet` + `TileMapLayer` for
+   the ground/paths instead of immediate-mode blits; the data model does not
+   change (the server streams positions, kinds, and time-of-day).
+4. **Log every asset in `ASSETS.md`** with its source and license before it ships.
 
 ## Direction notes
 
@@ -43,3 +75,55 @@ placeholder that already reads as a village; real sprite tiles slot in on top.
 - Original art can replace placeholders over time without changing the data: the
   server streams positions, kinds, and time-of-day; the client decides how to
   paint them.
+
+## Graphics roadmap (path forward)
+
+**Enabling fact:** every upgrade below is client-only. The backend streams
+positions, kinds, and time-of-day; the client decides how to paint them, so
+raising fidelity never touches the simulation, saves, or protocol.
+
+**Shipped (2026-07): lighting, ambience, and weather.** The flat four-step
+day/night tint is gone, replaced by a continuous ambient ramp keyed to the world
+clock, with warm light pools flickering at the forge, tavern, well, square and
+gate after dark, chimney smoke over the smithy and tavern, and fireflies near the
+trees at night. Rain and snow ship as a client-only cosmetic layer (Auto cycle
+plus manual Clear / Rain / Snow controls: header buttons on the web map, the R key
+in Godot).
+
+Where it lives:
+
+- **Web map (`docs/map.html`):** `drawAmbient` (ramp), `drawLights` (additive
+  radial-gradient pools), `drawAmbience` (smoke, fireflies), and the `weather`
+  module (`updateWeather` / `drawWeather`).
+- **Godot (`Main.gd`):** two lighting paths, toggled live with the **L** key:
+  - *lights2d (default, prototype):* real `CanvasModulate` + `PointLight2D`. The
+    world is drawn on a child `CanvasLayer` (`_world_node`) so the modulate/lights
+    dim the world but not the HUD/weather overlays. Warm lamps sit at the forge,
+    tavern, well, square, gate and homes; a soft vision `PointLight2D` follows the
+    player. The night `CanvasModulate` floors around ~0.5 (never fully black), so
+    distant, unlit areas lose visibility while lamplit areas and the player's
+    bubble stay readable. The light cookie is a runtime `GradientTexture2D` (no
+    art asset). `gl_compatibility` supports 2D lights.
+  - *immediate (fallback):* the flat ambient tint + stacked glow circles
+    (`_draw_immediate_lighting`), matching the web map tile-for-tile. Kept as a
+    guaranteed-render fallback and A/B reference.
+  Weather (`_update_weather` / `_draw_weather`) draws on the overlay layer in both
+  modes, so it is unaffected by the world modulate.
+- Weather is deliberately cosmetic and client-side: no sim, save, or protocol
+  changes, consistent with the enabling fact above.
+
+Later tiers, when we want a bigger jump (deferred, not scheduled):
+
+1. **Better-crafted 2D, same style:** real `TileSet` + `TileMapLayer` with
+   autotiling (grass/dirt edges, shorelines), `AnimatedSprite2D` 4-direction
+   walk cycles, y-sort depth. Biggest look-per-effort after lighting. A coherent
+   higher-fidelity pack (Cute Fantasy RPG, Mystic Woods, Epic RPG World, or the
+   CC0 Ninja Adventure set) sits on top, ~free to ~$11.
+2. **Higher-res / distinct identity:** move to 32-48px or hand-painted HD 2D for
+   a recognizable look on the Steam page; realistically a commissioned set.
+3. **2.5D / 3D:** billboarded HD-2D or low-poly 3D (the Kenney bundle's 3D
+   Fantasy Town Kit is a starting point). Large art/engine effort; `PROJECT_PLAN`
+   flags full 3D as a stretch goal, not a phase gate. Parked.
+
+Avoid AI-generated tiles: poor cross-tileset consistency and a licensing/
+provenance liability against our CC0/MIT discipline.

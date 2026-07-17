@@ -10,3 +10,7 @@ build/
 dist/
 *.spec
 packaging/Output/
+
+# local asset-pack downloads (the extracted sheets we ship live in
+# godot_client/assets and docs/assets; the multi-hundred-MB source zips do not)
+Downloads/

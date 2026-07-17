@@ -14,6 +14,20 @@ AI is optional and local-first: a tiered LLM router (Ollama) with a
 deterministic **stub** fallback so everything runs and tests with no GPU. The
 hosted world runs with `force_stub: true` (scripted NPCs, no LLM).
 
+## Key locations
+- Repository / working folder: `C:\Users\USER\Documents\realmweave` (this repo; on
+  the dev machine it is a connected Cowork folder you can read and write).
+- Hosted world (storage/relay, AI off): DigitalOcean droplet `147.182.233.116`,
+  runtime config at `/etc/realmweave/config.json` (via `REALMWEAVE_CONFIG`).
+- Client renderers (both key off the same streamed positions/kinds/time-of-day):
+  - Web map: `docs/map.html` (also served on GitHub Pages).
+  - Godot client script: `godot_client/scripts/Main.gd` (single self-contained script).
+- Art / render + lighting notes: `docs/ART.md`.
+- Tile/sprite assets (CC0 Kenney): `godot_client/assets/{tiles,sprites}/`, mirrored
+  to `docs/assets/{tiles,sprites}/` for the web map; logged in `ASSETS.md`.
+- Backend package: `backend/realmweave/`; tests: `backend/tests/` (stdlib unittest).
+- North-star docs: `DESIGN.md`, `PROJECT_PLAN.md`.
+
 ## Environment / conventions
 - Windows. Use `py`, NOT `python` (the bare `python` hits a Store stub).
 - Repo root: `C:\Users\USER\Documents\realmweave`.
@@ -80,6 +94,15 @@ cd /opt/realmweave && sudo git checkout -- . && sudo git pull && sudo bash deplo
 Phases 0-10 done (living village, cognition, economy, quests, divine, perception,
 justice, subjective view, props/map, multiplayer). Recent: packaging/installer,
 live time control + in-game settings menu.
-NEXT: deep-but-forgiving economy + guilds/factions (thieves/fighters/mage guilds,
-police/guards, supply chains with NPC-fallback-at-a-premium, rent/wages, a JSONL
-world/economy ledger log).
+Recent: deep-but-forgiving economy DONE - a single audited coin path with a JSONL
+world/economy ledger, daily rent + wages, and a forgiving relief floor
+(economy/ledger.py, economy/finance.py); supply chains DONE - recipes + gather/
+refine, local-preferred sourcing with an NPC supplier at a premium
+(economy/recipes.py, economy/supply.py); guilds/factions DONE - fighters/thieves/
+mages/merchants with rosters, tenure-based ranks, daily dues, and member benefits
+(merchant supply discount, fighters deputized for justice pursuit), the gate
+guard seeded as the lawful faction, and a join_guild goal (factions/guilds.py).
+Save format at v12 with migrations; tests: test_finance/test_supply/test_guilds.
+NEXT: inter-agent raw-goods market (gatherers sell surplus to refiners directly,
+not just via the NPC premium), guild job boards/contracts, and Phase 9 art polish
+(client render quality).

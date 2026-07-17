@@ -41,8 +41,12 @@ fallback font)*
 |------|--------|---------|------------|-------------|--------------|
 | `godot_client/icon.svg` | Original (this project) | MIT | Yes | none | `LICENSE` |
 | Procedural map/world art (drawn in `docs/map.html` and Godot `Main.gd`: tiles, trees, buildings, figures, day/night) | Original (this project) | MIT | Yes | none | `LICENSE` |
+| `roguelikeSheet_transparent.png` (base terrain/building/prop tiles) in `godot_client/assets/tiles/` and `docs/assets/tiles/` | Kenney "Roguelike/RPG" pack via [Kenney Game Assets All-in-1](https://kenney.nl/assets/roguelike-rpg-pack) | CC0 1.0 (public domain) | Yes | Not required (credit Kenney appreciated) | `godot_client/assets/tiles/roguelikeSheet_License.txt` |
+| `roguelikeChar_transparent.png` (character sprites) in `godot_client/assets/sprites/` and `docs/assets/sprites/` | Kenney "Roguelike Characters" pack via [Kenney Game Assets All-in-1](https://kenney.nl/assets/roguelike-rpg-pack) | CC0 1.0 (public domain) | Yes | Not required (credit Kenney appreciated) | `godot_client/assets/sprites/roguelikeChar_License.txt` |
 
-*Real sprite tiles will be added on top of the procedural placeholders; see `docs/ART.md` for the drop-in process. Each such asset must be logged here first.*
+*Both Kenney sheets are 16x16 tiles with a 1px margin (17px pitch). The tile-index
+mapping used by the renderers is documented in `docs/ART.md`. CC0 needs no
+attribution, but a "Kenney (kenney.nl), CC0" line on a credits screen is good form.*
 
 ## Reference note (not a dependency)
 

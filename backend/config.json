@@ -21,7 +21,8 @@
     "minutes_per_tick": 10,
     "seed": 7,
     "social_chance": 0.5,
-    "reflection_interval": 720
+    "reflection_interval": 720,
+    "illness_chance": 0.0
   },
   "server": {
     "host": "127.0.0.1",

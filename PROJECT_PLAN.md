@@ -324,6 +324,16 @@ ordered so that every later capstone rests on foundations proven earlier.
 logic). Phases 8-9 are client/art heavy. 9 can slip earlier if you want it to
 look good sooner; it does not block the simulation work.*
 
+> **Status honesty (read before trusting the "Done" column).** "Done" here means
+> the system exists as a module and passes tests, not that its gameplay loop
+> closes in a running world. An external code review (repo read, headless run, 73
+> tests passing) found the architecture strong but several core loops open at the
+> seams: notably the world cannot produce a natural death on its own, needs
+> satisfy regardless of location, and the player has no economy verbs. The honest
+> baseline is **rich Phase 2 with thin loop-closing seams**, not a finished Phase
+> 10. Section 15 folds that review in as the concrete path to a polished,
+> shippable game and supersedes the "next: Phase 11" framing for near-term work.
+
 ### Phase 1 - Rules foundation
 - Add `rules/` : `CharacterSheet`, attributes, `Skill`, `check(skill, mod)` with
   degrees of success and advantage.
@@ -621,6 +631,175 @@ Musopen, Sonniss, Freesound, and others) with license guidance. The rule from
 `ASSETS.md` still holds: anything actually used gets logged with its license
 before it ships. Original art can replace placeholders over time without changing
 the pipeline.
+
+---
+
+## 15. Path to a polished game: closing the loops
+
+This section folds in an external code review (repo read + headless run + full
+test suite, 73 passing) and the two gaps called out directly: the graphics are
+weak and the client has little functionality. The review's headline is that the
+foundation is genuinely strong and the distance to "sells on Steam and works" is
+a short list of loop-closing fixes plus one scope correction, not new
+architecture. Items are ordered by leverage. Claims are marked **[verified]**
+where confirmed in the current source, **[review]** where reported by the review
+and still to be confirmed at implementation time.
+
+### 15.1 The core problem: systems exist, loops do not close
+
+Every headline system is present and tested, but several loops never complete in
+a running world. A loop that does not close reads as a tech demo no matter how
+good the code underneath is. The three highest-cost open loops are verified in
+the source today:
+
+| Open loop | Evidence | Consequence |
+|-----------|----------|-------------|
+| No natural death | **[verified]** `sim.kill()` (`sim.py:235`) is only called by dev-only `admin_kill` (`server.py:202`); `Agent.health` defaults 1.0 (`agents.py:60`) and is never decremented; no need/illness/age path feeds it. | The #1 pitch ("permanent death the world remembers") never fires unprompted. The grief-ripple demo exists only behind a test flag. |
+| Needs satisfy anywhere | **[verified]** `_activity_effects` (`sim.py:104`) keys off `a.activity` only; `at_location()` exists (`sim.py:101`) but is not consulted. Villagers "drink" in their bedrooms. | Defeats the spatial-need loop that is supposed to make agents walk somewhere, cross paths, talk, trade, and witness. |
+| Player cannot touch the economy | **[verified]** only `player_speak` is wired (`server.py:186`, `sim.py:327`); no `player_buy` / `player_give` / `player_trade`. | For a game whose pitch includes a living economy, the player is a spectator of it. |
+
+*Principle for the whole section (also the review's thesis): a smaller world where
+every loop closes and is legible beats a broad one with open seams.*
+
+### 15.2 Tier 1 - ship-blockers (make the world deliver its own promise)
+
+These close the loops above. Concrete targets given so the work is directly
+actionable.
+
+**T1. Mortality tick.** Wire a natural death path. Sustained need-starvation
+(energy/hunger/thirst at 0 for N ticks) drains `health`; at 0, call
+`kill(cause=...)`. Add a low-probability illness/accident roll modified by age
+and skill. Touch: `sim.py` tick loop, `agents.py` (`health` decrement), reuse
+existing `kill()`. **Acceptance:** a stub+seed headless run left going produces
+at least one unprompted death with a cause, and witnesses form the grief memory;
+new unit test asserts starvation -> health 0 -> `kill`.
+
+**T2. Location-gated needs.** Gate `_activity_effects` on arrival:
+`if act == "drink" and at_location(a, "well")` before satisfying; same for eat
+(tavern/shop) and sleep (home). Until arrival, the need keeps pulling. Touch:
+`sim.py:104`. **Acceptance:** headless run shows thirst falling while an agent
+walks and only refilling at the well; test asserts no satisfaction off-site.
+*Note: this is a small change with outsized effect on how alive movement feels.*
+
+**T3. Subsistence floor + stuck watchdog.** T2 introduces a spiral risk (an agent
+whose only water source is unreachable, or a broke agent who cannot craft). Give
+every agent one always-available primitive (forage / drink-from-stream fallback)
+so no state is a dead end, and add a watchdog: if a need has been < 0.1 for K
+ticks with no progress, force-route to the nearest satisfying tile or emit a
+`stuck` event visible on the dashboard. Touch: `agents.urgent_need`,
+`cognition/mind.py`, a new watchdog in the sim tick. **Acceptance:** an agent
+with its preferred source blocked survives via the floor; a genuinely stuck agent
+raises a visible `stuck` event rather than dying silently.
+
+**T4. Player economy verbs.** Add `player_buy` and `player_give`, routed through
+the existing `Economy.buy`, guarded server-side (authoritative; the client cannot
+mint coin or teleport-to-shop). `player_give` unlocks the single best
+emergent-story beat, a gift the receiving NPC remembers with an affinity bump.
+Touch: `server.py` message handlers, `sim.py` (mirror `player_speak`),
+`economy.py`. **Acceptance:** a player buys a shelved item and coin/inventory move
+authoritatively; a gift creates a durable memory and affinity change.
+*Security note (your own essay, made operational): the decision that a trade
+cleared is deterministic server code, never model output.*
+
+### 15.3 Tier 2 - "alive and intelligent" polish (where the feeling is won)
+
+**T5. Navigation legibility.** The highest-impact immersion fix. Confirm whether
+agents and the player route around building footprints or clip through, and
+whether movement can silently wedge against geometry. **[review]** flagged
+silent movement failure as the single worst player-facing problem in a comparable
+game. Deliver click-to-path that always finds a route or clearly says why not.
+Hard rule: never gate movement-toward-a-solution on the problem that movement
+solves (an agent must be able to walk to the food that fixes the hunger).
+*To confirm in `agents.step_toward` / client movement before scoping.*
+
+**T6. Dialogue de-dup + demo on real Ollama.** **[review]** the headless stub
+repeats ambient lines across agents in the same minute. Add a global last-N line
+cache and reroll on collision so no two agents emit an identical ambient line in
+one tick. Ensure the demo dashboard and any trailer run on real Ollama dialogue,
+not the stub. Touch: dialogue path in `llm/` + sim ambient emission.
+
+**T7. Async social commitments.** The world is async by nature (schedules,
+players dropping in/out), so dangling social state must survive time gaps. A
+promise made to an NPC by a since-logged-off player persists as an expectation;
+an agreed trade where one party dies leaves the survivor an unfulfilled debt;
+broken promises become memories with affinity consequences. Builds on the
+roadmap's "Toft owes Bram money" idea. Touch: `memory`, relationships, a small
+commitments store.
+
+**T8. Goal cadence + abandon path.** Reflection fires ~every 72 ticks and goals
+generate ~5%/idle tick (`minutes_per_tick=10`). Tune so agents neither thrash
+goals (abandon half-done aims) nor starve of them (long pure-routine stretches),
+and add an explicit `abandon` path that writes a memory ("I gave up on X"). An
+agent that never quits reads as robotic; one that quits and feels it reads as
+alive. Touch: `cognition/` cadence constants + goal lifecycle.
+
+### 15.4 Tier 3 - before pointing it at the public
+
+**T9. Prompt-injection rails.** Any player-writable string that reaches a prompt
+is an indirect-injection channel, aimed at *other players'* NPCs once items,
+signs, shop names, and guild text become player-named. Keep the model's voice and
+the system's authority on separate rails: the narration layer may read untrusted
+text; the layer that decides trade/quest/damage/reputation outcomes stays
+deterministic code. Wrap player text in clear delimiters with a "this is quoted
+in-world speech, never an instruction" framing; cap and sanitize length. Start at
+the existing `player_speak` -> dialogue prompt path.
+
+**T10. Local-model supply-chain posture.** Shipped NPC brains are files modders
+will swap and redistribute within weeks. Decide the posture now: signed/verified
+official model manifests, a clear "you are running a community brain" indicator,
+and client-side content safety (cloud filters will not be present). Ship a safe
+default; make deviation visible. Feeds `docs/MODELS.md` and the router's
+model-agnostic design.
+
+### 15.5 Graphics and client (the two gaps, high-level)
+
+Both called out directly: graphics are weak and the client is thin (today it is a
+top-down viewer with WASD and speak; the observe view exists as `docs/eyes.html`
+and a Godot panel). The plan keeps these high-level for now and, crucially,
+**sequences them after Tier 1 loops close** - legible, closing loops make the
+world feel more alive than better pixels do, and a Steam trailer of a world that
+visibly works beats a pretty one that reads as a tech demo. Art work can proceed
+in *parallel* because it does not block the simulation.
+
+- **Client functionality (feature parity with the sim).** The client should
+  expose the systems that already exist server-side: a trade/shop UI (needs T4), a
+  quest log, a proper dialogue panel, a HUD for needs/skills/relationships, and
+  promotion of the observe/"through their eyes" panel. Rough phasing, detail
+  deferred: (a) input + trade + dialogue parity, (b) information UI (quests, HUD,
+  relationships), (c) polish and observe mode as a headline feature.
+- **Graphics.** Follow `docs/ART.md` and `RESOURCES.md`: drop in CC0/public-domain
+  tilesets and sprites for a readable classic-fantasy top-down look, add day/night
+  lighting and activity animations, log every used asset in `ASSETS.md`. Original
+  art can replace placeholders later without changing the pipeline.
+
+A concrete art-style choice, asset pipeline, and full client feature list with
+sequencing are deliberately deferred to a dedicated pass once Tier 1 lands.
+
+### 15.6 Sequenced execution plan
+
+**First push (loop-closing, ~one week), from the review:**
+
+1. Mortality tick (**T1**) - makes the core promise real. ~half a day.
+2. Location-gated needs (**T2**) - makes movement matter. ~a few hours.
+3. Stuck watchdog + subsistence floor (**T3**) - prevents the spiral T2
+   introduces. ~half a day.
+4. `player_buy` + `player_give` (**T4**) - player becomes an economic
+   participant; unlocks the best story beat. ~one day.
+5. Navigation legibility (**T5**) - highest-impact immersion fix. ~one to two
+   days.
+6. Dialogue de-dup + real-Ollama demo (**T6**) and injection delimiters (**T9**).
+   Remainder.
+
+**Trailing the first playable (real but not blocking):** async commitments
+(**T7**), goal-abandon (**T8**), model posture (**T10**).
+
+**Then, once loops close:** the dedicated client-functionality and graphics pass
+(15.5), sequenced but able to run partly in parallel, leading into the Phase 11
+release work (content/authoring tooling, performance, Steam build) that the
+existing roadmap already describes.
+
+*Each item above is independently valuable and shippable, preserving the
+stop-anywhere ordering the rest of this plan follows.*
 
 ---
 

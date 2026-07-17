@@ -29,6 +29,9 @@ def main() -> None:
     ap.add_argument("--load", type=str, default="", help="load a saved world before running")
     ap.add_argument("--save", type=str, default="", help="save the world to this path when done")
     ap.add_argument("--say", type=str, default="", help="a traveler says this to the nearest NPC at tick 20")
+    ap.add_argument("--illness", type=float, default=0.0015,
+                    help="per-agent, per-tick chance of a natural illness/accident death "
+                         "(0 disables; the world otherwise only dies of starvation)")
     args = ap.parse_args()
 
     cfg = load_config()
@@ -36,7 +39,9 @@ def main() -> None:
         cfg["force_stub"] = True
 
     router = LLMRouter(cfg, ollama=OllamaClient(cfg["ollama_host"]))
-    sim = Simulation(router, SimConfig(**cfg["sim"]))
+    scfg = SimConfig(**cfg["sim"])
+    scfg.illness_chance = args.illness      # let the demo world die of natural causes
+    sim = Simulation(router, scfg)
 
     backend = "stub (GPU-free)" if cfg.get("force_stub") or not router._ollama_available() else "Ollama"
     print(f"== Realmweave :: {sim.world.name} ==  LLM backend: {backend}")
