@@ -45,6 +45,8 @@ var _world_layer: CanvasLayer      # holds the modulated world so the HUD stays 
 var _world_node: Node2D            # all world tiles/sprites are drawn here
 var _canvas_mod: CanvasModulate    # day/night multiply over the world only
 var _light_tex: Texture2D          # runtime radial-gradient light cookie
+var _shadow_tex: Texture2D         # soft blob shadow under sprites (depth cue)
+var _vignette_tex: Texture2D       # subtle edge darkening for framing
 var _player_light: PointLight2D    # soft vision light around the player
 var _loc_lights: Array = []        # PointLight2D lamps at buildings
 var _loc_lights_built := false
@@ -107,12 +109,18 @@ const ROLE_TILE := {
 
 ## Blit one 16x16 tile from a Kenney sheet, centered on `center`, scaled to `size` px.
 ## Drawn on the world layer so lighting affects it.
-func _tile(tex: Texture2D, t: Vector2i, center: Vector2, size: float) -> void:
+func _tile(tex: Texture2D, t: Vector2i, center: Vector2, size: float, mod: Color = Color(1, 1, 1)) -> void:
 	if tex == null or _world_node == null:
 		return
 	_world_node.draw_texture_rect_region(tex,
 		Rect2(center - Vector2(size, size) * 0.5, Vector2(size, size)),
-		Rect2(t.x * 17, t.y * 17, 16, 16))
+		Rect2(t.x * 17, t.y * 17, 16, 16), mod)
+
+
+## Deterministic 0..1 hash for a world cell, so terrain variation is stable
+## frame-to-frame (no shimmering) and identical every run.
+func _cell_hash(gx: int, gy: int) -> float:
+	return fmod(abs(sin(float(gx) * 12.9898 + float(gy) * 78.233) * 43758.5453), 1.0)
 
 
 func _ready() -> void:
@@ -131,6 +139,28 @@ func _ready() -> void:
 	add_child(_chat_input)
 	_build_settings_ui()
 	set_process(true)
+	_maybe_setup_capture()
+
+
+## Dev/CI screenshot mode: run the client with `-- --capture=PATH [--capture-delay=SECONDS]`
+## and it renders for a few seconds (long enough to connect and populate the world),
+## saves a PNG of the viewport to PATH, and quits. Used to verify graphics changes.
+func _maybe_setup_capture() -> void:
+	var path := ""
+	var delay := 6.0
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--capture="):
+			path = a.substr("--capture=".length())
+		elif a.begins_with("--capture-delay="):
+			delay = float(a.substr("--capture-delay=".length()))
+	if path == "":
+		return
+	get_tree().create_timer(delay).timeout.connect(func() -> void:
+		await RenderingServer.frame_post_draw
+		var img := get_viewport().get_texture().get_image()
+		var err := img.save_png(path)
+		print("[Realmweave] capture ", "ok" if err == OK else "FAILED", " -> ", path)
+		get_tree().quit())
 
 
 func _build_settings_ui() -> void:
@@ -442,9 +472,17 @@ func _observe_nearest() -> void:
 ## CanvasLayer below, so CanvasModulate / PointLight2D dim the world but not these.
 func _draw() -> void:
 	var font := ThemeDB.fallback_font
+	_draw_vignette()
 	_draw_weather()
 	_draw_subjective(font)
 	_draw_hud(font)
+
+
+## A soft edge-darkening frame over the world (above tiles, below HUD text).
+func _draw_vignette() -> void:
+	if _vignette_tex == null:
+		return
+	draw_texture_rect(_vignette_tex, Rect2(Vector2.ZERO, get_viewport_rect().size), false)
 
 
 ## The world, drawn on the modulated/lit layer.
@@ -452,11 +490,16 @@ func _draw_world() -> void:
 	if _world_node == null:
 		return
 	var font := ThemeDB.fallback_font
-	# grass ground covering the viewport (one tile per 2 world units)
+	# grass ground covering the viewport (one tile per 2 world units), with
+	# per-cell mottling and scattered tufts so it stops reading as a flat grid
 	var gt := 2
 	for gx in range(-4, 66, gt):
 		for gy in range(-6, 44, gt):
-			_tile(_sheet, T_GRASS, world_to_screen(gx, gy), SCALE * 2 + 2)
+			var h := _cell_hash(gx, gy)
+			var g := 0.90 + h * 0.16                       # 0.90..1.06 lightness
+			_tile(_sheet, T_GRASS, world_to_screen(gx, gy), SCALE * 2 + 2, Color(g * 0.97, g, g * 0.85))
+			if h > 0.84:                                    # a darker tuft here and there
+				_tile(_sheet, T_GRASS, world_to_screen(gx + 0.6, gy + 0.5), SCALE * 0.85, Color(0.70, 0.80, 0.55))
 	# stone paths radiating from the square hub
 	var sq := _find_loc("square")
 	if not sq.is_empty():
@@ -470,7 +513,7 @@ func _draw_world() -> void:
 			var n := int(Vector2(bx - ax, by - ay).length() / 1.4) + 1
 			for k in range(n + 1):
 				var t := float(k) / float(n)
-				_tile(_sheet, T_STONE, world_to_screen(ax + (bx - ax) * t, ay + (by - ay) * t), SCALE * 1.7)
+				_tile(_sheet, T_STONE, world_to_screen(ax + (bx - ax) * t, ay + (by - ay) * t), SCALE * 1.7, Color(1, 1, 1).lerp(Color(0.82, 0.75, 0.6), 0.15 + _cell_hash(int((ax + (bx - ax) * t) * 2.0), int((ay + (by - ay) * t) * 2.0)) * 0.3))
 	# crop field patches, then buildings (top-down = roofs)
 	for loc in _locations:
 		var p := world_to_screen(loc["x"], loc["y"])
@@ -495,17 +538,26 @@ func _draw_world() -> void:
 					for dy in [-0.9, 0.9]:
 						_tile(_sheet, r, world_to_screen(loc["x"] + dx, loc["y"] + dy), SCALE * 1.5 + 2)
 		if kind != "field":
-			_world_node.draw_string(font, p + Vector2(-30, 26), loc.get("name", ""), HORIZONTAL_ALIGNMENT_CENTER, 60, 10, Color(0.85, 0.85, 0.9))
+			_label(_world_node, font, p + Vector2(-40, 28), loc.get("name", ""), 9, Color(0.9, 0.88, 0.78), HORIZONTAL_ALIGNMENT_CENTER, 80)
 	# decorative scenery
 	_draw_props()
 
-	# NPCs (character sprites)
-	for id in _agents.keys():
+	# NPCs (character sprites), drawn back-to-front by screen-y so nearer
+	# villagers overlap farther ones (a cheap but effective depth cue).
+	var order: Array = _agents.keys()
+	order.sort_custom(func(i, j):
+		var pi: Vector2 = _render_pos.get(i, world_to_screen(_agents[i].get("x", 0), _agents[i].get("y", 0)))
+		var pj: Vector2 = _render_pos.get(j, world_to_screen(_agents[j].get("x", 0), _agents[j].get("y", 0)))
+		return pi.y < pj.y)
+	var bubbles: Array = []
+	for id in order:
 		var a: Dictionary = _agents[id]
 		var p: Vector2 = _render_pos.get(id, world_to_screen(a.get("x", 0), a.get("y", 0)))
 		var alive: bool = a.get("alive", true)
+		if alive:
+			_shadow(p + Vector2(0, SCALE * 0.55), SCALE * 1.5, SCALE * 0.55)
 		if a.get("wanted", false):
-			_world_node.draw_arc(p - Vector2(0, SCALE * 0.3), SCALE * 1.4, 0, TAU, 20, Color(0.78, 0.35, 0.35), 2.0)
+			_world_node.draw_arc(p - Vector2(0, SCALE * 0.3), SCALE * 1.4, 0, TAU, 20, Color(0.85, 0.3, 0.3), 2.0)
 		var ctile: Vector2i = ROLE_TILE.get(a.get("role", ""), Vector2i(0, 0))
 		if alive:
 			_tile(_chars, ctile, p - Vector2(0, SCALE * 0.3), SCALE * 2.4)
@@ -514,16 +566,20 @@ func _draw_world() -> void:
 				Rect2(p - Vector2(0, SCALE * 0.3) - Vector2(SCALE * 1.2, SCALE * 1.2), Vector2(SCALE * 2.4, SCALE * 2.4)),
 				Rect2(ctile.x * 17, ctile.y * 17, 16, 16), Color(1, 1, 1, 0.45))
 		var nm: String = a.get("name", "") if alive else str(a.get("name", "")) + " +"
-		_world_node.draw_string(font, p + Vector2(-40, -SCALE * 1.6), nm, HORIZONTAL_ALIGNMENT_CENTER, 80, 10, Color.WHITE)
+		_label(_world_node, font, p + Vector2(-40, -SCALE * 1.5), nm, 10, Color(0.96, 0.96, 1.0), HORIZONTAL_ALIGNMENT_CENTER, 80)
 		var say: String = a.get("say", "")
 		if say != "":
-			_draw_bubble(font, p, say)
+			bubbles.append([p, say])
+	# speech bubbles last so they sit above every sprite
+	for b in bubbles:
+		_draw_bubble(font, b[0], b[1])
 
 	# players (silver knight sprite)
 	for pl in _players:
 		var p := world_to_screen(pl.get("x", 0), pl.get("y", 0))
+		_shadow(p + Vector2(0, SCALE * 0.55), SCALE * 1.6, SCALE * 0.6)
 		_tile(_chars, Vector2i(1, 11), p - Vector2(0, SCALE * 0.3), SCALE * 2.5)
-		_world_node.draw_string(font, p + Vector2(-40, -SCALE * 1.6), pl.get("name", "You"), HORIZONTAL_ALIGNMENT_CENTER, 80, 10, Color(0.6, 0.9, 1.0))
+		_label(_world_node, font, p + Vector2(-40, -SCALE * 1.5), pl.get("name", "You"), 10, Color(0.6, 0.92, 1.0), HORIZONTAL_ALIGNMENT_CENTER, 80)
 
 	# In immediate mode, the flat tint + glow fallback is drawn here on the world layer.
 	if _lighting == "immediate":
@@ -543,6 +599,7 @@ func _draw_props() -> void:
 		var p := world_to_screen(pr.get("x", 0), pr.get("y", 0))
 		match pr.get("kind", ""):
 			"tree":
+				_shadow(p + Vector2(0, SCALE * 0.7), SCALE * 1.7, SCALE * 0.6)
 				_tile(_sheet, T_TREE if i % 2 == 0 else T_PINE, p - Vector2(0, SCALE * 0.4), SCALE * 2.6)
 			"rock":
 				_tile(_sheet, T_ROCK, p, SCALE * 1.4)
@@ -596,6 +653,8 @@ func _build_world_layer() -> void:
 	_world_node.draw.connect(_draw_world)
 	_world_layer.add_child(_world_node)
 	_light_tex = _make_light_texture()
+	_shadow_tex = _make_blob_texture(Color(0, 0, 0, 0.42), Color(0, 0, 0, 0))
+	_vignette_tex = _make_vignette_texture()
 	_player_light = PointLight2D.new()
 	_player_light.texture = _light_tex
 	_player_light.color = Color(1.0, 0.96, 0.86)
@@ -619,6 +678,54 @@ func _make_light_texture() -> Texture2D:
 	tex.width = 256
 	tex.height = 256
 	return tex
+
+
+## A soft radial blob fading `inner` -> `outer`, used for drop shadows.
+func _make_blob_texture(inner: Color, outer: Color) -> Texture2D:
+	var g := Gradient.new()
+	g.set_offset(0, 0.0); g.set_color(0, inner)
+	g.set_offset(1, 1.0); g.set_color(1, outer)
+	var tex := GradientTexture2D.new()
+	tex.gradient = g
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(1.0, 0.5)
+	tex.width = 128
+	tex.height = 128
+	return tex
+
+
+## Transparent center darkening toward the corners, for a gentle vignette frame.
+func _make_vignette_texture() -> Texture2D:
+	var g := Gradient.new()
+	g.set_offset(0, 0.0); g.set_color(0, Color(0, 0, 0, 0))
+	g.set_offset(1, 0.62); g.set_color(1, Color(0, 0, 0, 0))
+	g.add_point(0.86, Color(0, 0, 0, 0.16))
+	g.add_point(1.0, Color(0.02, 0.02, 0.05, 0.42))
+	var tex := GradientTexture2D.new()
+	tex.gradient = g
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(1.0, 1.0)
+	tex.width = 512
+	tex.height = 512
+	return tex
+
+
+## Blit a squashed blob shadow on the ground under a sprite at `center`.
+func _shadow(center: Vector2, w: float, h: float) -> void:
+	if _world_node == null or _shadow_tex == null:
+		return
+	_world_node.draw_texture_rect(_shadow_tex, Rect2(center - Vector2(w, h) * 0.5, Vector2(w, h)), false)
+
+
+## Draw text with a dark outline so labels stay legible over any ground tile.
+func _label(node: CanvasItem, font: Font, pos: Vector2, text: String, size: int,
+		col: Color, halign: int = HORIZONTAL_ALIGNMENT_LEFT, width: float = -1) -> void:
+	var o := Color(0, 0, 0, 0.75)
+	for d in [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1)]:
+		node.draw_string(font, pos + d, text, halign, width, size, o)
+	node.draw_string(font, pos, text, halign, width, size, col)
 
 
 ## One warm lamp per light source; energy is driven by _update_lighting.
