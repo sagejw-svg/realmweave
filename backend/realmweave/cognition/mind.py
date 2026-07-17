@@ -35,6 +35,18 @@ class Mind:
         social = agent.social.value
         econ = getattr(self.sim, "economy", None)
         owns_shop = econ is not None and agent.id in econ.shops
+        # an established shopkeeper who belongs to no guild may seek to join one.
+        # gated on shop ownership so it never competes with an agent's first,
+        # formative aim (build a livelihood, seek adventure, and so on).
+        guilds = getattr(self.sim, "guilds", None)
+        if owns_shop and guilds is not None and not guilds.is_member(agent):
+            score = p["sociability"] * 0.5 + p["ambition"] * 0.4
+            if score >= GOAL_THRESHOLD:
+                from ..factions.guilds import best_guild_for, guild_join_description
+                return Goal(kind="join_guild",
+                            description=guild_join_description(best_guild_for(agent)),
+                            priority=min(1.0, score), steps=build_plan("join_guild", agent),
+                            created_at=self.sim.clock.minutes)
         candidates = [
             (p["ambition"] * 0.5 + p["curiosity"] * 0.5 - p["caution"] * 0.3, "seek_adventure"),
             (p["sociability"] * 0.6 + (1.0 - social) * 0.3, "seek_companionship"),

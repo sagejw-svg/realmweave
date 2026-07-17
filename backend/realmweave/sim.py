@@ -28,16 +28,36 @@ from .rules.skills import role_sheet
 from .cognition.mind import Mind
 from .cognition.personality import seed_personality
 from .economy.market import Economy
+from .economy.finance import Finance
 from .economy.goods import make_item
+from .economy.recipes import RECIPES, GATHER
 from .quests.board import QuestBoard
 from .divine.influence import DivineInfluence
 from .perception import senses as perception
 from .reputation.justice import Justice
+from .factions.guilds import Guilds
 from .llm.router import LLMRouter, LLMRequest, Tier
 
 EventSink = Callable[[dict], None]
 
 ARRIVE_RADIUS = 1.5
+
+# ---- mortality / survival tuning --------------------------------------
+# A need at or below this counts as starvation.
+STARVE_THRESHOLD = 0.02
+# Starvation must be *sustained* this many consecutive ticks before it bleeds
+# health, so brief dips while walking to food/water are survivable.
+STARVE_GRACE = 10
+# Health lost per tick per starving need (past the grace), and regained per tick
+# when an agent is not starving.
+HEALTH_DRAIN = 0.03
+HEALTH_REGEN = 0.03
+# Subsistence floor: after this many consecutive ticks with a need critically
+# low, an agent forages just enough to not die (a bare-hands floor so no state
+# is ever an unrecoverable dead end), and a one-shot `stuck` event is emitted.
+STUCK_TICKS = 15
+STUCK_NEED = 0.10
+FORAGE = 0.05                         # meager: reaching a real source is better
 
 
 @dataclass
@@ -46,6 +66,11 @@ class SimConfig:
     seed: int = 7
     social_chance: float = 0.5        # base chance two co-located agents talk
     reflection_interval: int = 720    # world minutes between agent reflections
+    # per-agent, per-tick chance of a random illness/accident death. Modified by
+    # frailty (low health). Defaults to 0.0 so seeded stub runs stay fully
+    # deterministic (tests); the headless demo and server can raise it so the
+    # world produces natural deaths - and the grief that follows - on its own.
+    illness_chance: float = 0.0
 
 
 class Simulation:
@@ -65,9 +90,11 @@ class Simulation:
 
         self.mind = Mind(self)
         self.economy = Economy(self)
+        self.finance = Finance(self)
         self.quests = QuestBoard(self)
         self.divine = DivineInfluence(self)
         self.justice = Justice(self)
+        self.guilds = Guilds(self)
 
         embedder = router.embedder()
         for a in default_agents():
@@ -81,6 +108,7 @@ class Simulation:
             self._last_reflect[a.id] = 0
 
         self.quests.seed()               # the world begins with opportunity
+        self.guilds.seed()               # the lawful faction (the guard) exists from tick one
 
     # ---- events --------------------------------------------------------
     def subscribe(self, sink: EventSink) -> None:
@@ -101,20 +129,94 @@ class Simulation:
     def at_location(self, loc_id: str) -> List[Agent]:
         return [a for a in self.living() if a.current_location == loc_id]
 
+    def _loc_kind(self, a: Agent) -> str:
+        loc = self.world.locations.get(a.current_location)
+        return loc.kind if loc is not None else ""
+
     def _activity_effects(self, a: Agent) -> None:
+        """Apply the payoff of the current activity - but only where it makes
+        sense. Eating, drinking, and sleeping satisfy their needs *on arrival* at
+        the tavern, the well, and home respectively; while an agent is still
+        walking there the need keeps pulling. This is what makes movement matter:
+        needs are spatial, so agents actually go somewhere (and cross paths). The
+        payoffs are generous so a single visit buys a real buffer - otherwise,
+        with sources a walk away, an agent could never get ahead of its needs and
+        would have no time left to pursue goals."""
         act = a.activity
+        kind = self._loc_kind(a)
         if act == "sleep":
-            a.energy.satisfy(0.06)
+            if kind == "home" or a.current_location == a.home:
+                a.energy.satisfy(0.10)
         elif act == "eat":
-            a.hunger.satisfy(0.20)
-            a.thirst.satisfy(0.05)
+            if kind in ("tavern", "shop"):
+                a.hunger.satisfy(0.34)
+                a.thirst.satisfy(0.08)
         elif act == "drink":
-            a.thirst.satisfy(0.30)
+            if kind in ("well", "tavern"):
+                a.thirst.satisfy(0.50)
         elif act in ("work", "chores", "patrol"):
             a.energy.value = max(0.0, a.energy.value - 0.005)
             a.social.value = max(0.0, a.social.value - 0.003)
         elif act == "socialize":
             a.social.satisfy(0.05)
+
+    def _survival_watchdog(self, a: Agent) -> None:
+        """Guarantee a floor so no agent is ever trapped in a death-spiral it
+        cannot act its way out of (e.g. its only water source is unreachable or
+        occupied). If a survival need stays critically low for STUCK_TICKS, emit
+        a visible `stuck` event once and let the agent forage a meager amount -
+        enough to survive, never enough to make reaching a real source pointless.
+        """
+        low = min(a.energy.value, a.hunger.value, a.thirst.value)
+        if low < STUCK_NEED:
+            a._low_ticks = getattr(a, "_low_ticks", 0) + 1
+        else:
+            a._low_ticks = 0
+        if a._low_ticks == STUCK_TICKS:      # fire exactly once at the threshold
+            self.emit("stuck", agent=a.id, agent_name=a.name,
+                      energy=round(a.energy.value, 2), hunger=round(a.hunger.value, 2),
+                      thirst=round(a.thirst.value, 2), location=a.current_location)
+            self._observe(a, "I am in a bad way and cannot get what I need.", 5.0, "event")
+        if a._low_ticks >= STUCK_TICKS:
+            if a.thirst.value < STUCK_NEED:
+                a.thirst.satisfy(FORAGE)
+            if a.hunger.value < STUCK_NEED:
+                a.hunger.satisfy(FORAGE)
+            if a.energy.value < STUCK_NEED:
+                a.energy.satisfy(FORAGE)
+
+    def _mortality(self, a: Agent) -> None:
+        """The natural death path. Sustained need-starvation drains health; at 0
+        the agent dies of what starved them. A small, frailty-weighted illness/
+        accident roll (config: illness_chance, 0 by default) can also carry
+        someone off. This is the beating heart of the pitch - a world left
+        running can now produce a funeral, and the grief-ripple, with no dev
+        hand on the scale."""
+        starving = []
+        if a.energy.value <= STARVE_THRESHOLD:
+            starving.append("exhaustion")
+        if a.thirst.value <= STARVE_THRESHOLD:
+            starving.append("thirst")
+        if a.hunger.value <= STARVE_THRESHOLD:
+            starving.append("hunger")
+        if starving:
+            a._starve_ticks = getattr(a, "_starve_ticks", 0) + 1
+            # only sustained starvation bleeds health, so a brief dip while
+            # walking to relief is survivable; a genuinely stuck agent (caught by
+            # the subsistence floor) is the only one who should be at real risk.
+            if a._starve_ticks > STARVE_GRACE:
+                a.health = max(0.0, a.health - HEALTH_DRAIN * len(starving))
+                if a.health <= 0.0:
+                    self.kill(a.id, cause=starving[0])
+                    return
+        else:
+            a._starve_ticks = 0
+            a.health = min(1.0, a.health + HEALTH_REGEN)
+        chance = self.cfg.illness_chance
+        if chance > 0.0:
+            frailty = 1.0 + (1.0 - a.health) * 3.0     # the frail are likelier to fall
+            if self.rng.random() < chance * frailty:
+                self.kill(a.id, cause=self.rng.choice(("a sudden illness", "an accident")))
 
     def _observe(self, a: Agent, text: str, importance: float, kind: str = "observation") -> None:
         if a.memory is not None:
@@ -282,9 +384,11 @@ class Simulation:
 
     # ---- crafting (skills drive outcomes) -----------------------------
     def _maybe_craft(self, a: Agent) -> None:
-        """When an agent works at a production site, a skill check sets the
-        quality of what they make. This is the first place mechanics (the 1-100
-        skills) visibly drive world outcomes."""
+        """When an agent works at a production site, mechanics drive the outcome.
+        Primary sites yield raw materials (gathering); refining sites consume the
+        recipe's inputs - sourced from a neighbour or, failing that, the supplier
+        at a premium - and a skill check sets the finished good's quality. A
+        refiner who cannot secure its inputs simply makes nothing this tick."""
         if a.activity != "work" or a.sheet is None:
             return
         kind = self.world.loc(a.current_location).kind
@@ -300,6 +404,29 @@ class Simulation:
             return
         if self.rng.random() > 0.2:      # not every tick
             return
+
+        # gathering: primary work brings in a raw material, no input needed
+        mat = GATHER.get(kind)
+        if mat is not None:
+            a.materials[mat] = a.materials.get(mat, 0) + 1
+            self._observe(a, f"Gathered {mat} (now {a.materials[mat]} on hand).", 1.5, "event")
+            self.emit("gather", agent=a.id, agent_name=a.name, material=mat,
+                      qty=a.materials[mat], location=a.current_location)
+            return
+
+        # refining: secure the recipe's inputs before making anything
+        for material, qty in RECIPES.get(skill, []):
+            have = a.materials.get(material, 0)
+            if have < qty:
+                self.economy.supply.acquire(a, material, qty - have)
+            if a.materials.get(material, 0) < qty:
+                # still short (could not afford supply): production waits
+                self.emit("shortage", agent=a.id, agent_name=a.name,
+                          material=material, skill=skill, location=a.current_location)
+                return
+        for material, qty in RECIPES.get(skill, []):
+            a.materials[material] -= qty
+
         quality, res = a.sheet.craft(skill, self.rng)
         # the crafted good becomes a real Item: stocked in the owner's shop if
         # they have one, otherwise held in their inventory to sell or stock later
@@ -320,6 +447,9 @@ class Simulation:
         happens here."""
         if goal.kind == "build_livelihood":
             self.economy.found_shop(agent)
+        elif goal.kind == "join_guild":
+            from .factions.guilds import best_guild_for
+            self.guilds.join(agent, best_guild_for(agent))
         elif goal.kind == "quest" and goal.quest_id:
             self.quests.complete(agent, goal.quest_id)
 
@@ -367,6 +497,60 @@ class Simulation:
                   to_player=True)
         return {"agent_id": target.id, "agent_name": target.name, "text": line}
 
+    def _nearest_living(self, x: float, y: float, radius: float) -> Optional[Agent]:
+        """The nearest living agent within `radius` of a point, or None."""
+        target, best = None, radius
+        for a in self.living():
+            d = math.hypot(a.x - x, a.y - y)
+            if d <= best:
+                best, target = d, a
+        return target
+
+    def player_buy(self, player_name: str, x: float, y: float, coin: int,
+                   item_index: Optional[int] = None, radius: float = 6.0) -> dict:
+        """A player buys from the nearest open shop within reach. Authoritative:
+        the caller (server) owns the player's coin and only debits it on a
+        success we report here. The world side - stock, the owner's coin and
+        memory of the sale - is settled deterministically in code, never by the
+        model. Returns {ok, ...}; on success includes the item and price.
+        """
+        shop = self.economy.nearest_shop_within(x, y, radius)
+        if shop is None or not shop.stock:
+            return {"ok": False, "reason": "no open shop within reach"}
+        if item_index is not None and 0 <= item_index < len(shop.stock):
+            item = shop.stock[item_index]
+        else:
+            affordable = [it for it in shop.stock if self.economy.list_price(shop, it) <= coin]
+            if not affordable:
+                return {"ok": False, "reason": "cannot afford anything here"}
+            item = min(affordable, key=lambda it: it.value())   # start with the humblest
+        res = self.economy.sell_to_player(coin, shop, item, player_name)
+        if res is None:
+            return {"ok": False, "reason": "too costly"}
+        return {"ok": True, "shop": shop.name, **res}
+
+    def player_give(self, player_name: str, x: float, y: float, amount: int = 0,
+                    gift: str = "a small gift", radius: float = 6.0) -> dict:
+        """A player gives a gift (coin, or a named token) to the nearest NPC. The
+        gift becomes a durable, warmly-remembered memory and lifts the NPC's
+        affinity toward the player. This is the cheapest path to a real emergent
+        story beat: an NPC who remembers a kindness and acts differently for it.
+        """
+        target = self._nearest_living(x, y, radius)
+        if target is None:
+            return {"ok": False, "reason": "no one close enough to receive a gift"}
+        pkey = f"player:{player_name}"
+        if amount and amount > 0:
+            target.coin += int(amount)
+            desc = f"{int(amount)} coin"
+        else:
+            desc = gift
+        target.adjust_affinity(pkey, 0.15)      # a gift is remembered warmly
+        self._observe(target, f"{player_name} gave me {desc}. I will remember this kindness.",
+                      7.0, "event")
+        self.emit("gift", player=player_name, to=target.id, to_name=target.name, gift=desc)
+        return {"ok": True, "agent_id": target.id, "agent_name": target.name, "gift": desc}
+
     # ---- persistence ---------------------------------------------------
     def save(self, path: str) -> None:
         from .persistence import save_world
@@ -390,6 +574,10 @@ class Simulation:
             self._decide(a)
             self._move(a)
             self._activity_effects(a)
+            self._survival_watchdog(a)   # floor first, so it can rescue the stuck
+            self._mortality(a)           # then judge health / natural death
+            if not a.alive:              # died this tick: skip the rest of its turn
+                continue
             self._maybe_craft(a)
             self.mind.progress_goal(a)
             self._maybe_reflect(a)
@@ -398,6 +586,8 @@ class Simulation:
             self._maybe_socialize(loc_id)
 
         self.economy.maybe_trade()
+        self.finance.step()          # daily rent, wages, and the relief floor
+        self.guilds.step()           # daily guild dues and rank progression
         self.quests.maybe_generate()
         self.divine.regen()
         self.justice.step()
@@ -452,5 +642,10 @@ class Simulation:
                        for q in self.quests.quests.values()
                        if q.status in ("open", "active")],
             "favor": round(self.divine.favor, 1),
+            "treasury": self.finance.treasury,
+            "ledger": self.economy.ledger.tail(12),
+            "guilds": [{"id": gid, "members": self.guilds.members(gid),
+                        "coffer": self.guilds.coffers[gid]}
+                       for gid in self.guilds.rosters],
             "tick": self.tick_count,
         }

@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import List
 
 from .goals import Step
+from ..factions.guilds import GUILDS, best_guild_for
 
 # each factory takes the agent and returns the goal's steps
 def _build_livelihood(agent) -> List[Step]:
@@ -48,12 +49,22 @@ def _explore(agent) -> List[Step]:
     ]
 
 
+def _join_guild(agent) -> List[Step]:
+    hall = GUILDS[best_guild_for(agent)].hall
+    return [
+        Step("earn a name worth vouching for", "work", agent.workplace, "work", target=4),
+        Step("present myself at the guild hall", "visit", hall, "visit", target=1),
+        Step("prove my worth to the guild", "wait", hall, "wait", target=3),
+    ]
+
+
 _PLANS = {
     "build_livelihood": _build_livelihood,
     "seek_adventure": _seek_adventure,
     "seek_companionship": _seek_companionship,
     "master_craft": _master_craft,
     "explore": _explore,
+    "join_guild": _join_guild,
 }
 
 _DESCRIPTIONS = {
@@ -62,6 +73,7 @@ _DESCRIPTIONS = {
     "seek_companionship": "find good company and belong",
     "master_craft": "become a true master of my craft",
     "explore": "see every corner of the village and beyond",
+    "join_guild": "earn a place in a guild and rise through its ranks",
 }
 
 

@@ -48,9 +48,9 @@ class Justice:
         # the deed itself (theft moves coin)
         stolen = 0
         if kind == "theft" and victim is not None:
-            stolen = min(victim.coin, 20 + severity * 10)
-            victim.coin -= stolen
-            perp.coin += stolen
+            want = min(victim.coin, 20 + severity * 10)
+            stolen = self.sim.economy.transfer(victim, perp, want, "theft",
+                                               note=f"stolen by {perp.name}")
 
         if not witnesses:
             self.sim._observe(perp, f"I committed {kind} unseen. No one is the wiser.", 5.0, "event")
@@ -92,7 +92,10 @@ class Justice:
                 continue
             if f"wanted:{perp.id}" not in a.known_facts:
                 continue
-            if a.id == "guard" or a.personality.get("loyalty", 0.5) >= PURSUE_LOYALTY:
+            # the guard, the loyal, and any deputized fighters'-guild member give chase
+            guilds = getattr(self.sim, "guilds", None)
+            deputized = guilds is not None and guilds.assists_justice(a)
+            if a.id == "guard" or deputized or a.personality.get("loyalty", 0.5) >= PURSUE_LOYALTY:
                 out.append(a)
         return out
 
@@ -117,9 +120,19 @@ class Justice:
             self.sim._observe(perp, f"I slipped away from {captor.name}.", 6.0, "event")
             return
         bounty = perp.bounty
-        captor.coin += bounty
-        restitution = min(perp.coin, bounty)
-        perp.coin -= restitution
+        # the state funds the bounty reward (topped from the world if the coffer
+        # is short) and the perp repays restitution into the coffer; both audited
+        econ = self.sim.economy
+        if self.sim.finance.treasury < bounty:
+            short = bounty - self.sim.finance.treasury
+            econ.ledger.record(self.sim.clock.minutes, self.sim.clock.day_index,
+                               "subsidy", "world", "treasury", short, "bounty fund")
+            self.sim.finance.treasury += short
+        econ.transfer("treasury", captor, bounty, "bounty_reward", note=f"caught {perp.name}")
+        self.sim.finance.treasury -= bounty
+        restitution = econ.transfer(perp, "treasury", bounty, "restitution",
+                                    note=f"{perp.name} answers for crimes")
+        self.sim.finance.treasury += restitution
         for rec in self.crimes:
             if rec.perp_id == perp.id and not rec.resolved:
                 rec.resolved = True

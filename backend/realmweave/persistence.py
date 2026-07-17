@@ -17,8 +17,8 @@ from .memory import MemoryEntry
 from .cognition.goals import Goal
 from .economy.goods import Item
 
-SAVE_VERSION = 9
-SUPPORTED_VERSIONS = (1, 2, 3, 4, 5, 6, 7, 8, 9)
+SAVE_VERSION = 12
+SUPPORTED_VERSIONS = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)
 
 
 def save_world(sim, path: str) -> None:
@@ -48,6 +48,7 @@ def save_world(sim, path: str) -> None:
             "goal": a.goal.to_dict() if a.goal else None,
             "coin": a.coin,
             "inventory": [it.to_dict() for it in a.inventory],
+            "materials": dict(a.materials),
             "god_disposition": a.god_disposition,
             "known_facts": sorted(a.known_facts),
             "alias": a.alias,
@@ -64,6 +65,9 @@ def save_world(sim, path: str) -> None:
         }
 
     data["economy"] = sim.economy.to_dict()
+    data["finance"] = sim.finance.to_dict()
+    data["ledger"] = sim.economy.ledger.to_dict()
+    data["guilds"] = sim.guilds.to_dict()
     data["quest_board"] = sim.quests.to_dict()
     data["divine"] = sim.divine.to_dict()
     data["justice"] = sim.justice.to_dict()
@@ -122,6 +126,8 @@ def load_world(sim, path: str) -> bool:
         if "coin" in ad:
             a.coin = int(ad["coin"])
         a.inventory = [Item.from_dict(it) for it in ad.get("inventory", [])]
+        # v11+: restore raw material stock; older saves start with none
+        a.materials = {k: int(v) for k, v in ad.get("materials", {}).items()}
         # v6+: restore disposition toward the god
         if "god_disposition" in ad:
             a.god_disposition = float(ad["god_disposition"])
@@ -148,12 +154,19 @@ def load_world(sim, path: str) -> bool:
 
     # v4+: restore shops (also re-adds their locations to the world)
     sim.economy.load(data.get("economy", {}))
+    # v10+: restore the coffer/finance state and the recent ledger tail. Older
+    # saves lack these keys, so they fall back to fresh defaults automatically.
+    sim.finance.load(data.get("finance", {}))
+    sim.economy.ledger.load(data.get("ledger", {}))
     # v5+: restore the quest board
     sim.quests.load(data.get("quest_board", {}))
     # v6+: restore divine favor
     sim.divine.load(data.get("divine", {}))
     # v8+: restore the crime log
     sim.justice.load(data.get("justice", {}))
+    # v12+: restore guild rosters and coffers. Pre-v12 saves have no guild data,
+    # so the seeded default (the guard in the fighters' guild) is kept.
+    sim.guilds.load(data.get("guilds", {}))
     # v9+: restore logged-out characters resting in the safe bubble
     sim.offline_players = dict(data.get("offline_players", {}))
     return True
