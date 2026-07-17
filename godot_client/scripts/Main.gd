@@ -11,8 +11,9 @@ extends Node2D
 ## weather overlays, drawn on this node, stay at full brightness. Press L to A/B
 ## the real lighting against the immediate-mode fallback glow.
 
-const SCALE := 16.0                 # pixels per world unit
-const ORIGIN := Vector2(60, 90)     # screen offset for the map origin
+const SCALE := 20.0                 # pixels per world unit (a bit zoomed in for detail)
+const ORIGIN := Vector2(60, 90)     # legacy map origin (unused since the camera follows)
+const CAM_LERP := 3.0               # how quickly the camera eases toward the player
 const AGENT_R := 7.0
 const MOVE_SPEED := 12.0            # world units / second for the player
 const SEND_INTERVAL := 0.1
@@ -25,6 +26,8 @@ var _locations: Array = []          # [{id,name,x,y,kind}]
 var _props: Array = []              # decorative scenery [{kind,x,y}]
 var _agents: Dictionary = {}        # id -> latest agent dict
 var _render_pos: Dictionary = {}    # id -> Vector2 (smoothed screen pos)
+var _facing: Dictionary = {}        # id -> +1 (right) / -1 (left), from movement
+var _moving: Dictionary = {}        # id -> bool, walking this frame (drives the bob)
 var _players: Array = []
 var _clock: Dictionary = {}
 var _events: Array = []             # recent event log (strings)
@@ -53,6 +56,8 @@ var _loc_lights_built := false
 
 var _player_id := ""
 var _player_pos := Vector2(32, 24)
+var _player_facing := 1            # +1 right / -1 left, from WASD input
+var _cam := Vector2(32, 24)        # camera center in world units (eases toward player)
 var _send_accum := 0.0
 var _chat_input: LineEdit
 var _subjective: Dictionary = {}     # 'through their eyes' view of the observed agent
@@ -121,6 +126,20 @@ func _tile(tex: Texture2D, t: Vector2i, center: Vector2, size: float, mod: Color
 ## frame-to-frame (no shimmering) and identical every run.
 func _cell_hash(gx: int, gy: int) -> float:
 	return fmod(abs(sin(float(gx) * 12.9898 + float(gy) * 78.233) * 43758.5453), 1.0)
+
+
+## Blit a sprite tile, optionally mirrored horizontally (to face left).
+func _tile_h(tex: Texture2D, t: Vector2i, center: Vector2, size: float, flip: bool, mod: Color = Color(1, 1, 1)) -> void:
+	if not flip:
+		_tile(tex, t, center, size, mod)
+		return
+	if tex == null or _world_node == null:
+		return
+	_world_node.draw_set_transform(center, 0.0, Vector2(-1, 1))
+	_world_node.draw_texture_rect_region(tex,
+		Rect2(-Vector2(size, size) * 0.5, Vector2(size, size)),
+		Rect2(t.x * 17, t.y * 17, 16, 16), mod)
+	_world_node.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 func _ready() -> void:
@@ -293,19 +312,27 @@ func _on_chat_submitted(text: String) -> void:
 
 
 func world_to_screen(x: float, y: float) -> Vector2:
-	return ORIGIN + Vector2(x, y) * SCALE
+	return get_viewport_rect().size * 0.5 + (Vector2(x, y) - _cam) * SCALE
 
 
 func _process(delta: float) -> void:
 	_poll_socket()
 	_handle_input(delta)
+	# the camera eases toward the player so movement feels smooth, not snapped
+	_cam = _cam.lerp(_player_pos, clamp(delta * CAM_LERP, 0.0, 1.0))
 	# smooth agent positions toward their latest reported location
 	for id in _agents.keys():
 		var a: Dictionary = _agents[id]
 		var target := world_to_screen(a.get("x", 0.0), a.get("y", 0.0))
 		if not _render_pos.has(id):
 			_render_pos[id] = target
-		_render_pos[id] = (_render_pos[id] as Vector2).lerp(target, clamp(delta * 8.0, 0, 1))
+		var prev: Vector2 = _render_pos[id]
+		var now: Vector2 = prev.lerp(target, clamp(delta * 8.0, 0, 1))
+		_render_pos[id] = now
+		var d := now - prev
+		if abs(d.x) > 0.04:
+			_facing[id] = -1 if d.x < 0.0 else 1
+		_moving[id] = d.length() > 0.05
 	_wx_time += delta
 	_update_weather(delta)
 	if not _loc_lights_built and not _locations.is_empty():
@@ -433,6 +460,8 @@ func _handle_input(delta: float) -> void:
 	if Input.is_key_pressed(KEY_S): dir.y += 1
 	if Input.is_key_pressed(KEY_A): dir.x -= 1
 	if Input.is_key_pressed(KEY_D): dir.x += 1
+	if dir.x != 0.0:
+		_player_facing = -1 if dir.x < 0.0 else 1
 	if dir != Vector2.ZERO:
 		_player_pos += dir.normalized() * MOVE_SPEED * delta
 	_send_accum += delta
@@ -493,8 +522,10 @@ func _draw_world() -> void:
 	# grass ground covering the viewport (one tile per 2 world units), with
 	# per-cell mottling and scattered tufts so it stops reading as a flat grid
 	var gt := 2
-	for gx in range(-4, 66, gt):
-		for gy in range(-6, 44, gt):
+	var cx := int(round(_cam.x / gt)) * gt
+	var cy := int(round(_cam.y / gt)) * gt
+	for gx in range(cx - 40, cx + 42, gt):
+		for gy in range(cy - 30, cy + 32, gt):
 			var h := _cell_hash(gx, gy)
 			var g := 0.90 + h * 0.16                       # 0.90..1.06 lightness
 			_tile(_sheet, T_GRASS, world_to_screen(gx, gy), SCALE * 2 + 2, Color(g * 0.97, g, g * 0.85))
@@ -534,9 +565,13 @@ func _draw_world() -> void:
 				_tile(_sheet, T_ROCK, p, SCALE * 1.8)
 			_:
 				var r: Vector2i = ROOF.get(kind, ROOF["home"])
+				_shadow(world_to_screen(loc["x"], loc["y"] + 1.15), SCALE * 4.6, SCALE * 1.4)
 				for dx in [-1.2, 0.0, 1.2]:
 					for dy in [-0.9, 0.9]:
-						_tile(_sheet, r, world_to_screen(loc["x"] + dx, loc["y"] + dy), SCALE * 1.5 + 2)
+						# front (lower) row sits in the building's own shadow -> darker,
+						# giving a flat roof cluster a bit of solid, 3D weight
+						var sh := 1.0 if dy < 0.0 else 0.68
+						_tile(_sheet, r, world_to_screen(loc["x"] + dx, loc["y"] + dy), SCALE * 1.5 + 2, Color(sh, sh, sh))
 		if kind != "field":
 			_label(_world_node, font, p + Vector2(-40, 28), loc.get("name", ""), 9, Color(0.9, 0.88, 0.78), HORIZONTAL_ALIGNMENT_CENTER, 80)
 	# decorative scenery
@@ -559,8 +594,9 @@ func _draw_world() -> void:
 		if a.get("wanted", false):
 			_world_node.draw_arc(p - Vector2(0, SCALE * 0.3), SCALE * 1.4, 0, TAU, 20, Color(0.85, 0.3, 0.3), 2.0)
 		var ctile: Vector2i = ROLE_TILE.get(a.get("role", ""), Vector2i(0, 0))
+		var bob := (sin(_wx_time * 9.0 + p.x * 0.05) * SCALE * 0.08) if _moving.get(id, false) else 0.0
 		if alive:
-			_tile(_chars, ctile, p - Vector2(0, SCALE * 0.3), SCALE * 2.4)
+			_tile_h(_chars, ctile, p - Vector2(0, SCALE * 0.3 + bob), SCALE * 2.4, int(_facing.get(id, 1)) < 0)
 		else:
 			_world_node.draw_texture_rect_region(_chars,
 				Rect2(p - Vector2(0, SCALE * 0.3) - Vector2(SCALE * 1.2, SCALE * 1.2), Vector2(SCALE * 2.4, SCALE * 2.4)),
@@ -578,7 +614,8 @@ func _draw_world() -> void:
 	for pl in _players:
 		var p := world_to_screen(pl.get("x", 0), pl.get("y", 0))
 		_shadow(p + Vector2(0, SCALE * 0.55), SCALE * 1.6, SCALE * 0.6)
-		_tile(_chars, Vector2i(1, 11), p - Vector2(0, SCALE * 0.3), SCALE * 2.5)
+		var pf: bool = _player_facing < 0 if pl.get("id", "") == _player_id else false
+		_tile_h(_chars, Vector2i(1, 11), p - Vector2(0, SCALE * 0.3), SCALE * 2.5, pf)
 		_label(_world_node, font, p + Vector2(-40, -SCALE * 1.5), pl.get("name", "You"), 10, Color(0.6, 0.92, 1.0), HORIZONTAL_ALIGNMENT_CENTER, 80)
 
 	# In immediate mode, the flat tint + glow fallback is drawn here on the world layer.
@@ -759,12 +796,29 @@ func _night_amount(h: float) -> float:
 	return clamp((h - 17.5) / 3.5, 0.0, 1.0)
 
 
-## Day/night multiply for the world. Never fully dark: floors around ~0.5 so the
-## village stays legible while distant, unlit areas lose visibility at night.
+## Day/night multiply for the world: a warm midday, golden dusk, and cool blue
+## night, so time-of-day reads at a glance. Never floors fully dark (village stays
+## legible); lamps + the player light do the rest at night.
 func _sky_modulate(h: float) -> Color:
-	var n := _night_amount(h)
-	var night := Color(0.5, 0.54, 0.7)
-	return Color(1, 1, 1).lerp(night, n)
+	var ramp := [
+		[0.0, Color(0.34, 0.38, 0.58)],    # deep night
+		[5.0, Color(0.38, 0.42, 0.60)],
+		[6.6, Color(0.86, 0.64, 0.56)],    # dawn, warm
+		[8.0, Color(1.00, 0.98, 0.93)],    # morning
+		[12.0, Color(1.03, 1.01, 0.95)],   # midday, bright and slightly warm
+		[16.5, Color(1.01, 0.95, 0.85)],   # afternoon gold
+		[18.6, Color(0.96, 0.62, 0.44)],   # dusk, golden
+		[20.0, Color(0.54, 0.44, 0.56)],   # twilight
+		[21.6, Color(0.36, 0.40, 0.58)],   # night
+		[24.0, Color(0.34, 0.38, 0.58)],
+	]
+	for i in range(ramp.size() - 1):
+		var a: Array = ramp[i]
+		var b: Array = ramp[i + 1]
+		if h >= float(a[0]) and h <= float(b[0]):
+			var t: float = (h - float(a[0])) / max(0.0001, float(b[0]) - float(a[0]))
+			return (a[1] as Color).lerp(b[1] as Color, t)
+	return ramp[0][1]
 
 
 func _update_lighting(_delta: float) -> void:
@@ -776,10 +830,11 @@ func _update_lighting(_delta: float) -> void:
 	_canvas_mod.color = _sky_modulate(h) if on else Color(1, 1, 1)
 	var t := _wx_time
 	for pl in _loc_lights:
+		var src: Dictionary = pl.get_meta("src")
+		pl.position = world_to_screen(src["x"], src["y"])   # follow the camera
 		if not on:
 			pl.energy = 0.0
 			continue
-		var src: Dictionary = pl.get_meta("src")
 		var amp: float = src["amp"]
 		var sp: float = src["sp"]
 		var fl: float = 1.0 + amp * sin(t * sp + float(src["x"])) + amp * 0.5 * sin(t * sp * 2.3 + float(src["y"]))
