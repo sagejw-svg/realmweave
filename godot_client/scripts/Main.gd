@@ -6,9 +6,10 @@ extends Node2D
 ## plus discrete events (dialogue, deaths). Renders everything top-down in 2D
 ## and lets the local player walk around with WASD and broadcast their position.
 ##
-## Rendering is done immediately in _draw() using the fallback font so the whole
-## client is a single self-contained script - easy to read, easy to replace with
-## real sprites/tilemaps later.
+## The world (tiles/sprites/lamps) is drawn on a child CanvasLayer so real 2D
+## lighting (CanvasModulate + PointLight2D) can dim it at night while the HUD and
+## weather overlays, drawn on this node, stay at full brightness. Press L to A/B
+## the real lighting against the immediate-mode fallback glow.
 
 const SCALE := 16.0                 # pixels per world unit
 const ORIGIN := Vector2(60, 90)     # screen offset for the map origin
@@ -27,6 +28,26 @@ var _render_pos: Dictionary = {}    # id -> Vector2 (smoothed screen pos)
 var _players: Array = []
 var _clock: Dictionary = {}
 var _events: Array = []             # recent event log (strings)
+
+# --- atmosphere: dynamic lighting + weather (client-only cosmetic) ---
+var _wx_mode := "auto"              # auto | clear | rain | snow (press R to cycle)
+var _wx_type := "clear"            # precip currently rendered
+var _wx_target := "clear"          # precip we are easing toward
+var _wx_intensity := 0.0           # 0..1
+var _wx_next := 0.0                # next auto weather roll (in _wx_time seconds)
+var _wx_time := 0.0                # local animation clock
+var _rain: Array = []              # [{x,y,l,sp}]
+var _snow: Array = []              # [{x,y,r,sp,sw,ph,a}]
+
+# --- real 2D lighting prototype: PointLight2D + CanvasModulate (press L) ---
+var _lighting := "lights2d"        # "lights2d" (real Godot lights) or "immediate" (fallback glow)
+var _world_layer: CanvasLayer      # holds the modulated world so the HUD stays bright
+var _world_node: Node2D            # all world tiles/sprites are drawn here
+var _canvas_mod: CanvasModulate    # day/night multiply over the world only
+var _light_tex: Texture2D          # runtime radial-gradient light cookie
+var _player_light: PointLight2D    # soft vision light around the player
+var _loc_lights: Array = []        # PointLight2D lamps at buildings
+var _loc_lights_built := false
 
 var _player_id := ""
 var _player_pos := Vector2(32, 24)
@@ -61,8 +82,43 @@ const KIND_COLORS := {
 	"shop": Color(0.80, 0.65, 0.25),
 }
 
+# --- Kenney Roguelike/RPG tiles (CC0). 16x16 tiles, 1px margin => 17px pitch.
+# See ASSETS.md for provenance and docs/ART.md for the tile-index reference.
+var _sheet: Texture2D = load("res://assets/tiles/roguelikeSheet_transparent.png")
+var _chars: Texture2D = load("res://assets/sprites/roguelikeChar_transparent.png")
+const T_GRASS := Vector2i(5, 0)
+const T_STONE := Vector2i(8, 0)
+const T_FIELD := Vector2i(2, 7)
+const T_WATER := Vector2i(3, 2)
+const T_TREE := Vector2i(13, 10)
+const T_PINE := Vector2i(16, 10)
+const T_ROCK := Vector2i(6, 15)
+const ROOF := {
+	"tavern": Vector2i(16, 26), "home": Vector2i(13, 25), "stable": Vector2i(18, 28),
+	"smithy": Vector2i(19, 29), "shop": Vector2i(15, 26), "gate": Vector2i(14, 25),
+	"well": Vector2i(17, 27), "square": Vector2i(13, 25), "field": Vector2i(15, 26),
+}
+const ROLE_TILE := {
+	"Tavernkeeper": Vector2i(0, 10), "Stable hand": Vector2i(1, 3), "Blacksmith": Vector2i(0, 5),
+	"Street sweeper": Vector2i(1, 6), "Farmer": Vector2i(0, 3), "Gate guard": Vector2i(0, 11),
+	"Errand child": Vector2i(0, 9), "Herbalist": Vector2i(1, 5),
+}
+
+
+## Blit one 16x16 tile from a Kenney sheet, centered on `center`, scaled to `size` px.
+## Drawn on the world layer so lighting affects it.
+func _tile(tex: Texture2D, t: Vector2i, center: Vector2, size: float) -> void:
+	if tex == null or _world_node == null:
+		return
+	_world_node.draw_texture_rect_region(tex,
+		Rect2(center - Vector2(size, size) * 0.5, Vector2(size, size)),
+		Rect2(t.x * 17, t.y * 17, 16, 16))
+
 
 func _ready() -> void:
+	# crisp pixel art (no bilinear blur when the 16px tiles are scaled up)
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_build_world_layer()
 	if ProjectSettings.has_setting("network/realmweave/server_url"):
 		_server_url = ProjectSettings.get_setting("network/realmweave/server_url")
 	_ws.connect_to_url(_server_url)
@@ -220,7 +276,14 @@ func _process(delta: float) -> void:
 		if not _render_pos.has(id):
 			_render_pos[id] = target
 		_render_pos[id] = (_render_pos[id] as Vector2).lerp(target, clamp(delta * 8.0, 0, 1))
+	_wx_time += delta
+	_update_weather(delta)
+	if not _loc_lights_built and not _locations.is_empty():
+		_build_loc_lights()
+	_update_lighting(delta)
 	queue_redraw()
+	if _world_node:
+		_world_node.queue_redraw()
 
 
 func _poll_socket() -> void:
@@ -323,6 +386,10 @@ func _input(event: InputEvent) -> void:
 			_change_speed(-1)
 		KEY_SPACE:
 			_toggle_pause()
+		KEY_R:
+			_cycle_weather()
+		KEY_L:
+			_toggle_lighting()
 
 
 func _handle_input(delta: float) -> void:
@@ -371,70 +438,375 @@ func _observe_nearest() -> void:
 		_send({"type": "observe", "agent_id": best_id})
 
 
+## Overlays only. The world (tiles, sprites, lamps) is drawn on _world_node in a
+## CanvasLayer below, so CanvasModulate / PointLight2D dim the world but not these.
 func _draw() -> void:
 	var font := ThemeDB.fallback_font
-	# decorative scenery behind everything
-	_draw_props()
-	# locations
-	for loc in _locations:
-		var p := world_to_screen(loc["x"], loc["y"])
-		var col: Color = KIND_COLORS.get(loc.get("kind", ""), Color(0.4, 0.4, 0.4))
-		draw_rect(Rect2(p - Vector2(18, 12), Vector2(36, 24)), col.darkened(0.2), true)
-		draw_rect(Rect2(p - Vector2(18, 12), Vector2(36, 24)), col, false, 1.5)
-		draw_string(font, p + Vector2(-16, 20), loc.get("name", ""), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.75, 0.75, 0.8))
-
-	# NPCs
-	for id in _agents.keys():
-		var a: Dictionary = _agents[id]
-		var p: Vector2 = _render_pos.get(id, world_to_screen(a.get("x", 0), a.get("y", 0)))
-		var alive: bool = a.get("alive", true)
-		var col := Color(0.85, 0.80, 0.55) if alive else Color(0.35, 0.30, 0.30)
-		draw_circle(p, AGENT_R, col)
-		draw_arc(p, AGENT_R, 0, TAU, 20, Color(0.1, 0.1, 0.1), 1.5)
-		draw_string(font, p + Vector2(-20, -12), a.get("name", ""), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color.WHITE)
-		if not alive:
-			draw_string(font, p + Vector2(-6, 4), "x", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color.BLACK)
-		var say: String = a.get("say", "")
-		if say != "":
-			_draw_bubble(font, p, say)
-
-	# players
-	for pl in _players:
-		var p := world_to_screen(pl.get("x", 0), pl.get("y", 0))
-		draw_circle(p, AGENT_R + 1, Color(0.35, 0.75, 0.95))
-		draw_arc(p, AGENT_R + 1, 0, TAU, 20, Color.WHITE, 1.5)
-		draw_string(font, p + Vector2(-20, -12), pl.get("name", "You"), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.6, 0.9, 1.0))
-
-	_draw_daynight()
+	_draw_weather()
 	_draw_subjective(font)
 	_draw_hud(font)
 
 
+## The world, drawn on the modulated/lit layer.
+func _draw_world() -> void:
+	if _world_node == null:
+		return
+	var font := ThemeDB.fallback_font
+	# grass ground covering the viewport (one tile per 2 world units)
+	var gt := 2
+	for gx in range(-4, 66, gt):
+		for gy in range(-6, 44, gt):
+			_tile(_sheet, T_GRASS, world_to_screen(gx, gy), SCALE * 2 + 2)
+	# stone paths radiating from the square hub
+	var sq := _find_loc("square")
+	if not sq.is_empty():
+		for loc in _locations:
+			if loc.get("id", "") == "square" or loc.get("kind", "") == "home":
+				continue
+			var ax: float = sq.get("x", 0.0)
+			var ay: float = sq.get("y", 0.0)
+			var bx: float = loc.get("x", 0.0)
+			var by: float = loc.get("y", 0.0)
+			var n := int(Vector2(bx - ax, by - ay).length() / 1.4) + 1
+			for k in range(n + 1):
+				var t := float(k) / float(n)
+				_tile(_sheet, T_STONE, world_to_screen(ax + (bx - ax) * t, ay + (by - ay) * t), SCALE * 1.7)
+	# crop field patches, then buildings (top-down = roofs)
+	for loc in _locations:
+		var p := world_to_screen(loc["x"], loc["y"])
+		var kind: String = loc.get("kind", "")
+		match kind:
+			"field":
+				for dx in [-2, 0, 2]:
+					for dy in [-2, 0, 2]:
+						_tile(_sheet, T_FIELD, world_to_screen(loc["x"] + dx, loc["y"] + dy), SCALE * 2 + 2)
+			"well":
+				_tile(_sheet, T_STONE, p, SCALE * 1.7)
+				_tile(_sheet, T_WATER, p, SCALE * 0.9)
+			"square":
+				for dx in [-1.5, 0.0, 1.5]:
+					for dy in [-1.0, 1.0]:
+						_tile(_sheet, T_STONE, world_to_screen(loc["x"] + dx, loc["y"] + dy), SCALE * 1.6)
+			"gate":
+				_tile(_sheet, T_ROCK, p, SCALE * 1.8)
+			_:
+				var r: Vector2i = ROOF.get(kind, ROOF["home"])
+				for dx in [-1.2, 0.0, 1.2]:
+					for dy in [-0.9, 0.9]:
+						_tile(_sheet, r, world_to_screen(loc["x"] + dx, loc["y"] + dy), SCALE * 1.5 + 2)
+		if kind != "field":
+			_world_node.draw_string(font, p + Vector2(-30, 26), loc.get("name", ""), HORIZONTAL_ALIGNMENT_CENTER, 60, 10, Color(0.85, 0.85, 0.9))
+	# decorative scenery
+	_draw_props()
+
+	# NPCs (character sprites)
+	for id in _agents.keys():
+		var a: Dictionary = _agents[id]
+		var p: Vector2 = _render_pos.get(id, world_to_screen(a.get("x", 0), a.get("y", 0)))
+		var alive: bool = a.get("alive", true)
+		if a.get("wanted", false):
+			_world_node.draw_arc(p - Vector2(0, SCALE * 0.3), SCALE * 1.4, 0, TAU, 20, Color(0.78, 0.35, 0.35), 2.0)
+		var ctile: Vector2i = ROLE_TILE.get(a.get("role", ""), Vector2i(0, 0))
+		if alive:
+			_tile(_chars, ctile, p - Vector2(0, SCALE * 0.3), SCALE * 2.4)
+		else:
+			_world_node.draw_texture_rect_region(_chars,
+				Rect2(p - Vector2(0, SCALE * 0.3) - Vector2(SCALE * 1.2, SCALE * 1.2), Vector2(SCALE * 2.4, SCALE * 2.4)),
+				Rect2(ctile.x * 17, ctile.y * 17, 16, 16), Color(1, 1, 1, 0.45))
+		var nm: String = a.get("name", "") if alive else str(a.get("name", "")) + " +"
+		_world_node.draw_string(font, p + Vector2(-40, -SCALE * 1.6), nm, HORIZONTAL_ALIGNMENT_CENTER, 80, 10, Color.WHITE)
+		var say: String = a.get("say", "")
+		if say != "":
+			_draw_bubble(font, p, say)
+
+	# players (silver knight sprite)
+	for pl in _players:
+		var p := world_to_screen(pl.get("x", 0), pl.get("y", 0))
+		_tile(_chars, Vector2i(1, 11), p - Vector2(0, SCALE * 0.3), SCALE * 2.5)
+		_world_node.draw_string(font, p + Vector2(-40, -SCALE * 1.6), pl.get("name", "You"), HORIZONTAL_ALIGNMENT_CENTER, 80, 10, Color(0.6, 0.9, 1.0))
+
+	# In immediate mode, the flat tint + glow fallback is drawn here on the world layer.
+	if _lighting == "immediate":
+		_draw_immediate_lighting()
+
+
+func _find_loc(id: String) -> Dictionary:
+	for loc in _locations:
+		if loc.get("id", "") == id:
+			return loc
+	return {}
+
+
 func _draw_props() -> void:
+	var i := 0
 	for pr in _props:
 		var p := world_to_screen(pr.get("x", 0), pr.get("y", 0))
 		match pr.get("kind", ""):
 			"tree":
-				draw_rect(Rect2(p + Vector2(-2, -2), Vector2(4, 14)), Color(0.35, 0.25, 0.13), true)
-				draw_circle(p + Vector2(0, -10), 13.0, Color(0.24, 0.42, 0.20))
-				draw_circle(p + Vector2(-4, -14), 8.0, Color(0.30, 0.50, 0.25))
+				_tile(_sheet, T_TREE if i % 2 == 0 else T_PINE, p - Vector2(0, SCALE * 0.4), SCALE * 2.6)
 			"rock":
-				draw_circle(p, 8.0, Color(0.42, 0.44, 0.48))
+				_tile(_sheet, T_ROCK, p, SCALE * 1.4)
 			"pond":
-				draw_circle(p, 34.0, Color(0.18, 0.35, 0.44))
+				for dx in [-3, -1, 1, 3]:
+					for dy in [-2, 0, 2]:
+						_tile(_sheet, T_WATER, world_to_screen(pr.get("x", 0) + dx, pr.get("y", 0) + dy), SCALE * 2 + 2)
+		i += 1
 
 
-func _draw_daynight() -> void:
-	var pod := "afternoon"
+## Immediate-mode fallback lighting (press L to compare): a flat ambient tint plus
+## stacked translucent glow circles, drawn on the world layer.
+func _draw_immediate_lighting() -> void:
+	if _world_node == null:
+		return
+	var amb := _ambient_at(_clock_hours())
+	if amb.a > 0.003:
+		_world_node.draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), amb, true)
+	var nightness: float = clamp((amb.a - 0.05) / 0.5, 0.0, 1.0)
+	if nightness <= 0.01:
+		return
+	var t := _wx_time
+	for L in _light_sources():
+		var amp: float = L["amp"]
+		var sp: float = L["sp"]
+		var fl: float = max(0.4, float(L["base"]) * (1.0 + amp * sin(t * sp + float(L["x"])) + amp * 0.5 * sin(t * sp * 2.3 + float(L["y"]))))
+		var center := world_to_screen(L["x"], L["y"])
+		var R: float = float(L["r"]) * SCALE * fl
+		var col: Color = L["c"]
+		var peak: float = 0.5 * nightness * fl
+		var rings := 6
+		for i in range(rings):
+			var f: float = float(i) / float(rings)
+			var rr: float = R * (1.0 - f * 0.85)
+			var a: float = peak * (0.10 + 0.9 * f) * 0.42
+			_world_node.draw_circle(center, rr, Color(col.r, col.g, col.b, a))
+
+
+# --- real 2D lighting prototype ---------------------------------------------
+
+## Build the world CanvasLayer, its CanvasModulate, and the player's vision light.
+func _build_world_layer() -> void:
+	_world_layer = CanvasLayer.new()
+	_world_layer.layer = -1
+	add_child(_world_layer)
+	_canvas_mod = CanvasModulate.new()
+	_canvas_mod.color = Color(1, 1, 1)
+	_world_layer.add_child(_canvas_mod)
+	_world_node = Node2D.new()
+	_world_node.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_world_node.draw.connect(_draw_world)
+	_world_layer.add_child(_world_node)
+	_light_tex = _make_light_texture()
+	_player_light = PointLight2D.new()
+	_player_light.texture = _light_tex
+	_player_light.color = Color(1.0, 0.96, 0.86)
+	_player_light.energy = 0.0
+	_player_light.texture_scale = 1.5   # soft vision bubble around the player
+	_world_node.add_child(_player_light)
+
+
+## A soft round light cookie built at runtime, so no art asset is needed.
+func _make_light_texture() -> Texture2D:
+	var g := Gradient.new()
+	g.set_offset(0, 0.0)
+	g.set_color(0, Color(1, 1, 1, 1))
+	g.set_offset(1, 1.0)
+	g.set_color(1, Color(1, 1, 1, 0))
+	var tex := GradientTexture2D.new()
+	tex.gradient = g
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(1.0, 0.5)
+	tex.width = 256
+	tex.height = 256
+	return tex
+
+
+## One warm lamp per light source; energy is driven by _update_lighting.
+func _build_loc_lights() -> void:
+	for src in _light_sources():
+		var pl := PointLight2D.new()
+		pl.texture = _light_tex
+		pl.color = src["c"]
+		pl.energy = 0.0
+		pl.texture_scale = max(0.25, (float(src["r"]) * SCALE * 2.0) / 256.0)
+		pl.position = world_to_screen(src["x"], src["y"])
+		pl.set_meta("src", src)
+		_world_node.add_child(pl)
+		_loc_lights.append(pl)
+	_loc_lights_built = true
+
+
+func _toggle_lighting() -> void:
+	_lighting = "immediate" if _lighting == "lights2d" else "lights2d"
+	_log("Lighting: " + _lighting + ("  (real Light2D)" if _lighting == "lights2d" else "  (immediate glow)"))
+
+
+## 0 = full day, 1 = deep night; smooth dawn/dusk shoulders.
+func _night_amount(h: float) -> float:
+	if h >= 21.0 or h < 5.0:
+		return 1.0
+	if h >= 8.0 and h <= 17.5:
+		return 0.0
+	if h < 8.0:
+		return clamp((8.0 - h) / 3.0, 0.0, 1.0)
+	return clamp((h - 17.5) / 3.5, 0.0, 1.0)
+
+
+## Day/night multiply for the world. Never fully dark: floors around ~0.5 so the
+## village stays legible while distant, unlit areas lose visibility at night.
+func _sky_modulate(h: float) -> Color:
+	var n := _night_amount(h)
+	var night := Color(0.5, 0.54, 0.7)
+	return Color(1, 1, 1).lerp(night, n)
+
+
+func _update_lighting(_delta: float) -> void:
+	if _world_layer == null:
+		return
+	var on := _lighting == "lights2d"
+	var h := _clock_hours()
+	var n := _night_amount(h)
+	_canvas_mod.color = _sky_modulate(h) if on else Color(1, 1, 1)
+	var t := _wx_time
+	for pl in _loc_lights:
+		if not on:
+			pl.energy = 0.0
+			continue
+		var src: Dictionary = pl.get_meta("src")
+		var amp: float = src["amp"]
+		var sp: float = src["sp"]
+		var fl: float = 1.0 + amp * sin(t * sp + float(src["x"])) + amp * 0.5 * sin(t * sp * 2.3 + float(src["y"]))
+		pl.energy = n * float(src["base"]) * 1.25 * max(0.3, fl)
+	if _player_light:
+		_player_light.position = world_to_screen(_player_pos.x, _player_pos.y)
+		_player_light.energy = lerp(0.0, 0.7, n) if on else 0.0
+
+
+func _clock_hours() -> float:
 	if not _clock.is_empty():
-		pod = _clock.get("part_of_day", "afternoon")
-	var tint := Color(0, 0, 0, 0)
-	match pod:
-		"night": tint = Color(0.05, 0.09, 0.24, 0.50)
-		"evening": tint = Color(0.47, 0.24, 0.08, 0.24)
-		"morning": tint = Color(0.78, 0.67, 0.47, 0.10)
-	if tint.a > 0.0:
-		draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), tint, true)
+		var s := str(_clock.get("hhmm", ""))
+		if ":" in s:
+			var parts := s.split(":")
+			return float(parts[0]) + float(parts[1]) / 60.0
+		match _clock.get("part_of_day", ""):
+			"night": return 1.0
+			"morning": return 6.5
+			"evening": return 19.0
+	return 13.0
+
+
+func _ambient_at(h: float) -> Color:
+	var pts := [
+		[0.0, Color(0.031, 0.055, 0.180, 0.62)],
+		[5.0, Color(0.063, 0.086, 0.227, 0.52)],
+		[6.3, Color(0.470, 0.306, 0.212, 0.34)],
+		[7.2, Color(0.824, 0.647, 0.439, 0.13)],
+		[8.5, Color(0.0, 0.0, 0.0, 0.03)],
+		[11.0, Color(0.0, 0.0, 0.0, 0.0)],
+		[16.0, Color(0.0, 0.0, 0.0, 0.0)],
+		[17.8, Color(0.588, 0.361, 0.173, 0.16)],
+		[19.0, Color(0.494, 0.227, 0.086, 0.30)],
+		[20.0, Color(0.180, 0.149, 0.290, 0.45)],
+		[21.2, Color(0.055, 0.078, 0.220, 0.56)],
+		[24.0, Color(0.031, 0.055, 0.180, 0.62)],
+	]
+	for i in range(pts.size() - 1):
+		var a: Array = pts[i]
+		var b: Array = pts[i + 1]
+		if h >= float(a[0]) and h <= float(b[0]):
+			var t: float = (h - float(a[0])) / max(0.0001, float(b[0]) - float(a[0]))
+			return (a[1] as Color).lerp(b[1] as Color, t)
+	return pts[0][1]
+
+
+func _light_sources() -> Array:
+	var out: Array = []
+	for l in _locations:
+		match l.get("kind", ""):
+			"smithy": out.append({"x": l["x"], "y": l["y"] - 0.3, "r": 5.5, "c": Color(1.0, 0.55, 0.18), "amp": 0.35, "sp": 9.0, "base": 1.0})
+			"tavern": out.append({"x": l["x"], "y": l["y"], "r": 5.0, "c": Color(1.0, 0.77, 0.38), "amp": 0.14, "sp": 5.0, "base": 0.9})
+			"square": out.append({"x": l["x"], "y": l["y"], "r": 4.6, "c": Color(1.0, 0.82, 0.59), "amp": 0.10, "sp": 4.0, "base": 0.85})
+			"well": out.append({"x": l["x"], "y": l["y"], "r": 3.6, "c": Color(1.0, 0.80, 0.55), "amp": 0.10, "sp": 4.0, "base": 0.7})
+			"gate": out.append({"x": l["x"], "y": l["y"], "r": 3.6, "c": Color(1.0, 0.78, 0.55), "amp": 0.12, "sp": 4.0, "base": 0.7})
+			"shop": out.append({"x": l["x"], "y": l["y"], "r": 3.8, "c": Color(1.0, 0.78, 0.47), "amp": 0.12, "sp": 5.0, "base": 0.7})
+			"home": out.append({"x": l["x"], "y": l["y"], "r": 3.0, "c": Color(1.0, 0.71, 0.43), "amp": 0.10, "sp": 3.0, "base": 0.55})
+	return out
+
+
+func _ensure_wx(size: Vector2) -> void:
+	if _rain.is_empty():
+		for i in range(320):
+			_rain.append({"x": randf() * size.x, "y": randf() * size.y, "l": 10.0 + randf() * 12.0, "sp": 9.0 + randf() * 7.0})
+	if _snow.is_empty():
+		for i in range(220):
+			_snow.append({"x": randf() * size.x, "y": randf() * size.y, "r": 1.0 + randf() * 2.2, "sp": 0.7 + randf() * 1.3, "sw": 0.6 + randf() * 1.2, "ph": randf() * TAU, "a": 0.5 + randf() * 0.5})
+
+
+func _update_weather(delta: float) -> void:
+	if _wx_mode == "auto":
+		if _wx_time > _wx_next:
+			var r := randf()
+			_wx_target = "clear" if r < 0.55 else ("rain" if r < 0.85 else "snow")
+			_wx_next = _wx_time + 22.0 + randf() * 40.0
+	else:
+		_wx_target = _wx_mode
+	if _wx_type != _wx_target:
+		_wx_intensity -= delta * 0.45
+		if _wx_intensity <= 0.0:
+			_wx_intensity = 0.0
+			_wx_type = _wx_target
+	else:
+		var tgt := 0.0 if _wx_type == "clear" else 1.0
+		var dir := 1.0 if tgt > _wx_intensity else -1.0
+		_wx_intensity = clamp(_wx_intensity + dir * delta * 0.45, 0.0, 1.0)
+
+
+func _cycle_weather() -> void:
+	var order := ["auto", "clear", "rain", "snow"]
+	var idx := order.find(_wx_mode)
+	_wx_mode = order[(idx + 1) % order.size()]
+	_wx_next = 0.0
+	_log("Weather: " + _wx_mode)
+
+
+func _draw_weather() -> void:
+	var size := get_viewport_rect().size
+	_ensure_wx(size)
+	var intensity := _wx_intensity
+	if intensity <= 0.01 or _wx_type == "clear":
+		return
+	var dt := get_process_delta_time()
+	var step := dt * 60.0
+	if _wx_type == "rain":
+		draw_rect(Rect2(Vector2.ZERO, size), Color(0.21, 0.25, 0.34, 0.16 * intensity), true)
+		var wind := 2.6
+		var n := int(_rain.size() * intensity)
+		for i in range(n):
+			var d: Dictionary = _rain[i]
+			var x: float = d["x"]
+			var y: float = d["y"]
+			draw_line(Vector2(x, y), Vector2(x - wind * 1.2, y - float(d["l"])), Color(0.75, 0.80, 0.90, 0.5 * intensity), 1.1)
+			d["y"] = y + float(d["sp"]) * step
+			d["x"] = x + wind * step
+			if float(d["y"]) > size.y:
+				d["y"] = -10.0
+				d["x"] = randf() * size.x
+			if float(d["x"]) > size.x:
+				d["x"] = float(d["x"]) - size.x
+	elif _wx_type == "snow":
+		draw_rect(Rect2(Vector2.ZERO, size), Color(0.84, 0.88, 0.94, 0.10 * intensity), true)
+		var n := int(_snow.size() * intensity)
+		for i in range(n):
+			var f: Dictionary = _snow[i]
+			var sway: float = sin(_wx_time * float(f["sw"]) + float(f["ph"])) * 8.0
+			draw_circle(Vector2(float(f["x"]) + sway, float(f["y"])), float(f["r"]), Color(0.93, 0.95, 0.98, float(f["a"]) * intensity))
+			f["y"] = float(f["y"]) + float(f["sp"]) * step
+			f["x"] = float(f["x"]) + 0.3 * step
+			if float(f["y"]) > size.y:
+				f["y"] = -6.0
+				f["x"] = randf() * size.x
+			if float(f["x"]) > size.x:
+				f["x"] = float(f["x"]) - size.x
 
 
 func _draw_subjective(font: Font) -> void:
@@ -471,12 +843,14 @@ func _draw_subjective(font: Font) -> void:
 
 
 func _draw_bubble(font: Font, p: Vector2, text: String) -> void:
+	if _world_node == null:
+		return
 	var t := text.substr(0, 42)
 	var w := float(t.length()) * 6.0 + 10.0
 	var box := Rect2(p + Vector2(10, -28), Vector2(w, 18))
-	draw_rect(box, Color(0.05, 0.05, 0.07, 0.85), true)
-	draw_rect(box, Color(0.6, 0.6, 0.65), false, 1.0)
-	draw_string(font, box.position + Vector2(5, 13), t, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.9, 0.9, 0.95))
+	_world_node.draw_rect(box, Color(0.05, 0.05, 0.07, 0.85), true)
+	_world_node.draw_rect(box, Color(0.6, 0.6, 0.65), false, 1.0)
+	_world_node.draw_string(font, box.position + Vector2(5, 13), t, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.9, 0.9, 0.95))
 
 
 func _draw_hud(font: Font) -> void:
@@ -499,7 +873,7 @@ func _draw_hud(font: Font) -> void:
 	for line in _events.slice(max(0, _events.size() - 7), _events.size()):
 		draw_string(font, Vector2(20, y), line, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.8, 0.8, 0.85))
 		y += 16
-	draw_string(font, Vector2(vp.x - 360, 27), "WASD walk · O: eyes · -/+ speed · Space pause · Esc settings",
+	draw_string(font, Vector2(vp.x - 470, 27), "WASD · O: eyes · R: weather · L: light · -/+ speed · Space pause · Esc",
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.6, 0.6, 0.65))
 
 
