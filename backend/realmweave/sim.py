@@ -30,7 +30,7 @@ from .cognition.personality import seed_personality
 from .economy.market import Economy
 from .economy.finance import Finance
 from .economy.goods import make_item
-from .economy.recipes import RECIPES, GATHER
+from .economy.recipes import RECIPES, GATHER, roll_ore
 from .quests.board import QuestBoard
 from .divine.influence import DivineInfluence
 from .perception import senses as perception
@@ -400,12 +400,22 @@ class Simulation:
             skill, item = "Herbalism", "a healing remedy"
         elif kind == "tavern":
             skill, item = "Cooking", "a hot meal"
+        elif kind == "mine":
+            skill, item = "Mining", "ore"
         else:
             return
         if self.rng.random() > 0.2:      # not every tick
             return
 
-        # gathering: primary work brings in a raw material, no input needed
+        # gathering: the mine yields a weighted ore draw; other primary sites
+        # yield their single fixed material. No input needed either way.
+        if kind == "mine":
+            mat = roll_ore(self.rng)
+            a.materials[mat] = a.materials.get(mat, 0) + 1
+            self._observe(a, f"Mined {mat} (now {a.materials[mat]} on hand).", 1.5, "event")
+            self.emit("gather", agent=a.id, agent_name=a.name, material=mat,
+                      qty=a.materials[mat], location=a.current_location)
+            return
         mat = GATHER.get(kind)
         if mat is not None:
             a.materials[mat] = a.materials.get(mat, 0) + 1

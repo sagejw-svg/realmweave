@@ -209,6 +209,11 @@ def default_agents() -> List[Agent]:
                              (10, "wander", "field"), (13, "eat", "tavern"),
                              (15, "chores", "square"), (20, "socialize", "tavern"),
                              (22, "sleep", "home_dora"))),
+        Agent("gart", "Gart Stone", "Miner", "home_gart", "mine", 56, 32,
+              persona="Broad, taciturn miner who works the Ironbark seam. Trusts stone over people, keeps a keen eye for a rich vein.",
+              schedule=sched((0, "sleep", "home_gart"), (6, "work", "mine"),
+                             (12, "eat", "tavern"), (13, "work", "mine"),
+                             (20, "socialize", "tavern"), (22, "sleep", "home_gart"))),
     ]
     # seed a few relationships
     cast_by = {a.id: a for a in cast}
@@ -217,4 +222,6 @@ def default_agents() -> List[Agent]:
     cast_by["isla"].adjust_affinity("dora", 0.4)
     cast_by["dora"].adjust_affinity("isla", 0.4)
     cast_by["wren"].adjust_affinity("elda", 0.3)
+    cast_by["gart"].adjust_affinity("toft", 0.3)   # miner supplies the smith
+    cast_by["toft"].adjust_affinity("gart", 0.3)
     return cast

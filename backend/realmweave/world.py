@@ -32,12 +32,14 @@ def default_village() -> Dict[str, Location]:
         Location("stable", "Stables", 46, 20, "stable", capacity=8),
         Location("smithy", "Ironbark Smithy", 44, 30, "smithy", capacity=4),
         Location("field", "North Fields", 30, 6, "field", capacity=12),
+        Location("mine", "Ironbark Mine", 56, 32, "mine", capacity=6),
         Location("gate", "South Gate", 32, 44, "gate", capacity=10),
         Location("home_bram", "Bram's Room", 14, 22, "home", capacity=2),
         Location("home_isla", "Isla's Cottage", 50, 14, "home", capacity=3),
         Location("home_toft", "Toft's Shack", 48, 36, "home", capacity=2),
         Location("home_wren", "Wren's Loft", 24, 34, "home", capacity=2),
         Location("home_dora", "Dora's House", 38, 10, "home", capacity=3),
+        Location("home_gart", "Gart's Hut", 58, 38, "home", capacity=2),
     ]
     return {l.id: l for l in locs}
 
@@ -50,6 +52,7 @@ def default_props() -> List[dict]:
              (40, 46), (18, 44), (48, 4), (2, 16), (60, 34), (30, 48), (34, 2)]
     props = [{"kind": "tree", "x": x, "y": y} for (x, y) in trees]
     props += [{"kind": "rock", "x": 26, "y": 6}, {"kind": "rock", "x": 44, "y": 42}]
+    props += [{"kind": "rock", "x": 58, "y": 30}, {"kind": "rock", "x": 54, "y": 34}]
     props += [{"kind": "pond", "x": 12, "y": 32}]
     return props
 

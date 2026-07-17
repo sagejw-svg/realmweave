@@ -37,6 +37,7 @@ SKILL_CATALOG: Dict[str, Tuple[str, str]] = {
     "Brewing": ("Endurance", "Craft"),
     "Herbalism": ("Intellect", "Craft"),
     "Farming": ("Endurance", "Survival"),
+    "Mining": ("Might", "Survival"),
     "Survival": ("Endurance", "Survival"),
     "Riding": ("Agility", "Survival"),
     "AnimalHandling": ("Presence", "Survival"),
@@ -170,6 +171,8 @@ _ROLE_SEEDS = {
                      {"Athletics": 58, "Stealth": 55, "Streetwise": 58, "Perception": 50}),
     "Herbalist": ({"Intellect": 64, "Wits": 60},
                   {"Herbalism": 78, "Medicine": 70, "Arcana": 55, "Appraisal": 50, "Insight": 60, "Faith": 45}),
+    "Miner": ({"Might": 68, "Endurance": 66},
+              {"Mining": 80, "Athletics": 56, "Appraisal": 48, "Survival": 46, "Smithing": 35, "Intimidation": 30}),
 }
 
 
