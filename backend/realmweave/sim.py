@@ -241,6 +241,41 @@ class Simulation:
             self._observe(a, "A wound of mine has closed.", 2.0, "event")
             self.emit("recover", agent=a.id, agent_name=a.name, wounds=len(a.wounds))
 
+    # ---- combat (abstract, one exchange at a time) --------------------
+    def _best_skill(self, agent: Agent, names) -> int:
+        """The agent's best effective value across a set of skills (a floor of 40
+        for sheet-less actors keeps the math sane)."""
+        if agent.sheet is None:
+            return 40
+        return max(agent.sheet.effective(n) for n in names)
+
+    def resolve_combat(self, attacker: Agent, defender: Agent,
+                       lethal: bool = False, note: str = ""):
+        """Resolve one combat exchange between two agents. The attacker leads with
+        their best offense, the defender answers with their best defense; open
+        wounds hamper both. A HIT wounds the defender (a grave hit with lethal
+        intent can down them); the outcome is emitted and returned. Non-lethal by
+        default: ordinary conflict wounds and subdues, it does not slay."""
+        from .rules.combat import resolve_exchange, ExchangeResult, OFFENSE_SKILLS, DEFENSE_SKILLS
+        off = self._best_skill(attacker, OFFENSE_SKILLS) - attacker.wound_penalty()
+        dfn = self._best_skill(defender, DEFENSE_SKILLS) - defender.wound_penalty()
+        ex = resolve_exchange(off, dfn, self.rng)
+        downed = False
+        if ex.result == ExchangeResult.HIT:
+            defender.add_wound(ex.severity, source=note or f"struck by {attacker.name}")
+            downed = ex.severity >= 3
+            self._observe(defender, f"{attacker.name} wounded me.", 6.0, "event")
+            self._observe(attacker, f"I struck {defender.name}.", 4.0, "event")
+            if downed and lethal and defender.alive:
+                self.kill(defender.id, cause=f"slain by {attacker.name}")
+        elif ex.result == ExchangeResult.EXPOSED:
+            self._observe(attacker, f"I overreached at {defender.name} and lost my footing.", 4.0, "event")
+        self.emit("combat", attacker=attacker.id, attacker_name=attacker.name,
+                  defender=defender.id, defender_name=defender.name,
+                  result=ex.result.value, severity=ex.severity,
+                  downed=downed, lethal=lethal)
+        return ex
+
     def _observe(self, a: Agent, text: str, importance: float, kind: str = "observation") -> None:
         if a.memory is not None:
             a.memory.add(text, importance, self.clock.minutes, kind)
