@@ -192,6 +192,15 @@ class Simulation:
         someone off. This is the beating heart of the pitch - a world left
         running can now produce a funeral, and the grief-ripple, with no dev
         hand on the scale."""
+        # open wounds bleed health first, so a grave wound left untreated can
+        # carry someone off on its own (a graze costs nothing but a check penalty)
+        if a.wounds:
+            bleed = sum(w.health_bleed() for w in a.wounds)
+            if bleed > 0.0:
+                a.health = max(0.0, a.health - bleed)
+                if a.health <= 0.0:
+                    self.kill(a.id, cause="their wounds")
+                    return
         starving = []
         if a.energy.value <= STARVE_THRESHOLD:
             starving.append("exhaustion")
@@ -217,6 +226,20 @@ class Simulation:
             frailty = 1.0 + (1.0 - a.health) * 3.0     # the frail are likelier to fall
             if self.rng.random() < chance * frailty:
                 self.kill(a.id, cause=self.rng.choice(("a sudden illness", "an accident")))
+
+    def _tick_wounds(self, a: Agent) -> None:
+        """Advance healing on an agent's open wounds and clear any that have
+        closed. Resting (sleep/eat) speeds mending; a healer's care will hook in
+        here later. Health effects of open wounds live in _mortality."""
+        if not a.wounds:
+            return
+        care = 0.02 if a.activity in ("sleep", "eat") else 0.0
+        for w in a.wounds:
+            w.tick_mend(care)
+        if any(w.closed() for w in a.wounds):
+            a.wounds = [w for w in a.wounds if not w.closed()]
+            self._observe(a, "A wound of mine has closed.", 2.0, "event")
+            self.emit("recover", agent=a.id, agent_name=a.name, wounds=len(a.wounds))
 
     def _observe(self, a: Agent, text: str, importance: float, kind: str = "observation") -> None:
         if a.memory is not None:
@@ -585,6 +608,7 @@ class Simulation:
             self._move(a)
             self._activity_effects(a)
             self._survival_watchdog(a)   # floor first, so it can rescue the stuck
+            self._tick_wounds(a)         # mend/close wounds before judging health
             self._mortality(a)           # then judge health / natural death
             if not a.alive:              # died this tick: skip the rest of its turn
                 continue

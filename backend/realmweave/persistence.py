@@ -16,9 +16,10 @@ import os
 from .memory import MemoryEntry
 from .cognition.goals import Goal
 from .economy.goods import Item
+from .rules.harm import Wound
 
-SAVE_VERSION = 12
-SUPPORTED_VERSIONS = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)
+SAVE_VERSION = 13
+SUPPORTED_VERSIONS = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13)
 
 
 def save_world(sim, path: str) -> None:
@@ -49,6 +50,7 @@ def save_world(sim, path: str) -> None:
             "coin": a.coin,
             "inventory": [it.to_dict() for it in a.inventory],
             "materials": dict(a.materials),
+            "wounds": [w.to_dict() for w in a.wounds],
             "god_disposition": a.god_disposition,
             "known_facts": sorted(a.known_facts),
             "alias": a.alias,
@@ -128,6 +130,8 @@ def load_world(sim, path: str) -> bool:
         a.inventory = [Item.from_dict(it) for it in ad.get("inventory", [])]
         # v11+: restore raw material stock; older saves start with none
         a.materials = {k: int(v) for k, v in ad.get("materials", {}).items()}
+        # v13+: restore wounds; pre-v13 saves load with none (unwounded)
+        a.wounds = [Wound.from_dict(w) for w in ad.get("wounds", [])]
         # v6+: restore disposition toward the god
         if "god_disposition" in ad:
             a.god_disposition = float(ad["god_disposition"])

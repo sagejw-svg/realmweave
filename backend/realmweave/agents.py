@@ -76,6 +76,7 @@ class Agent:
     coin: int = 0                                                # money
     inventory: List = field(default_factory=list)               # List[economy.Item]
     materials: Dict[str, int] = field(default_factory=dict)     # raw material stock (name -> qty)
+    wounds: List = field(default_factory=list)                  # List[rules.harm.Wound]
     god_disposition: float = 0.0                                 # feeling toward the god -1..1
     known_facts: set = field(default_factory=set)               # keyed facts this agent knows
     # identity, reputation & justice (Phase 7)
@@ -134,6 +135,17 @@ class Agent:
         for n in (self.energy, self.hunger, self.thirst, self.social):
             n.tick()
 
+    # ---- harm ----------------------------------------------------------
+    def add_wound(self, severity: int, source: str = "") -> None:
+        """Take a wound of the given severity (see rules.harm.Severity)."""
+        from .rules.harm import Wound
+        self.wounds.append(Wound(severity=int(severity), source=source))
+
+    def wound_penalty(self) -> int:
+        """Combined physical-check penalty from open wounds (>= 0)."""
+        from .rules.harm import total_penalty
+        return total_penalty(self.wounds)
+
     def to_dict(self) -> dict:
         return {
             "id": self.id, "name": self.name, "role": self.role,
@@ -156,6 +168,7 @@ class Agent:
             "alias": self.alias,
             "wanted": self.wanted,
             "notoriety": round(self.notoriety, 1),
+            "wounds": [w.severity for w in self.wounds],
         }
 
 
