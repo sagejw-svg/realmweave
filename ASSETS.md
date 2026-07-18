@@ -41,6 +41,8 @@ fallback font)*
 |------|--------|---------|------------|-------------|--------------|
 | `godot_client/icon.svg` | Original (this project) | MIT | Yes | none | `LICENSE` |
 | Procedural map/world art (drawn in `docs/map.html` and Godot `Main.gd`: tiles, trees, buildings, figures, day/night) | Original (this project) | MIT | Yes | none | `LICENSE` |
+| `docs/assets/maps/oakhollow-local.svg` (local village map, generated from `world.py` coordinates by `docs/assets/maps/generate_maps.py`) | Original (this project) | MIT | Yes | none | `LICENSE` |
+| `docs/assets/maps/realm-overview.svg` (regional/lore map) | Original (this project) | MIT | Yes | none | `LICENSE` |
 | `roguelikeSheet_transparent.png` (base terrain/building/prop tiles) in `godot_client/assets/tiles/` and `docs/assets/tiles/` | Kenney "Roguelike/RPG" pack via [Kenney Game Assets All-in-1](https://kenney.nl/assets/roguelike-rpg-pack) | CC0 1.0 (public domain) | Yes | Not required (credit Kenney appreciated) | `godot_client/assets/tiles/roguelikeSheet_License.txt` |
 | `roguelikeChar_transparent.png` (character sprites) in `godot_client/assets/sprites/` and `docs/assets/sprites/` | Kenney "Roguelike Characters" pack via [Kenney Game Assets All-in-1](https://kenney.nl/assets/roguelike-rpg-pack) | CC0 1.0 (public domain) | Yes | Not required (credit Kenney appreciated) | `godot_client/assets/sprites/roguelikeChar_License.txt` |
 

@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1032 808" font-family="Segoe UI,system-ui,sans-serif" role="img" aria-label="Local map of Oakhollow village">
+<defs><radialGradient id="grd" cx="50%" cy="42%" r="70%"><stop offset="0%" stop-color="#1b2118"/><stop offset="100%" stop-color="#111511"/></radialGradient><filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="1.5" stdDeviation="1.6" flood-color="#000" flood-opacity="0.5"/></filter></defs>
+<rect width="1032" height="808" fill="#0e1013"/>
+<rect x="8" y="8" width="1024" height="768" rx="14" fill="url(#grd)" stroke="#2b3040" stroke-width="2"/>
+<line x1="8" y1="8" x2="8" y2="776" stroke="#ffffff" stroke-opacity="0.03"/>
+<line x1="72" y1="8" x2="72" y2="776" stroke="#ffffff" stroke-opacity="0.03"/>
+<line x1="136" y1="8" x2="136" y2="776" stroke="#ffffff" stroke-opacity="0.03"/>
+<line x1="200" y1="8" x2="200" y2="776" stroke="#ffffff" stroke-opacity="0.03"/>
+<line x1="264" y1="8" x2="264" y2="776" stroke="#ffffff" stroke-opacity="0.03"/>
+<line x1="328" y1="8" x2="328" y2="776" stroke="#ffffff" stroke-opacity="0.03"/>
+<line x1="392" y1="8" x2="392" y2="776" stroke="#ffffff" stroke-opacity="0.03"/>
+<line x1="456" y1="8" x2="456" y2="776" stroke="#ffffff" stroke-opacity="0.03"/>
+<line x1="520" y1="8" x2="520" y2="776" stroke="#ffffff" stroke-opacity="0.03"/>
+<line x1="584" y1="8" x2="584" y2="776" stroke="#ffffff" stroke-opacity="0.03"/>
+<line x1="648" y1="8" x2="648" y2="776" stroke="#ffffff" stroke-opacity="0.03"/>
+<line x1="712" y1="8" x2="712" y2="776" stroke="#ffffff" stroke-opacity="0.03"/>
+<line x1="776" y1="8" x2="776" y2="776" stroke="#ffffff" stroke-opacity="0.03"/>
+<line x1="840" y1="8" x2="840" y2="776" stroke="#ffffff" stroke-opacity="0.03"/>
+<line x1="904" y1="8" x2="904" y2="776" stroke="#ffffff" stroke-opacity="0.03"/>
+<line x1="968" y1="8" x2="968" y2="776" stroke="#ffffff" stroke-opacity="0.03"/>
+<line x1="1032" y1="8" x2="1032" y2="776" stroke="#ffffff" stroke-opacity="0.03"/>
+<line x1="8" y1="8" x2="1032" y2="8" stroke="#ffffff" stroke-opacity="0.03"/>
+<line x1="8" y1="72" x2="1032" y2="72" stroke="#ffffff" stroke-opacity="0.03"/>
+<line x1="8" y1="136" x2="1032" y2="136" stroke="#ffffff" stroke-opacity="0.03"/>
+<line x1="8" y1="200" x2="1032" y2="200" stroke="#ffffff" stroke-opacity="0.03"/>
+<line x1="8" y1="264" x2="1032" y2="264" stroke="#ffffff" stroke-opacity="0.03"/>
+<line x1="8" y1="328" x2="1032" y2="328" stroke="#ffffff" stroke-opacity="0.03"/>
+<line x1="8" y1="392" x2="1032" y2="392" stroke="#ffffff" stroke-opacity="0.03"/>
+<line x1="8" y1="456" x2="1032" y2="456" stroke="#ffffff" stroke-opacity="0.03"/>
+<line x1="8" y1="520" x2="1032" y2="520" stroke="#ffffff" stroke-opacity="0.03"/>
+<line x1="8" y1="584" x2="1032" y2="584" stroke="#ffffff" stroke-opacity="0.03"/>
+<line x1="8" y1="648" x2="1032" y2="648" stroke="#ffffff" stroke-opacity="0.03"/>
+<line x1="8" y1="712" x2="1032" y2="712" stroke="#ffffff" stroke-opacity="0.03"/>
+<line x1="8" y1="776" x2="1032" y2="776" stroke="#ffffff" stroke-opacity="0.03"/>
+<line x1="520" y1="392" x2="488" y2="104" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
+<line x1="520" y1="392" x2="520" y2="488" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
+<line x1="520" y1="392" x2="520" y2="712" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
+<line x1="520" y1="392" x2="328" y2="296" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
+<line x1="520" y1="392" x2="744" y2="328" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
+<line x1="520" y1="392" x2="712" y2="488" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
+<line x1="712" y1="488" x2="904" y2="520" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
+<line x1="328" y1="296" x2="264" y2="264" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
+<line x1="520" y1="712" x2="520" y2="808" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
+<ellipse cx="200" cy="520" rx="34" ry="24" fill="#274b5c" stroke="#5aa0c0" stroke-opacity="0.5"/>
+<ellipse cx="200" cy="520" rx="20" ry="12" fill="#3b6f86" fill-opacity="0.6"/>
+<circle cx="424" cy="104" r="7" fill="#5b6270" stroke="#3a4152"/>
+<circle cx="712" cy="680" r="7" fill="#5b6270" stroke="#3a4152"/>
+<circle cx="936" cy="488" r="7" fill="#5b6270" stroke="#3a4152"/>
+<circle cx="872" cy="552" r="7" fill="#5b6270" stroke="#3a4152"/>
+<g><line x1="136" y1="136" x2="136" y2="143" stroke="#6b4a2a" stroke-width="3"/><circle cx="136" cy="136" r="10" fill="#2f6b3a"/><circle cx="133" cy="133" r="6" fill="#3c8049" fill-opacity="0.8"/></g>
+<g><line x1="200" y1="648" x2="200" y2="655" stroke="#6b4a2a" stroke-width="3"/><circle cx="200" cy="648" r="10" fill="#2f6b3a"/><circle cx="197" cy="645" r="6" fill="#3c8049" fill-opacity="0.8"/></g>
+<g><line x1="840" y1="136" x2="840" y2="143" stroke="#6b4a2a" stroke-width="3"/><circle cx="840" cy="136" r="10" fill="#2f6b3a"/><circle cx="837" cy="133" r="6" fill="#3c8049" fill-opacity="0.8"/></g>
+<g><line x1="904" y1="648" x2="904" y2="655" stroke="#6b4a2a" stroke-width="3"/><circle cx="904" cy="648" r="10" fill="#2f6b3a"/><circle cx="901" cy="645" r="6" fill="#3c8049" fill-opacity="0.8"/></g>
+<g><line x1="104" y1="424" x2="104" y2="431" stroke="#6b4a2a" stroke-width="3"/><circle cx="104" cy="424" r="10" fill="#2f6b3a"/><circle cx="101" cy="421" r="6" fill="#3c8049" fill-opacity="0.8"/></g>
+<g><line x1="936" y1="392" x2="936" y2="399" stroke="#6b4a2a" stroke-width="3"/><circle cx="936" cy="392" r="10" fill="#2f6b3a"/><circle cx="933" cy="389" r="6" fill="#3c8049" fill-opacity="0.8"/></g>
+<g><line x1="392" y1="72" x2="392" y2="79" stroke="#6b4a2a" stroke-width="3"/><circle cx="392" cy="72" r="10" fill="#2f6b3a"/><circle cx="389" cy="69" r="6" fill="#3c8049" fill-opacity="0.8"/></g>
+<g><line x1="648" y1="744" x2="648" y2="751" stroke="#6b4a2a" stroke-width="3"/><circle cx="648" cy="744" r="10" fill="#2f6b3a"/><circle cx="645" cy="741" r="6" fill="#3c8049" fill-opacity="0.8"/></g>
+<g><line x1="296" y1="712" x2="296" y2="719" stroke="#6b4a2a" stroke-width="3"/><circle cx="296" cy="712" r="10" fill="#2f6b3a"/><circle cx="293" cy="709" r="6" fill="#3c8049" fill-opacity="0.8"/></g>
+<g><line x1="776" y1="72" x2="776" y2="79" stroke="#6b4a2a" stroke-width="3"/><circle cx="776" cy="72" r="10" fill="#2f6b3a"/><circle cx="773" cy="69" r="6" fill="#3c8049" fill-opacity="0.8"/></g>
+<g><line x1="40" y1="264" x2="40" y2="271" stroke="#6b4a2a" stroke-width="3"/><circle cx="40" cy="264" r="10" fill="#2f6b3a"/><circle cx="37" cy="261" r="6" fill="#3c8049" fill-opacity="0.8"/></g>
+<g><line x1="968" y1="552" x2="968" y2="559" stroke="#6b4a2a" stroke-width="3"/><circle cx="968" cy="552" r="10" fill="#2f6b3a"/><circle cx="965" cy="549" r="6" fill="#3c8049" fill-opacity="0.8"/></g>
+<g><line x1="488" y1="776" x2="488" y2="783" stroke="#6b4a2a" stroke-width="3"/><circle cx="488" cy="776" r="10" fill="#2f6b3a"/><circle cx="485" cy="773" r="6" fill="#3c8049" fill-opacity="0.8"/></g>
+<g><line x1="552" y1="40" x2="552" y2="47" stroke="#6b4a2a" stroke-width="3"/><circle cx="552" cy="40" r="10" fill="#2f6b3a"/><circle cx="549" cy="37" r="6" fill="#3c8049" fill-opacity="0.8"/></g>
+<g filter="url(#sh)"><circle cx="520" cy="392" r="20" fill="#12151b" fill-opacity="0.9" stroke="#d9c46b" stroke-opacity="0.45"/><polygon points="520,378 534,392 520,406 506,392" fill="#d9c46b" stroke="#7a6a2e"/><circle cx="520" cy="392" r="5.0" fill="#252a36" stroke="#d9c46b"/><circle cx="520" cy="392" r="1.8" fill="#d9c46b"/></g>
+<text x="520" y="424" text-anchor="middle" font-size="12" fill="#e7e8ee" paint-order="stroke" stroke="#0e1013" stroke-width="3" stroke-linejoin="round">Village Square</text>
+<g filter="url(#sh)"><circle cx="328" cy="296" r="18" fill="#12151b" fill-opacity="0.9" stroke="#b98a4a" stroke-opacity="0.45"/><rect x="318.4" y="294.7" width="19.2" height="12.6" rx="1.5" fill="#252a36" stroke="#b98a4a"/><polygon points="316.1,294.7 328,284.7 339.9,294.7" fill="#b98a4a" stroke="none"/><rect x="325.6" y="300.0" width="4.8" height="7.3" rx="1.5" fill="#12151b" stroke="none"/><line x1="337.6" y1="294.7" x2="337.6" y2="298.5" stroke="#b98a4a" stroke-width="1.5"/><circle cx="337.6" cy="300.0" r="3.1" fill="#b98a4a"/></g>
+<text x="328" y="326" text-anchor="middle" font-size="12" fill="#e7e8ee" paint-order="stroke" stroke="#0e1013" stroke-width="3" stroke-linejoin="round">The Gilded Stag</text>
+<g filter="url(#sh)"><circle cx="264" cy="264" r="18" fill="#12151b" fill-opacity="0.9" stroke="#b98a4a" stroke-opacity="0.45"/><rect x="254.4" y="262.7" width="19.2" height="12.6" rx="1.5" fill="#252a36" stroke="#b98a4a"/><polygon points="252.1,262.7 264,252.7 275.9,262.7" fill="#b98a4a" stroke="none"/><rect x="261.6" y="268.0" width="4.8" height="7.3" rx="1.5" fill="#12151b" stroke="none"/><line x1="273.6" y1="262.7" x2="273.6" y2="266.5" stroke="#b98a4a" stroke-width="1.5"/><circle cx="273.6" cy="268.0" r="3.1" fill="#b98a4a"/></g>
+<text x="264" y="294" text-anchor="middle" font-size="12" fill="#e7e8ee" paint-order="stroke" stroke="#0e1013" stroke-width="3" stroke-linejoin="round">Stag Kitchen</text>
+<g filter="url(#sh)"><circle cx="520" cy="488" r="18" fill="#12151b" fill-opacity="0.9" stroke="#5aa0c0" stroke-opacity="0.45"/><ellipse cx="520" cy="492.2" rx="9.6" ry="4.8" fill="#252a36" stroke="#5aa0c0"/><rect x="511.4" y="477.2" width="1.9" height="15.0" rx="1.5" fill="#5aa0c0" stroke="none"/><rect x="526.7" y="477.2" width="1.9" height="15.0" rx="1.5" fill="#5aa0c0" stroke="none"/><polygon points="508.6,478.4 520,473.6 531.4,478.4" fill="#5aa0c0" stroke="none"/></g>
+<text x="520" y="518" text-anchor="middle" font-size="12" fill="#e7e8ee" paint-order="stroke" stroke="#0e1013" stroke-width="3" stroke-linejoin="round">Old Well</text>
+<g filter="url(#sh)"><circle cx="744" cy="328" r="18" fill="#12151b" fill-opacity="0.9" stroke="#8a6d3b" stroke-opacity="0.45"/><rect x="734.4" y="326.7" width="19.2" height="12.6" rx="1.5" fill="#252a36" stroke="#8a6d3b"/><polygon points="732.1,326.7 744,316.7 755.9,326.7" fill="#8a6d3b" stroke="none"/><rect x="741.6" y="332.0" width="4.8" height="7.3" rx="1.5" fill="#12151b" stroke="none"/><path d="M739.4,333.7 a4.6,4.6 0 0 1 9.1,0 Z" fill="#12151b"/></g>
+<text x="744" y="358" text-anchor="middle" font-size="12" fill="#e7e8ee" paint-order="stroke" stroke="#0e1013" stroke-width="3" stroke-linejoin="round">Stables</text>
+<g filter="url(#sh)"><circle cx="712" cy="488" r="18" fill="#12151b" fill-opacity="0.9" stroke="#c85a5a" stroke-opacity="0.45"/><rect x="702.4" y="486.7" width="19.2" height="12.6" rx="1.5" fill="#252a36" stroke="#c85a5a"/><polygon points="700.1,486.7 712,476.7 723.9,486.7" fill="#c85a5a" stroke="none"/><rect x="709.6" y="492.0" width="4.8" height="7.3" rx="1.5" fill="#12151b" stroke="none"/><polygon points="707.0,488.3 717.0,488.3 714.9,491.3 709.1,491.3" fill="#c85a5a" stroke="none"/></g>
+<text x="712" y="518" text-anchor="middle" font-size="12" fill="#e7e8ee" paint-order="stroke" stroke="#0e1013" stroke-width="3" stroke-linejoin="round">Ironbark Smithy</text>
+<g filter="url(#sh)"><circle cx="488" cy="104" r="18" fill="#12151b" fill-opacity="0.9" stroke="#5ab97a" stroke-opacity="0.45"/><line x1="477.4" y1="111.2" x2="477.4" y2="97.4" stroke="#5ab97a" stroke-width="2.4"/><circle cx="477.4" cy="96.6" r="1.8" fill="#5ab97a"/><line x1="482.7" y1="111.2" x2="482.7" y2="97.4" stroke="#5ab97a" stroke-width="2.4"/><circle cx="482.7" cy="96.6" r="1.8" fill="#5ab97a"/><line x1="488.0" y1="111.2" x2="488.0" y2="97.4" stroke="#5ab97a" stroke-width="2.4"/><circle cx="488.0" cy="96.6" r="1.8" fill="#5ab97a"/><line x1="493.3" y1="111.2" x2="493.3" y2="97.4" stroke="#5ab97a" stroke-width="2.4"/><circle cx="493.3" cy="96.6" r="1.8" fill="#5ab97a"/><line x1="498.6" y1="111.2" x2="498.6" y2="97.4" stroke="#5ab97a" stroke-width="2.4"/><circle cx="498.6" cy="96.6" r="1.8" fill="#5ab97a"/></g>
+<text x="488" y="134" text-anchor="middle" font-size="12" fill="#e7e8ee" paint-order="stroke" stroke="#0e1013" stroke-width="3" stroke-linejoin="round">North Fields</text>
+<g filter="url(#sh)"><circle cx="904" cy="520" r="18" fill="#12151b" fill-opacity="0.9" stroke="#8b93a6" stroke-opacity="0.45"/><polygon points="892.6,528.4 904,508.6 915.4,528.4" fill="#3a3f49" stroke="#4a5160"/><path d="M899.9,528.4 a4.1,4.1 0 0 1 8.2,0 Z" fill="#12151b"/></g>
+<text x="904" y="550" text-anchor="middle" font-size="12" fill="#e7e8ee" paint-order="stroke" stroke="#0e1013" stroke-width="3" stroke-linejoin="round">Ironbark Mine</text>
+<g filter="url(#sh)"><circle cx="520" cy="712" r="18" fill="#12151b" fill-opacity="0.9" stroke="#d9c46b" stroke-opacity="0.45"/><rect x="510.6" y="703.6" width="4.1" height="18.0" rx="1.5" fill="#d9c46b" stroke="none"/><rect x="525.3" y="703.6" width="4.1" height="18.0" rx="1.5" fill="#d9c46b" stroke="none"/><rect x="510.6" y="700.6" width="18.7" height="3.8" rx="1.5" fill="#d9c46b" stroke="none"/></g>
+<text x="520" y="742" text-anchor="middle" font-size="12" fill="#e7e8ee" paint-order="stroke" stroke="#0e1013" stroke-width="3" stroke-linejoin="round">South Gate</text>
+<g filter="url(#sh)"><circle cx="232" cy="360" r="15" fill="#12151b" fill-opacity="0.9" stroke="#4a5266" stroke-opacity="0.45"/><rect x="224.8" y="359.1" width="14.4" height="9.5" rx="1.5" fill="#252a36" stroke="#4a5266"/><polygon points="223.1,359.1 232,351.5 240.9,359.1" fill="#4a5266" stroke="none"/><rect x="230.2" y="363.0" width="3.6" height="5.5" rx="1.5" fill="#12151b" stroke="none"/></g>
+<text x="232" y="387" text-anchor="middle" font-size="10" fill="#9aa0b4" paint-order="stroke" stroke="#0e1013" stroke-width="3" stroke-linejoin="round">Bram's Room</text>
+<g filter="url(#sh)"><circle cx="808" cy="232" r="15" fill="#12151b" fill-opacity="0.9" stroke="#4a5266" stroke-opacity="0.45"/><rect x="800.8" y="231.1" width="14.4" height="9.5" rx="1.5" fill="#252a36" stroke="#4a5266"/><polygon points="799.1,231.1 808,223.5 816.9,231.1" fill="#4a5266" stroke="none"/><rect x="806.2" y="235.0" width="3.6" height="5.5" rx="1.5" fill="#12151b" stroke="none"/></g>
+<text x="808" y="259" text-anchor="middle" font-size="10" fill="#9aa0b4" paint-order="stroke" stroke="#0e1013" stroke-width="3" stroke-linejoin="round">Isla's Cottage</text>
+<g filter="url(#sh)"><circle cx="776" cy="584" r="15" fill="#12151b" fill-opacity="0.9" stroke="#4a5266" stroke-opacity="0.45"/><rect x="768.8" y="583.1" width="14.4" height="9.5" rx="1.5" fill="#252a36" stroke="#4a5266"/><polygon points="767.1,583.1 776,575.5 784.9,583.1" fill="#4a5266" stroke="none"/><rect x="774.2" y="587.0" width="3.6" height="5.5" rx="1.5" fill="#12151b" stroke="none"/></g>
+<text x="776" y="611" text-anchor="middle" font-size="10" fill="#9aa0b4" paint-order="stroke" stroke="#0e1013" stroke-width="3" stroke-linejoin="round">Toft's Shack</text>
+<g filter="url(#sh)"><circle cx="392" cy="552" r="15" fill="#12151b" fill-opacity="0.9" stroke="#4a5266" stroke-opacity="0.45"/><rect x="384.8" y="551.1" width="14.4" height="9.5" rx="1.5" fill="#252a36" stroke="#4a5266"/><polygon points="383.1,551.1 392,543.5 400.9,551.1" fill="#4a5266" stroke="none"/><rect x="390.2" y="555.0" width="3.6" height="5.5" rx="1.5" fill="#12151b" stroke="none"/></g>
+<text x="392" y="579" text-anchor="middle" font-size="10" fill="#9aa0b4" paint-order="stroke" stroke="#0e1013" stroke-width="3" stroke-linejoin="round">Wren's Loft</text>
+<g filter="url(#sh)"><circle cx="616" cy="168" r="15" fill="#12151b" fill-opacity="0.9" stroke="#4a5266" stroke-opacity="0.45"/><rect x="608.8" y="167.1" width="14.4" height="9.5" rx="1.5" fill="#252a36" stroke="#4a5266"/><polygon points="607.1,167.1 616,159.5 624.9,167.1" fill="#4a5266" stroke="none"/><rect x="614.2" y="171.0" width="3.6" height="5.5" rx="1.5" fill="#12151b" stroke="none"/></g>
+<text x="616" y="195" text-anchor="middle" font-size="10" fill="#9aa0b4" paint-order="stroke" stroke="#0e1013" stroke-width="3" stroke-linejoin="round">Dora's House</text>
+<g filter="url(#sh)"><circle cx="936" cy="616" r="15" fill="#12151b" fill-opacity="0.9" stroke="#4a5266" stroke-opacity="0.45"/><rect x="928.8" y="615.1" width="14.4" height="9.5" rx="1.5" fill="#252a36" stroke="#4a5266"/><polygon points="927.1,615.1 936,607.5 944.9,615.1" fill="#4a5266" stroke="none"/><rect x="934.2" y="619.0" width="3.6" height="5.5" rx="1.5" fill="#12151b" stroke="none"/></g>
+<text x="936" y="643" text-anchor="middle" font-size="10" fill="#9aa0b4" paint-order="stroke" stroke="#0e1013" stroke-width="3" stroke-linejoin="round">Gart's Hut</text>
+<g><rect x="18" y="16" width="300" height="46" rx="8" fill="#161a22" stroke="#d9c46b" stroke-opacity="0.6"/><text x="34" y="40" font-size="21" fill="#d9c46b" font-weight="700" letter-spacing="1">Oakhollow</text><text x="34" y="56" font-size="11" fill="#9aa0b4">Local map · top-down village · 15 locations</text></g>
+<g transform="translate(986,54)"><circle r="24" fill="#161a22" stroke="#2b3040"/><polygon points="0,-20 5,0 0,6 -5,0" fill="#c85a5a"/><polygon points="0,20 5,0 0,-6 -5,0" fill="#5a6274"/><text x="0" y="-26" text-anchor="middle" font-size="11" fill="#9aa0b4">N</text></g>
+<g><rect x="818" y="642" width="196" height="150" rx="8" fill="#161a22" stroke="#2b3040"/><text x="830" y="662" font-size="12" fill="#9aa0b4" letter-spacing="0.5">LEGEND</text>
+<rect x="830" y="671" width="12" height="12" rx="3" fill="#d9c46b" fill-opacity="0.35" stroke="#d9c46b"/><text x="850" y="680" font-size="11.5" fill="#e7e8ee">Square / gate</text>
+<rect x="830" y="685" width="12" height="12" rx="3" fill="#b98a4a" fill-opacity="0.35" stroke="#b98a4a"/><text x="850" y="694" font-size="11.5" fill="#e7e8ee">Tavern</text>
+<rect x="830" y="699" width="12" height="12" rx="3" fill="#5aa0c0" fill-opacity="0.35" stroke="#5aa0c0"/><text x="850" y="708" font-size="11.5" fill="#e7e8ee">Well</text>
+<rect x="830" y="713" width="12" height="12" rx="3" fill="#c85a5a" fill-opacity="0.35" stroke="#c85a5a"/><text x="850" y="722" font-size="11.5" fill="#e7e8ee">Smithy</text>
+<rect x="830" y="727" width="12" height="12" rx="3" fill="#8a6d3b" fill-opacity="0.35" stroke="#8a6d3b"/><text x="850" y="736" font-size="11.5" fill="#e7e8ee">Stable</text>
+<rect x="830" y="741" width="12" height="12" rx="3" fill="#5ab97a" fill-opacity="0.35" stroke="#5ab97a"/><text x="850" y="750" font-size="11.5" fill="#e7e8ee">Field</text>
+<rect x="830" y="755" width="12" height="12" rx="3" fill="#8b93a6" fill-opacity="0.35" stroke="#8b93a6"/><text x="850" y="764" font-size="11.5" fill="#e7e8ee">Mine</text>
+<rect x="830" y="769" width="12" height="12" rx="3" fill="#4a5266" fill-opacity="0.35" stroke="#4a5266"/><text x="850" y="778" font-size="11.5" fill="#e7e8ee">Homes</text>
+</g>
+<line x1="24" y1="784" x2="152" y2="784" stroke="#e7e8ee" stroke-width="3"/>
+<line x1="24" y1="779" x2="24" y2="789" stroke="#e7e8ee" stroke-width="3"/>
+<line x1="152" y1="779" x2="152" y2="789" stroke="#e7e8ee" stroke-width="3"/>
+<text x="24" y="775" font-size="11" fill="#9aa0b4">8 tiles</text>
+</svg>
