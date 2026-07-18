@@ -29,10 +29,20 @@ TREES = [(8,8),(12,40),(52,8),(56,40),(6,26),(58,24),(24,4),(40,46),
          (18,44),(48,4),(2,16),(60,34),(30,48),(34,2)]
 ROCKS = [(26,6),(44,42),(58,30),(54,34)]
 POND = (12,32)
-# main roads (grid coord pairs)
-ROADS = [((32,24),(30,6)),((32,24),(32,30)),((32,24),(32,44)),
-         ((32,24),(20,18)),((32,24),(46,20)),((32,24),(44,30)),
-         ((44,30),(56,32)),((20,18),(16,16)),((32,44),(32,50))]
+# roads: nearest-neighbour network, matching backend/realmweave/world.py so the
+# atlas shows the same paths the villagers actually walk on.
+def _knn_road_coords(k=5):
+    pts = {lid: (x, y) for (lid, _n, x, y, _k) in LOCS}
+    ids = list(pts)
+    edges = set()
+    for a in ids:
+        ax, ay = pts[a]
+        near = sorted(ids, key=lambda b: ((pts[b][0]-ax)**2 + (pts[b][1]-ay)**2))
+        for b in near[1:k+1]:
+            edges.add(tuple(sorted((a, b))))
+    return [(pts[a], pts[b]) for a, b in sorted(edges)]
+
+ROADS = _knn_road_coords(5)
 
 COL = {"square":"#d9c46b","tavern":"#b98a4a","well":"#5aa0c0","stable":"#8a6d3b",
        "smithy":"#c85a5a","field":"#5ab97a","mine":"#8b93a6","gate":"#d9c46b",

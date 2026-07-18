@@ -91,12 +91,11 @@ function draw(){
   ctx.clearRect(0,0,cv.width,cv.height);
   // grass ground (one tile per 2 world units)
   for(let gx=0;gx<68;gx+=2) for(let gy=0;gy<54;gy+=2){ const [x,y]=px(gx,gy); tile(TILES,T_GRASS[0],T_GRASS[1],x,y,SCALE*2+2); }
-  // stone paths radiating from the square hub
-  const sq=loc("square");
-  if(sq){ (world.locations||[]).forEach(l=>{ if(l.id==="square"||l.kind==="home") return;
-    const n=Math.floor(Math.hypot(l.x-sq.x,l.y-sq.y)/1.4)+1;
-    for(let k=0;k<=n;k++){ const x=sq.x+(l.x-sq.x)*k/n, y=sq.y+(l.y-sq.y)*k/n; const [px_,py_]=px(x,y);
-      tile(TILES,T_STONE[0],T_STONE[1],px_,py_,SCALE*1.7); } }); }
+  // stone paths along the actual road network the villagers walk
+  (world.roads||[]).forEach(seg=>{ const [ax,ay,bx,by]=seg;
+    const n=Math.floor(Math.hypot(bx-ax,by-ay)/1.4)+1;
+    for(let k=0;k<=n;k++){ const x=ax+(bx-ax)*k/n, y=ay+(by-ay)*k/n; const [px_,py_]=px(x,y);
+      tile(TILES,T_STONE[0],T_STONE[1],px_,py_,SCALE*1.7); } });
   // crop field patches
   (world.locations||[]).filter(l=>l.kind==="field").forEach(l=>{
     for(const dx of [-2,0,2]) for(const dy of [-2,0,2]){ const [x,y]=px(l.x+dx,l.y+dy); tile(TILES,T_FIELD[0],T_FIELD[1],x,y,SCALE*2+2); } });
