@@ -1,10 +1,22 @@
 # Character Systems: Combat, Equipment, and Magic (Proposal)
 
-Status: **proposed**, not yet built. This complements `DESIGN.md` section 4.1
+Status: **built** (phases 1-4 landed). This complements `DESIGN.md` section 4.1
 (character and skill system) and `PROJECT_PLAN.md` section 4. It answers a
 standing question: does Realmweave have spells, player stats, armor, and combat,
 and if not, how do we add them without turning a living-world simulation into a
 combat grinder.
+
+Implementation status (save format now v15):
+
+- Phase 1 harm/wounds: **done** (rules/harm.py; wounds feed health and mortality).
+- Phase 2 abstract combat: **done** (rules/combat.py, sim.resolve_combat; wired
+  into justice so dangerous perps resist arrest).
+- Phase 3 equipment/armor: **done** (rules/equipment.py; weapon offense, armor
+  wound-mitigation; the guard is seeded with gear).
+- Phase 4 magic: **done** (rules/magic.py; a per-agent focus pool, spells
+  mend/bolt/ward/frighten). Note: Faith casts from personal focus, not the global
+  divine favor pool (which stays the player-god's suggestion budget), a small
+  deviation from section 6 kept for system separation.
 
 ## 1. Where we are today
 

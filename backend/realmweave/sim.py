@@ -270,6 +270,9 @@ class Simulation:
         armor = defender.equipment.get("armor")
         if armor is not None:
             dfn -= armor_evasion_penalty(armor)
+        if getattr(defender, "warded", 0) > 0:
+            from .rules.magic import WARD_DEFENSE_BONUS
+            dfn += WARD_DEFENSE_BONUS   # a magical ward turns blows aside
         ex = resolve_exchange(off, dfn, self.rng)
         downed = False
         severity = ex.severity
@@ -293,6 +296,71 @@ class Simulation:
                   result=ex.result.value, severity=severity,
                   downed=downed, lethal=lethal)
         return ex
+
+    # ---- magic (cast from a focus pool) -------------------------------
+    def _tick_magic(self, a: Agent) -> None:
+        """Refill a little focus each tick (faster resting) and decay any ward."""
+        from .rules.magic import max_focus
+        a.ensure_focus()
+        mx = max_focus(a.sheet)
+        if a.focus < mx:
+            rest = 0.15 if a.activity in ("sleep", "eat") else 0.05
+            a.focus = min(mx, a.focus + rest)
+        if a.warded > 0:
+            a.warded -= 1
+
+    def cast(self, caster: Agent, spell_name: str, target: Agent = None):
+        """Cast a spell from the caster's focus pool. The casting skill check sets
+        the effect's strength; a fumble backfires. Effects resolve in code and are
+        emitted as a `cast` event. Returns a small result dict, or None if the
+        spell is unknown or the caster has no sheet."""
+        from .rules.magic import get_spell, BACKFIRE_FOCUS_LOSS, WARD_TICKS
+        from .rules.checks import Outcome
+        from .rules.harm import severity_from_outcome
+        spell = get_spell(spell_name)
+        if spell is None or caster.sheet is None:
+            return None
+        caster.ensure_focus()
+        if caster.focus < spell.cost:
+            self.emit("cast", caster=caster.id, caster_name=caster.name, spell=spell_name,
+                      ok=False, reason="not enough focus", focus=round(caster.focus, 1))
+            return {"ok": False, "reason": "not enough focus"}
+        caster.focus -= spell.cost
+        tgt = target or caster
+        res = caster.sheet.check(spell.skill, self.rng)
+        effect = "fizzle"
+        if res.outcome == Outcome.FUMBLE:
+            caster.focus = max(0.0, caster.focus - BACKFIRE_FOCUS_LOSS)
+            effect = "backfire"
+        elif res.success:
+            if spell.kind == "heal":
+                if tgt.wounds:
+                    worst = max(tgt.wounds, key=lambda w: w.severity)
+                    if res.outcome == Outcome.CRIT_SUCCESS:
+                        tgt.wounds.remove(worst)
+                        effect = "healed_fully"
+                    else:
+                        worst.severity -= 1
+                        if worst.severity <= 0:
+                            tgt.wounds.remove(worst)
+                        effect = "healed"
+                else:
+                    effect = "no_wound"
+            elif spell.kind == "attack":
+                sev = severity_from_outcome(res.outcome)
+                if sev is not None:
+                    tgt.add_wound(int(sev), source=f"{caster.name}'s bolt")
+                    effect = "struck"
+            elif spell.kind == "defend":
+                tgt.warded = max(tgt.warded, WARD_TICKS)
+                effect = "warded"
+            elif spell.kind == "rout":
+                setattr(tgt, "_pursuing", "")
+                effect = "routed"
+        self.emit("cast", caster=caster.id, caster_name=caster.name, spell=spell_name,
+                  target=tgt.id, outcome=res.outcome.value, effect=effect, ok=True,
+                  focus=round(caster.focus, 1))
+        return {"ok": True, "outcome": res.outcome.value, "effect": effect}
 
     def _observe(self, a: Agent, text: str, importance: float, kind: str = "observation") -> None:
         if a.memory is not None:
@@ -662,6 +730,7 @@ class Simulation:
             self._activity_effects(a)
             self._survival_watchdog(a)   # floor first, so it can rescue the stuck
             self._tick_wounds(a)         # mend/close wounds before judging health
+            self._tick_magic(a)          # refill focus, decay wards
             self._mortality(a)           # then judge health / natural death
             if not a.alive:              # died this tick: skip the rest of its turn
                 continue
