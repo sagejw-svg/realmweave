@@ -8,11 +8,11 @@ Legend: [ ] todo · [~] in progress · [x] done
 
 ## World and map content
 
-- [ ] **Flesh out the lands around town.** Define the region beyond the village
+- [~] **Flesh out the lands around town.** Define the region beyond the village
       edge (roads out, biomes, borders) so Oakhollow sits in a place, not a void.
       Touches `backend/realmweave/world.py` (new outer locations/zones) and the
       map renderers. Effort: L
-- [ ] **Farms and croplands.** Working farm plots that grow and get harvested;
+- [~] **Farms and croplands.** Working farm plots that grow and get harvested;
       tie into the economy (food supply). `world.py`, `economy/`. Effort: M
 - [ ] **Fields with animals / livestock.** Pastures near the stable with simple
       animal entities (graze, wander, pen at night). New lightweight entity type
@@ -25,6 +25,17 @@ Legend: [ ] todo · [~] in progress · [x] done
       `rules/`. Effort: L (split into 3)
 - [ ] **More scenery variety.** Additional tree types, scattered rocks, bushes,
       dirt paths. `default_props()` in `world.py` + renderer glyphs. Effort: S
+
+## Simulation and dialogue
+
+- [x] **Villagers walk the roads.** Nearest-neighbour road network + routing so
+      NPCs follow paths instead of cutting across (`world.py`, `sim.py`).
+- [ ] **Dialogue line database.** A curated pool of canned lines NPCs draw from
+      at random when they speak (greetings, gossip, grumbles, grief, trade
+      banter), keyed by context and mood. Gives variety without always calling
+      the LLM, and a richer deterministic fallback than today's stub. Touches the
+      dialogue/stub layer (`realmweave/llm/stub.py`, `sim.py`) plus a data file
+      of lines. Effort: M
 
 ## Art and graphics
 
