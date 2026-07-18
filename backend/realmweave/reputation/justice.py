@@ -19,6 +19,7 @@ from .model import CrimeRecord, SEVERITY
 
 CAPTURE_RANGE = 2.5
 PURSUE_LOYALTY = 0.6      # how law-abiding an NPC must be to join a chase
+RESIST_WANTED = 2        # violent/repeat offenders fight capture; petty thieves come quietly
 
 
 class Justice:
@@ -111,9 +112,22 @@ class Justice:
                     break
         self._recover()
 
+    def _perp_resists(self, perp) -> bool:
+        """A cornered, dangerous perp lashes out rather than submit. Petty
+        offenders (wanted 1) come quietly; the violent, repeat, or infamous
+        resist. Deterministic so seeded runs stay reproducible."""
+        return perp.wanted >= RESIST_WANTED or perp.notoriety >= 50.0
+
     def _resolve_capture(self, captor, perp) -> None:
-        c_skill = (captor.sheet.effective("Blades") if captor.sheet else 40) + (10 if captor.id == "guard" else 0)
-        p_skill = perp.sheet.effective("Athletics") if perp.sheet else 40
+        # a cornered, dangerous perp may lash out before being taken. The blow is
+        # non-lethal but can wound the captor, which then hampers the arrest.
+        if self._perp_resists(perp):
+            self.sim.resolve_combat(perp, captor, lethal=False, note="resisting arrest")
+            if not captor.alive:      # a downed captor cannot make the arrest
+                return
+        # open wounds (including any just taken) hamper both sides of the arrest
+        c_skill = (captor.sheet.effective("Blades", -captor.wound_penalty()) if captor.sheet else 40) + (10 if captor.id == "guard" else 0)
+        p_skill = perp.sheet.effective("Athletics", -perp.wound_penalty()) if perp.sheet else 40
         winner, _, _ = opposed(c_skill, p_skill, self.sim.rng)
         if winner == "b":
             self.sim.emit("escape", perp=perp.id, perp_name=perp.name, from_agent=captor.id)

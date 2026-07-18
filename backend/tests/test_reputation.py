@@ -97,6 +97,47 @@ class TestPursuitAndRedemption(unittest.TestCase):
         self.assertLess(sim.agents["toft"].notoriety, before)
 
 
+class TestResistArrest(unittest.TestCase):
+    """Combat is wired into capture: a dangerous perp resists and can wound the
+    captor, while a petty thief comes quietly."""
+
+    def _corner(self, sim, wanted, notoriety=0.0):
+        scatter_far(sim, keep={"toft", "guard"})
+        perp = sim.agents["toft"]; perp.x, perp.y = 32.0, 24.0
+        guard = sim.agents["guard"]; guard.x, guard.y = 33.0, 24.0   # in capture range
+        guard.known_facts.add("wanted:toft")
+        perp.recognized_by.add("guard")
+        perp.wanted = wanted
+        perp.bounty = 40 * wanted
+        perp.notoriety = notoriety
+        return perp, guard
+
+    def test_violent_perp_resists_and_is_still_taken(self):
+        sim = fresh_sim()
+        perp, guard = self._corner(sim, wanted=2)
+        combats, arrests = [], []
+        sim.subscribe(lambda e: combats.append(e) if e["kind"] == "combat" else None)
+        sim.subscribe(lambda e: arrests.append(e) if e["kind"] == "arrest" else None)
+        for _ in range(300):
+            sim.justice.step()
+            if arrests:
+                break
+        self.assertTrue(combats, "a violent perp should resist with at least one exchange")
+        self.assertTrue(arrests, "the guard should still make the arrest")
+        self.assertEqual(perp.wanted, 0)
+
+    def test_petty_thief_comes_quietly(self):
+        sim = fresh_sim()
+        perp, guard = self._corner(sim, wanted=1, notoriety=0.0)
+        combats = []
+        sim.subscribe(lambda e: combats.append(e) if e["kind"] == "combat" else None)
+        for _ in range(300):
+            sim.justice.step()
+            if perp.wanted == 0:
+                break
+        self.assertEqual(combats, [], "a petty thief should not fight capture")
+
+
 class TestJusticePersistence(unittest.TestCase):
     def test_wanted_and_crimes_survive_save_load(self):
         sim = fresh_sim()
