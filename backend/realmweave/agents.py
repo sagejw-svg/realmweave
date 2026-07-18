@@ -78,6 +78,8 @@ class Agent:
     materials: Dict[str, int] = field(default_factory=dict)     # raw material stock (name -> qty)
     wounds: List = field(default_factory=list)                  # List[rules.harm.Wound]
     equipment: Dict = field(default_factory=dict)               # slot -> economy.Item
+    focus: float = -1.0                                         # magic pool; -1 = lazy-fill to max
+    warded: int = 0                                             # ticks of active magical ward
     god_disposition: float = 0.0                                 # feeling toward the god -1..1
     known_facts: set = field(default_factory=set)               # keyed facts this agent knows
     # identity, reputation & justice (Phase 7)
@@ -168,6 +170,15 @@ class Agent:
             self.inventory.append(item)
         return item
 
+    # ---- magic ---------------------------------------------------------
+    def ensure_focus(self) -> float:
+        """Lazily fill the focus pool to capacity the first time it is used, so a
+        fresh or migrated agent starts a caster's life with a full reservoir."""
+        from .rules.magic import max_focus
+        if self.focus < 0:
+            self.focus = float(max_focus(self.sheet))
+        return self.focus
+
     def to_dict(self) -> dict:
         return {
             "id": self.id, "name": self.name, "role": self.role,
@@ -192,6 +203,8 @@ class Agent:
             "notoriety": round(self.notoriety, 1),
             "wounds": [w.severity for w in self.wounds],
             "equipment": {slot: it.name for slot, it in self.equipment.items()},
+            "focus": round(self.focus, 1) if self.focus >= 0 else None,
+            "warded": self.warded,
         }
 
 

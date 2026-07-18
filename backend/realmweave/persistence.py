@@ -18,8 +18,8 @@ from .cognition.goals import Goal
 from .economy.goods import Item
 from .rules.harm import Wound
 
-SAVE_VERSION = 14
-SUPPORTED_VERSIONS = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14)
+SAVE_VERSION = 15
+SUPPORTED_VERSIONS = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15)
 
 
 def save_world(sim, path: str) -> None:
@@ -52,6 +52,7 @@ def save_world(sim, path: str) -> None:
             "materials": dict(a.materials),
             "wounds": [w.to_dict() for w in a.wounds],
             "equipment": {slot: it.to_dict() for slot, it in a.equipment.items()},
+            "focus": a.focus, "warded": a.warded,
             "god_disposition": a.god_disposition,
             "known_facts": sorted(a.known_facts),
             "alias": a.alias,
@@ -136,6 +137,9 @@ def load_world(sim, path: str) -> bool:
         # v14+: restore worn equipment; pre-v14 saves keep their seeded gear
         if "equipment" in ad:
             a.equipment = {slot: Item.from_dict(d) for slot, d in ad["equipment"].items()}
+        # v15+: restore the magic focus pool and ward; pre-v15 saves lazy-fill
+        a.focus = float(ad.get("focus", -1.0))
+        a.warded = int(ad.get("warded", 0))
         # v6+: restore disposition toward the god
         if "god_disposition" in ad:
             a.god_disposition = float(ad["god_disposition"])
