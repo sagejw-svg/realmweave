@@ -24,6 +24,14 @@ LOCS = [
  ("home_wren","Wren's Loft",24,34,"home"),
  ("home_dora","Dora's House",38,10,"home"),
  ("home_gart","Gart's Hut",58,38,"home"),
+ ("west_farm","Brookside Farm",6,20,"farm"),
+ ("west_field","West Wheatfield",8,30,"field"),
+ ("north_orchard","Sunapple Orchard",16,6,"orchard"),
+ ("north_farm","Harrow Steading",52,4,"farm"),
+ ("east_field","East Barleyfield",66,24,"field"),
+ ("mill","Old Mill",66,36,"mill"),
+ ("south_pasture","South Pasture",22,54,"pasture"),
+ ("south_field","Southmeadow",44,54,"field"),
 ]
 TREES = [(8,8),(12,40),(52,8),(56,40),(6,26),(58,24),(24,4),(40,46),
          (18,44),(48,4),(2,16),(60,34),(30,48),(34,2)]
@@ -46,14 +54,18 @@ ROADS = _knn_road_coords(5)
 
 COL = {"square":"#d9c46b","tavern":"#b98a4a","well":"#5aa0c0","stable":"#8a6d3b",
        "smithy":"#c85a5a","field":"#5ab97a","mine":"#8b93a6","gate":"#d9c46b",
-       "home":"#4a5266"}
+       "home":"#4a5266","farm":"#c0904a","orchard":"#4e9a5a","mill":"#93a0b0",
+       "pasture":"#8fae5a"}
+# playable extent, derived from the data (+ margin), so the frame fits new land
+GW = int(max([x for (_, _, x, _, _) in LOCS])) + 6
+GH = int(max([y for (_, _, _, y, _) in LOCS])) + 6
 GLYPH = {"square":"◆","tavern":"☗","well":"♒","stable":"♞",
          "smithy":"⚒","field":"⚘","mine":"⛏","gate":"☷","home":"⌂"}
 
 def esc(s): return s.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
 
 def local_map():
-    W, H = OX + 64*S, OY + 50*S
+    W, H = OX + GW*S, OY + (GH + 2)*S
     p = []
     p.append(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" '
              f'font-family="Segoe UI,system-ui,sans-serif" role="img" '
@@ -66,12 +78,12 @@ def local_map():
       '<feDropShadow dx="0" dy="1.5" stdDeviation="1.6" flood-color="#000" flood-opacity="0.5"/>'
       '</filter></defs>')
     p.append(f'<rect width="{W}" height="{H}" fill="#0e1013"/>')
-    p.append(f'<rect x="{OX}" y="{OY}" width="{64*S}" height="{48*S}" rx="14" fill="url(#grd)" stroke="#2b3040" stroke-width="2"/>')
+    p.append(f'<rect x="{OX}" y="{OY}" width="{GW*S}" height="{GH*S}" rx="14" fill="url(#grd)" stroke="#2b3040" stroke-width="2"/>')
     # faint grid every 4 units
-    for gx in range(0,65,4):
-        p.append(f'<line x1="{X(gx)}" y1="{Y(0)}" x2="{X(gx)}" y2="{Y(48)}" stroke="#ffffff" stroke-opacity="0.03"/>')
-    for gy in range(0,49,4):
-        p.append(f'<line x1="{X(0)}" y1="{Y(gy)}" x2="{X(64)}" y2="{Y(gy)}" stroke="#ffffff" stroke-opacity="0.03"/>')
+    for gx in range(0, GW + 1, 4):
+        p.append(f'<line x1="{X(gx)}" y1="{Y(0)}" x2="{X(gx)}" y2="{Y(GH)}" stroke="#ffffff" stroke-opacity="0.03"/>')
+    for gy in range(0, GH + 1, 4):
+        p.append(f'<line x1="{X(0)}" y1="{Y(gy)}" x2="{X(GW)}" y2="{Y(gy)}" stroke="#ffffff" stroke-opacity="0.03"/>')
     # roads
     for (a,b) in ROADS:
         p.append(f'<line x1="{X(a[0])}" y1="{Y(a[1])}" x2="{X(b[0])}" y2="{Y(b[1])}" '
@@ -99,7 +111,7 @@ def icon(kind, cx, cy, s, c):
     def poly(pts,fill,stroke="none"):
         d=" ".join(f"{_r(a)},{_r(b)}" for a,b in pts)
         return f'<polygon points="{d}" fill="{fill}" stroke="{stroke}"/>'
-    if kind in ("home","tavern","smithy","stable"):
+    if kind in ("home","tavern","smithy","stable","farm","mill"):
         bw,bh = s*1.6, s*1.05
         P.append(rect(cx-bw/2, cy-bh*0.1, bw, bh, body, c))
         P.append(poly([(cx-bw*0.62,cy-bh*0.1),(cx,cy-bh*0.9),(cx+bw*0.62,cy-bh*0.1)], c))
@@ -111,6 +123,13 @@ def icon(kind, cx, cy, s, c):
             P.append(poly([(cx-s*0.42,cy+bh*0.02),(cx+s*0.42,cy+bh*0.02),(cx+s*0.24,cy+bh*0.26),(cx-s*0.24,cy+bh*0.26)], c))
         if kind=="stable":
             P.append(f'<path d="M{_r(cx-s*0.38)},{_r(cy+bh*0.45)} a{_r(s*0.38)},{_r(s*0.38)} 0 0 1 {_r(s*0.76)},0 Z" fill="{dark}"/>')
+        if kind=="farm":  # a silo beside the barn
+            P.append(rect(cx+bw*0.34, cy-bh*0.55, s*0.34, bh*1.15, body, c))
+            P.append(f'<ellipse cx="{_r(cx+bw*0.34+s*0.17)}" cy="{_r(cy-bh*0.55)}" rx="{_r(s*0.19)}" ry="{_r(s*0.1)}" fill="{c}"/>')
+        if kind=="mill":  # windmill blades above the roof
+            P.append(f'<g stroke="{c}" stroke-width="2" stroke-linecap="round">'
+                     f'<line x1="{_r(cx-s*0.55)}" y1="{_r(cy-bh*0.55)}" x2="{_r(cx+s*0.55)}" y2="{_r(cy-bh*1.15)}"/>'
+                     f'<line x1="{_r(cx-s*0.55)}" y1="{_r(cy-bh*1.15)}" x2="{_r(cx+s*0.55)}" y2="{_r(cy-bh*0.55)}"/></g>')
     elif kind=="well":
         P.append(f'<ellipse cx="{_r(cx)}" cy="{_r(cy+s*0.35)}" rx="{_r(s*0.8)}" ry="{_r(s*0.4)}" fill="{body}" stroke="{c}"/>')
         P.append(rect(cx-s*0.72, cy-s*0.9, s*0.16, s*1.25, c))
@@ -132,6 +151,14 @@ def icon(kind, cx, cy, s, c):
         P.append(poly([(cx,cy-s),(cx+s,cy),(cx,cy+s),(cx-s,cy)], c, "#7a6a2e"))
         P.append(f'<circle cx="{_r(cx)}" cy="{_r(cy)}" r="{_r(s*0.36)}" fill="{body}" stroke="{c}"/>')
         P.append(f'<circle cx="{_r(cx)}" cy="{_r(cy)}" r="{_r(s*0.13)}" fill="{c}"/>')
+    elif kind=="orchard":
+        for (ox,oy) in [(-s*0.55,-s*0.15),(s*0.02,-s*0.5),(s*0.55,-s*0.1),(-s*0.25,s*0.45),(s*0.42,s*0.45)]:
+            P.append(f'<circle cx="{_r(cx+ox)}" cy="{_r(cy+oy)}" r="{_r(s*0.32)}" fill="#2f6b3a"/>')
+            P.append(f'<circle cx="{_r(cx+ox-2)}" cy="{_r(cy+oy-2)}" r="{_r(s*0.18)}" fill="#3c8049"/>')
+    elif kind=="pasture":
+        P.append(rect(cx-s*0.9, cy-s*0.65, s*1.8, s*1.3, "none", c))
+        for tx in (-s*0.45, s*0.05, s*0.5):
+            P.append(f'<path d="M{_r(cx+tx-2)},{_r(cy+s*0.4)} q2,-7 4,0" fill="none" stroke="{c}" stroke-width="1.5"/>')
     return "".join(P)
 
 def buildings(p):
@@ -173,9 +200,11 @@ def scalebar(p, H):
 def legend(p, W, H):
     items = [("square","Square / gate"),("tavern","Tavern"),("well","Well"),
              ("smithy","Smithy"),("stable","Stable"),("field","Field"),
-             ("mine","Mine"),("home","Homes")]
-    bx, by = W-214, H-166
-    p.append(f'<g><rect x="{bx}" y="{by}" width="196" height="150" rx="8" '
+             ("mine","Mine"),("home","Homes"),("farm","Farm"),
+             ("orchard","Orchard"),("mill","Mill"),("pasture","Pasture")]
+    boxh = 34 + len(items)*14
+    bx, by = W-214, H-boxh-16
+    p.append(f'<g><rect x="{bx}" y="{by}" width="196" height="{boxh}" rx="8" '
              f'fill="#161a22" stroke="#2b3040"/>'
              f'<text x="{bx+12}" y="{by+20}" font-size="12" fill="#9aa0b4" '
              f'letter-spacing="0.5">LEGEND</text>')
@@ -189,7 +218,7 @@ def legend(p, W, H):
 def build_local():
     p, W, H = local_map()
     buildings(p)
-    frame(p, W, H, "Oakhollow", "Local map · top-down village · 15 locations")
+    frame(p, W, H, "Oakhollow", f"Local map · village + farmland · {len(LOCS)} locations")
     legend(p, W, H)
     scalebar(p, H)
     p.append('</svg>')
