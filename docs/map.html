@@ -58,7 +58,9 @@
 const DEFAULT_URL="ws://127.0.0.1:8765";
 const $=s=>document.querySelector(s);
 const cv=$("#cv"), ctx=cv.getContext("2d");
-const SCALE=cv.width/66, OX=18, OY=18;
+const WORLD_W=72, WORLD_H=58;
+const SCALE=Math.min(cv.width/(WORLD_W+4), cv.height/(WORLD_H+4));
+const OX=(cv.width-WORLD_W*SCALE)/2, OY=(cv.height-WORLD_H*SCALE)/2;
 let ws=null, demoTimer=null, isDemo=false;
 let world=null, snap=null, rpos={};
 
@@ -73,7 +75,8 @@ ctx.imageSmoothingEnabled=false;
 const T_GRASS=[5,0], T_STONE=[8,0], T_FIELD=[2,7], T_WATER=[3,2],
       T_TREE=[13,10], T_PINE=[16,10], T_ROCK=[6,15];
 const ROOF={tavern:[16,26],home:[13,25],stable:[18,28],smithy:[19,29],
-            shop:[15,26],gate:[14,25],well:[17,27],square:[13,25],field:[15,26]};
+            shop:[15,26],gate:[14,25],well:[17,27],square:[13,25],field:[15,26],
+            farm:[18,28],mill:[19,29],orchard:[13,25],pasture:[13,25]};
 // role -> character sprite (col,row) on the character sheet
 const ROLE_TILE={Tavernkeeper:[0,10],"Stable hand":[1,3],Blacksmith:[0,5],"Street sweeper":[1,6],
   Farmer:[0,3],"Gate guard":[0,11],"Errand child":[0,9],Herbalist:[1,5]};
@@ -90,14 +93,14 @@ function draw(){
   if(!world || !tilesReady || !charsReady){ return; }
   ctx.clearRect(0,0,cv.width,cv.height);
   // grass ground (one tile per 2 world units)
-  for(let gx=0;gx<68;gx+=2) for(let gy=0;gy<54;gy+=2){ const [x,y]=px(gx,gy); tile(TILES,T_GRASS[0],T_GRASS[1],x,y,SCALE*2+2); }
+  for(let gx=-2;gx<=WORLD_W+2;gx+=2) for(let gy=-2;gy<=WORLD_H+2;gy+=2){ const [x,y]=px(gx,gy); tile(TILES,T_GRASS[0],T_GRASS[1],x,y,SCALE*2+2); }
   // stone paths along the actual road network the villagers walk
   (world.roads||[]).forEach(seg=>{ const [ax,ay,bx,by]=seg;
     const n=Math.floor(Math.hypot(bx-ax,by-ay)/1.4)+1;
     for(let k=0;k<=n;k++){ const x=ax+(bx-ax)*k/n, y=ay+(by-ay)*k/n; const [px_,py_]=px(x,y);
       tile(TILES,T_STONE[0],T_STONE[1],px_,py_,SCALE*1.7); } });
   // crop field patches
-  (world.locations||[]).filter(l=>l.kind==="field").forEach(l=>{
+  (world.locations||[]).filter(l=>l.kind==="field"||l.kind==="farm").forEach(l=>{
     for(const dx of [-2,0,2]) for(const dy of [-2,0,2]){ const [x,y]=px(l.x+dx,l.y+dy); tile(TILES,T_FIELD[0],T_FIELD[1],x,y,SCALE*2+2); } });
   // pond
   (world.props||[]).filter(p=>p.kind==="pond").forEach(p=>{
@@ -108,6 +111,8 @@ function draw(){
     else if(k==="well"){ tile(TILES,T_STONE[0],T_STONE[1],x,y,SCALE*1.7); tile(TILES,T_WATER[0],T_WATER[1],x,y,SCALE*0.9); }
     else if(k==="square"){ for(const dx of [-1.5,0,1.5]) for(const dy of [-1,1]){ const [a,b]=px(l.x+dx,l.y+dy); tile(TILES,T_STONE[0],T_STONE[1],a,b,SCALE*1.6); } }
     else if(k==="gate"){ tile(TILES,T_ROCK[0],T_ROCK[1],x,y,SCALE*1.8); }
+    else if(k==="orchard"){ for(const dx of [-2,0,2]) for(const dy of [-2,2]){ const [a,b]=px(l.x+dx,l.y+dy); tile(TILES,T_TREE[0],T_TREE[1],a,b-SCALE*0.4,SCALE*2.2); } }
+    else if(k==="pasture"){ for(const dx of [-3,3]) for(const dy of [-2.5,2.5]){ const [a,b]=px(l.x+dx,l.y+dy); tile(TILES,T_STONE[0],T_STONE[1],a,b,SCALE*0.8); } }
     else { const r=ROOF[k]||ROOF.home; for(const dx of [-1.2,0,1.2]) for(const dy of [-0.9,0.9]){ const [a,b]=px(l.x+dx,l.y+dy); tile(TILES,r[0],r[1],a,b,SCALE*1.5+2); } }
     ctx.fillStyle="#e7e8ee"; ctx.font="10px system-ui"; ctx.textAlign="center";
     ctx.strokeStyle="#0009"; ctx.lineWidth=3; ctx.strokeText(l.name, x, y+SCALE*1.9); ctx.fillText(l.name, x, y+SCALE*1.9); });

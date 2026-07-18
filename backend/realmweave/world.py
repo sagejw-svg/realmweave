@@ -42,6 +42,15 @@ def default_village() -> Dict[str, Location]:
         Location("home_wren", "Wren's Loft", 24, 34, "home", capacity=2),
         Location("home_dora", "Dora's House", 38, 10, "home", capacity=3),
         Location("home_gart", "Gart's Hut", 58, 38, "home", capacity=2),
+        # --- farmland ringing the village (Phase: lands around town) ---
+        Location("west_farm", "Brookside Farm", 6, 20, "farm", capacity=6),
+        Location("west_field", "West Wheatfield", 8, 30, "field", capacity=12),
+        Location("north_orchard", "Sunapple Orchard", 16, 6, "orchard", capacity=10),
+        Location("north_farm", "Harrow Steading", 52, 4, "farm", capacity=6),
+        Location("east_field", "East Barleyfield", 66, 24, "field", capacity=12),
+        Location("mill", "Old Mill", 66, 36, "mill", capacity=4),
+        Location("south_pasture", "South Pasture", 22, 54, "pasture", capacity=16),
+        Location("south_field", "Southmeadow", 44, 54, "field", capacity=12),
     ]
     return {l.id: l for l in locs}
 
