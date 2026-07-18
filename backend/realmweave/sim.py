@@ -84,6 +84,7 @@ class Simulation:
         self.event_sinks: List[EventSink] = []
         self.tick_count = 0
         self._last_reflect: Dict[str, int] = {}
+        self._routes: Dict[str, List[str]] = {}   # agent id -> remaining road waypoints
         # logged-out player characters, frozen in a protected "resting" bubble
         # keyed by name: state is preserved and untouchable until they return
         self.offline_players: Dict[str, dict] = {}
@@ -398,11 +399,35 @@ class Simulation:
             # pick a nearby location to drift toward
             choices = [l for l in self.world.locations if l != a.current_location]
             a.target_location = self.rng.choice(choices)
-        tx, ty = self.world.pos(a.target_location)
-        arrived = a.step_toward(tx, ty)
-        if arrived and a.current_location != a.target_location:
-            a.current_location = a.target_location
-            self._observe(a, f"Arrived at {self.world.loc(a.target_location).name} to {a.activity}.", 1.0)
+            self._routes.pop(a.id, None)
+        # Follow the road network. Plan a route of waypoints, then glide up to
+        # `speed` distance along that polyline this tick - passing straight
+        # through intermediate junctions so a longer road costs proportional
+        # time, not a stall at every node. current_location only advances on
+        # final arrival, so "who is at X" is unchanged for in-transit agents.
+        route = self._routes.get(a.id)
+        if not route or route[-1] != a.target_location:
+            full = self.world.route(a.current_location, a.target_location)
+            route = full[1:] if full and full[0] == a.current_location else full
+            self._routes[a.id] = route
+        budget = a.speed
+        while route and budget > 1e-9:
+            wx, wy = self.world.pos(route[0])
+            dx, dy = wx - a.x, wy - a.y
+            d = math.hypot(dx, dy)
+            if d <= budget:
+                a.x, a.y = wx, wy
+                budget -= d
+                route.pop(0)
+            else:
+                a.x += budget * dx / d
+                a.y += budget * dy / d
+                budget = 0.0
+        if not route:
+            self._routes.pop(a.id, None)
+            if a.current_location != a.target_location:
+                a.current_location = a.target_location
+                self._observe(a, f"Arrived at {self.world.loc(a.target_location).name} to {a.activity}.", 1.0)
 
     # ---- social encounters --------------------------------------------
     def _maybe_socialize(self, loc_id: str) -> None:

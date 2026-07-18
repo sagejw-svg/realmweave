@@ -5,6 +5,8 @@ radius; agents navigate between them. Keep the geometry simple: the Godot
 client mirrors these coordinates to place sprites.
 """
 from __future__ import annotations
+import math
+import heapq
 from dataclasses import dataclass, field
 from typing import Dict, List, Tuple
 
@@ -57,11 +59,42 @@ def default_props() -> List[dict]:
     return props
 
 
+# Villagers route along roads instead of cutting straight across the map. The
+# network links each location to its nearest neighbours so shortest paths stay
+# close to straight-line distance: roads that read as a village, without forcing
+# long detours that would leave everyone commuting instead of living.
+ROAD_KNN = 5
+
+
+def _knn_edges(locations: "Dict[str, Location]", k: int) -> List[Tuple[str, str]]:
+    """Undirected edges joining each location to its k nearest neighbours."""
+    ids = list(locations)
+    edges = set()
+    for a in ids:
+        ax, ay = locations[a].x, locations[a].y
+        nearest = sorted(ids, key=lambda b: math.hypot(locations[b].x - ax,
+                                                        locations[b].y - ay))
+        for b in nearest[1:k + 1]:
+            edges.add(tuple(sorted((a, b))))
+    return sorted(edges)
+
+
+def default_paths() -> Dict[str, List[str]]:
+    """Road adjacency for the default village (a nearest-neighbour network)."""
+    locs = default_village()
+    adj: Dict[str, List[str]] = {lid: [] for lid in locs}
+    for a, b in _knn_edges(locs, ROAD_KNN):
+        adj[a].append(b)
+        adj[b].append(a)
+    return adj
+
+
 @dataclass
 class World:
     name: str = "Oakhollow"
     locations: Dict[str, Location] = field(default_factory=default_village)
     props: List[dict] = field(default_factory=default_props)   # decorative scenery
+    paths: Dict[str, List[str]] = field(default_factory=default_paths)  # road adjacency
     # free-form world facts other systems can read/write (weather, rumors, etc.)
     weather: str = "clear"
     rumors: List[str] = field(default_factory=list)
@@ -73,6 +106,39 @@ class World:
         l = self.locations[loc_id]
         return (l.x, l.y)
 
+    def route(self, start: str, goal: str) -> List[str]:
+        """Shortest path of location ids along the roads, inclusive of both
+        ends (Dijkstra weighted by straight-line distance). Falls back to a
+        direct [start, goal] hop if either node is off the network."""
+        if start == goal:
+            return [start]
+        if start not in self.paths or goal not in self.paths:
+            return [start, goal]
+        dist = {start: 0.0}
+        prev: Dict[str, str] = {}
+        pq: List[Tuple[float, str]] = [(0.0, start)]
+        while pq:
+            d, u = heapq.heappop(pq)
+            if u == goal:
+                break
+            if d > dist.get(u, float("inf")):
+                continue
+            ux, uy = self.pos(u)
+            for v in self.paths.get(u, []):
+                vx, vy = self.pos(v)
+                nd = d + math.hypot(vx - ux, vy - uy)
+                if nd < dist.get(v, float("inf")):
+                    dist[v] = nd
+                    prev[v] = u
+                    heapq.heappush(pq, (nd, v))
+        if goal not in prev:
+            return [start, goal]
+        path = [goal]
+        while path[-1] != start:
+            path.append(prev[path[-1]])
+        path.reverse()
+        return path
+
     def add_rumor(self, text: str) -> None:
         self.rumors.append(text)
         self.rumors = self.rumors[-50:]
@@ -83,5 +149,9 @@ class World:
             "weather": self.weather,
             "locations": [l.to_dict() for l in self.locations.values()],
             "props": self.props,
+            "roads": [[self.locations[a].x, self.locations[a].y,
+                       self.locations[b].x, self.locations[b].y]
+                      for a in self.paths for b in self.paths[a]
+                      if a < b and a in self.locations and b in self.locations],
             "rumors": self.rumors[-10:],
         }
