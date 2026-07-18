@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 768" font-family="Segoe UI,system-ui,sans-serif" role="img" aria-label="Regional map of the realm around Oakhollow">
+<defs><radialGradient id="rg" cx="50%" cy="45%" r="75%"><stop offset="0%" stop-color="#1a2028"/><stop offset="100%" stop-color="#0f1216"/></radialGradient></defs>
+<rect width="1024" height="768" fill="#0c0e11"/>
+<rect x="16" y="16" width="992" height="736" rx="16" fill="url(#rg)" stroke="#2b3040" stroke-width="2"/>
+<circle cx="120" cy="300" r="26" fill="#254a30" fill-opacity="0.85"/>
+<circle cx="160" cy="360" r="26" fill="#254a30" fill-opacity="0.85"/>
+<circle cx="110" cy="420" r="26" fill="#254a30" fill-opacity="0.85"/>
+<circle cx="180" cy="300" r="26" fill="#254a30" fill-opacity="0.85"/>
+<circle cx="150" cy="470" r="26" fill="#254a30" fill-opacity="0.85"/>
+<circle cx="210" cy="410" r="26" fill="#254a30" fill-opacity="0.85"/>
+<circle cx="90" cy="360" r="26" fill="#254a30" fill-opacity="0.85"/>
+<circle cx="230" cy="340" r="26" fill="#254a30" fill-opacity="0.85"/>
+<text x="150" y="250" text-anchor="middle" font-size="15" fill="#5ab97a" font-style="italic">Whisperwood</text>
+<path d="M300,90 Q520,60 760,110 L740,180 Q520,150 320,175 Z" fill="#3d4a2a" fill-opacity="0.7"/>
+<text x="520" y="130" text-anchor="middle" font-size="15" fill="#a9b46b" font-style="italic">Highmoor &amp; the North Fields</text>
+<path d="M760,350 Q820,260 880,350 Z" fill="#3a3f49" stroke="#4a5160"/>
+<path d="M810,410 Q880,310 950,410 Z" fill="#3a3f49" stroke="#4a5160"/>
+<path d="M785,470 Q840,385 895,470 Z" fill="#3a3f49" stroke="#4a5160"/>
+<path d="M850,330 Q900,250 950,330 Z" fill="#3a3f49" stroke="#4a5160"/>
+<text x="870" y="250" text-anchor="middle" font-size="15" fill="#9aa0b4" font-style="italic">Ironbark Hills</text>
+<text x="900" y="470" text-anchor="middle" font-size="12" fill="#c85a5a">⛏ Ironbark Mine</text>
+<path d="M860,300 C700,360 620,360 512,384 C420,404 300,470 180,560" fill="none" stroke="#3b6f86" stroke-width="9" stroke-linecap="round" opacity="0.85"/>
+<text x="360" y="470" font-size="13" fill="#5aa0c0" font-style="italic" transform="rotate(14 360 470)">Silverrun</text>
+<path d="M512,410 C520,520 512,600 512,720" fill="none" stroke="#5a4d2e" stroke-width="8" stroke-dasharray="2 10" stroke-linecap="round"/>
+<text x="524" y="600" font-size="13" fill="#b98a4a" font-style="italic">Southroad</text>
+<g><polygon points="512,368 517,379 528,380 519,388 522,399 512,392 502,399 505,388 496,380 507,379" fill="#d9c46b" stroke="#7a6a2e"/><text x="512" y="418" text-anchor="middle" font-size="18" fill="#d9c46b" font-weight="700" paint-order="stroke" stroke="#0c0e11" stroke-width="4">Oakhollow</text><text x="512" y="434" text-anchor="middle" font-size="10" fill="#9aa0b4">the living village</text></g>
+<g><circle cx="512" cy="700" r="6" fill="#9aa0b4" stroke="#e7e8ee"/><text x="512" y="720" text-anchor="middle" font-size="12" fill="#c9cede" paint-order="stroke" stroke="#0c0e11" stroke-width="3">Aldermere</text></g>
+<g><circle cx="150" cy="430" r="6" fill="#9aa0b4" stroke="#e7e8ee"/><text x="150" y="450" text-anchor="middle" font-size="12" fill="#c9cede" paint-order="stroke" stroke="#0c0e11" stroke-width="3">Fenwick</text></g>
+<g><circle cx="880" cy="540" r="6" fill="#9aa0b4" stroke="#e7e8ee"/><text x="880" y="560" text-anchor="middle" font-size="12" fill="#c9cede" paint-order="stroke" stroke="#0c0e11" stroke-width="3">Stonereach</text></g>
+<g><rect x="30" y="28" width="360" height="52" rx="8" fill="#161a22" stroke="#d9c46b" stroke-opacity="0.6"/><text x="48" y="56" font-size="23" fill="#d9c46b" font-weight="700" letter-spacing="1">The Realm of Oakhollow</text><text x="48" y="73" font-size="11" fill="#9aa0b4">Regional map · illustrative lore around the simulated village</text></g>
+<g transform="translate(960,76)"><circle r="26" fill="#161a22" stroke="#2b3040"/><polygon points="0,-22 5,0 0,7 -5,0" fill="#c85a5a"/><polygon points="0,22 5,0 0,-7 -5,0" fill="#5a6274"/><text x="0" y="-28" text-anchor="middle" font-size="11" fill="#9aa0b4">N</text></g>
+<text x="984" y="738" text-anchor="end" font-size="10" fill="#6a7080" font-style="italic">Oakhollow is the simulated village; neighbors are lore, not yet in-sim.</text>
+</svg>

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Realmweave - Atlas</title>
+<style>
+  :root{
+    --bg:#12141a; --panel:#1a1d26; --panel2:#20242f; --line:#2b3040;
+    --ink:#e7e8ee; --dim:#9aa0b4; --gold:#d9c46b; --blue:#5aa0c0;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.5 system-ui,Segoe UI,Roboto,sans-serif}
+  a{color:var(--blue)}
+  header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;
+    padding:12px 18px;background:linear-gradient(#191c25,#14161d);
+    border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+  h1{font-size:18px;margin:0;color:var(--gold);letter-spacing:.5px}
+  h1 small{color:var(--dim);font-weight:400;font-size:12px}
+  nav{display:flex;gap:6px;font-size:12px}
+  nav a{text-decoration:none;border:1px solid var(--line);padding:3px 9px;border-radius:6px;color:var(--dim)}
+  nav a.active{color:var(--gold);background:var(--panel2)}
+  main{padding:20px 18px;max-width:1120px;margin:0 auto;display:grid;gap:22px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .card h2{margin:0;padding:12px 16px;font-size:14px;color:var(--gold);
+    border-bottom:1px solid var(--line);background:var(--panel2)}
+  .card h2 small{color:var(--dim);font-weight:400;font-size:12px;margin-left:6px}
+  .card .img{padding:14px;text-align:center}
+  .card img{width:100%;height:auto;border-radius:8px;background:#0e1013;border:1px solid var(--line)}
+  .card p{margin:0;padding:0 16px 16px;color:var(--dim);font-size:12.5px}
+  footer{color:var(--dim);font-size:11px;text-align:center;padding:18px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Realmweave <small>atlas</small></h1>
+  <nav>
+    <a href="index.html">World</a>
+    <a href="map.html">Map</a>
+    <a href="eyes.html">Characters</a>
+    <a href="atlas.html" class="active">Atlas</a>
+    <a href="dev.html">Dev status</a>
+  </nav>
+</header>
+<main>
+  <div class="card">
+    <h2>Oakhollow <small>local map · top-down village</small></h2>
+    <div class="img"><img src="assets/maps/oakhollow-local.svg" alt="Local map of Oakhollow with its 15 locations" /></div>
+    <p>Every building is placed from the world's real coordinates in
+       <code>backend/realmweave/world.py</code>: the square at the hub, the
+       Gilded Stag and its kitchen to the west, the smithy and mine to the east,
+       the North Fields up top, and the South Gate where travelers arrive.</p>
+  </div>
+  <div class="card">
+    <h2>The Realm <small>regional overview</small></h2>
+    <div class="img"><img src="assets/maps/realm-overview.svg" alt="Regional map of the realm around Oakhollow" /></div>
+    <p>Oakhollow within its wider realm. The village is the part the simulation
+       runs today; Whisperwood, the Ironbark Hills, the Silverrun, and the
+       neighboring towns are illustrative lore, not yet simulated.</p>
+  </div>
+</main>
+<footer>Realmweave &middot; Atlas &middot; maps are original SVG artwork (MIT), see ASSETS.md</footer>
+</body>
+</html>
