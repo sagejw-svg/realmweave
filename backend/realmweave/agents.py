@@ -77,6 +77,7 @@ class Agent:
     inventory: List = field(default_factory=list)               # List[economy.Item]
     materials: Dict[str, int] = field(default_factory=dict)     # raw material stock (name -> qty)
     wounds: List = field(default_factory=list)                  # List[rules.harm.Wound]
+    equipment: Dict = field(default_factory=dict)               # slot -> economy.Item
     god_disposition: float = 0.0                                 # feeling toward the god -1..1
     known_facts: set = field(default_factory=set)               # keyed facts this agent knows
     # identity, reputation & justice (Phase 7)
@@ -146,6 +147,27 @@ class Agent:
         from .rules.harm import total_penalty
         return total_penalty(self.wounds)
 
+    # ---- equipment -----------------------------------------------------
+    def equip(self, item):
+        """Wear an item in its slot (weapon/armor/trinket), returning whatever it
+        displaces (or None). The item is removed from inventory if present."""
+        from .rules.equipment import slot_for
+        slot = slot_for(item)
+        displaced = self.equipment.get(slot)
+        if item in self.inventory:
+            self.inventory.remove(item)
+        self.equipment[slot] = item
+        if displaced is not None:
+            self.inventory.append(displaced)
+        return displaced
+
+    def unequip(self, slot: str):
+        """Remove the item in `slot` back to inventory; returns it or None."""
+        item = self.equipment.pop(slot, None)
+        if item is not None:
+            self.inventory.append(item)
+        return item
+
     def to_dict(self) -> dict:
         return {
             "id": self.id, "name": self.name, "role": self.role,
@@ -169,6 +191,7 @@ class Agent:
             "wanted": self.wanted,
             "notoriety": round(self.notoriety, 1),
             "wounds": [w.severity for w in self.wounds],
+            "equipment": {slot: it.name for slot, it in self.equipment.items()},
         }
 
 
@@ -237,4 +260,9 @@ def default_agents() -> List[Agent]:
     cast_by["wren"].adjust_affinity("elda", 0.3)
     cast_by["gart"].adjust_affinity("toft", 0.3)   # miner supplies the smith
     cast_by["toft"].adjust_affinity("gart", 0.3)
+    # the gate guard carries a decent blade and mail (authored equipment)
+    from .economy.goods import Item, BASE_VALUES
+    guard = cast_by["guard"]
+    guard.equip(Item("a worn blade", "weapon", 60, BASE_VALUES["weapon"]))
+    guard.equip(Item("a coat of mail", "armor", 55, BASE_VALUES["armor"]))
     return cast

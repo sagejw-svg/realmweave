@@ -257,22 +257,40 @@ class Simulation:
         intent can down them); the outcome is emitted and returned. Non-lethal by
         default: ordinary conflict wounds and subdues, it does not slay."""
         from .rules.combat import resolve_exchange, ExchangeResult, OFFENSE_SKILLS, DEFENSE_SKILLS
-        off = self._best_skill(attacker, OFFENSE_SKILLS) - attacker.wound_penalty()
+        from .rules.equipment import (weapon_skill, weapon_offense_mod,
+                                      armor_evasion_penalty, armor_mitigation_chance)
+        # offense: a weapon keys its own skill and adds a quality-scaled bonus
+        off = self._best_skill(attacker, OFFENSE_SKILLS)
+        weapon = attacker.equipment.get("weapon")
+        if weapon is not None and attacker.sheet is not None:
+            off = max(off, attacker.sheet.effective(weapon_skill(weapon)) + weapon_offense_mod(weapon))
+        off -= attacker.wound_penalty()
+        # defense: armor trades a little evasion for the chance to turn a blow
         dfn = self._best_skill(defender, DEFENSE_SKILLS) - defender.wound_penalty()
+        armor = defender.equipment.get("armor")
+        if armor is not None:
+            dfn -= armor_evasion_penalty(armor)
         ex = resolve_exchange(off, dfn, self.rng)
         downed = False
+        severity = ex.severity
         if ex.result == ExchangeResult.HIT:
-            defender.add_wound(ex.severity, source=note or f"struck by {attacker.name}")
-            downed = ex.severity >= 3
-            self._observe(defender, f"{attacker.name} wounded me.", 6.0, "event")
-            self._observe(attacker, f"I struck {defender.name}.", 4.0, "event")
-            if downed and lethal and defender.alive:
-                self.kill(defender.id, cause=f"slain by {attacker.name}")
+            # armor may reduce the wound by a step (a grave becomes a hurt, etc.)
+            if armor is not None and self.rng.random() < armor_mitigation_chance(armor):
+                severity = max(0, severity - 1)
+            if severity >= 1:
+                defender.add_wound(severity, source=note or f"struck by {attacker.name}")
+                downed = severity >= 3
+                self._observe(defender, f"{attacker.name} wounded me.", 6.0, "event")
+                self._observe(attacker, f"I struck {defender.name}.", 4.0, "event")
+                if downed and lethal and defender.alive:
+                    self.kill(defender.id, cause=f"slain by {attacker.name}")
+            else:
+                self._observe(defender, f"My armor turned {attacker.name}'s blow.", 4.0, "event")
         elif ex.result == ExchangeResult.EXPOSED:
             self._observe(attacker, f"I overreached at {defender.name} and lost my footing.", 4.0, "event")
         self.emit("combat", attacker=attacker.id, attacker_name=attacker.name,
                   defender=defender.id, defender_name=defender.name,
-                  result=ex.result.value, severity=ex.severity,
+                  result=ex.result.value, severity=severity,
                   downed=downed, lethal=lethal)
         return ex
 

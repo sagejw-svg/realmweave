@@ -11,6 +11,7 @@ from dataclasses import dataclass
 # base coin value per category (a quality-50 item is worth exactly this)
 BASE_VALUES = {
     "armor": 40,
+    "weapon": 45,
     "produce": 8,
     "remedy": 25,
     "tool": 18,
