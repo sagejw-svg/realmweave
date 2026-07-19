@@ -175,6 +175,7 @@ function render(s){
     ["Players online", (s.players||[]).length],
     ["Divine favor", s.favor!=null? s.favor : "-"],
     ["Granary", s.granary!=null? `${s.granary} grain` : "-"],
+    ["Larder", s.larder? `${s.larder.egg||0} eggs · ${s.larder.milk||0} milk` : "-"],
     ["Tick", s.tick!=null? s.tick : "-"],
   ];
   $("#stats").innerHTML = stats.map(([l,n])=>
