@@ -62,14 +62,24 @@ class TestDelving(unittest.TestCase):
         self.assertEqual(len(seen), 0)
         self.assertFalse(sim.cleared_dungeons)
 
-    def test_expeditions_fire_when_enabled(self):
+    def test_a_delve_quest_is_posted_and_taken_when_enabled(self):
         sim = fresh_sim()
         sim.cfg.delve_chance = 1.0
-        seen = []
-        sim.subscribe(lambda e: seen.append(e) if e["kind"] == "expedition" else None)
-        for _ in range(20):
+        for _ in range(6):
             sim.tick()
-        self.assertGreaterEqual(len(seen), 1)
+        delve_quests = [q for q in sim.quests.quests.values() if q.title.startswith("Delve")]
+        self.assertGreaterEqual(len(delve_quests), 1)
+        self.assertTrue(any(getattr(a, "_delve_to", "") for a in sim.agents.values()),
+                        "a hero should have set out for a dungeon")
+
+    def test_a_summoned_hero_travels_and_delves(self):
+        sim = fresh_sim()
+        sim.cfg.delve_chance = 1.0
+        results = []
+        sim.subscribe(lambda e: results.append(e) if e["kind"] == "delve_result" else None)
+        for _ in range(300):
+            sim.tick()
+        self.assertGreaterEqual(len(results), 1, "a hero should reach a dungeon and delve it")
 
     def test_snapshot_exposes_cleared_dungeons(self):
         self.assertIn("cleared_dungeons", fresh_sim().snapshot())

@@ -404,21 +404,61 @@ class Simulation:
         return {"outcome": outcome, "depth": depth, "loot": loot, "died": died}
 
     def _maybe_expedition(self) -> None:
-        """With chance `delve_chance` (0 in seeded tests), send an able, unhurt
-        adventurer to delve an uncleared dungeon."""
+        """With chance `delve_chance` (0 in seeded tests), call an able, unhurt
+        adventurer to a delve: a quest is posted and taken, and the hero sets out
+        for the dungeon's frontier. The delve itself resolves on arrival."""
         if self.cfg.delve_chance <= 0 or self.rng.random() > self.cfg.delve_chance:
             return
         from .rules.combat import OFFENSE_SKILLS
         from .dungeons import DUNGEONS
-        openings = [d for d in DUNGEONS if d.id not in self.cleared_dungeons]
+        busy = {getattr(a, "_delve_dungeon", "") for a in self.agents.values()}
+        openings = [d for d in DUNGEONS
+                    if d.id not in self.cleared_dungeons and d.id not in busy
+                    and d.entrance_loc in self.world.locations]
         if not openings:
             return
         heroes = [a for a in self.living()
-                  if a.health > 0.75 and not a.wounds
+                  if not getattr(a, "_delve_to", "") and a.health > 0.75 and not a.wounds
                   and self._best_skill(a, OFFENSE_SKILLS) >= 52]
         if not heroes:
             return
-        self.resolve_delve(self.rng.choice(heroes), self.rng.choice(openings))
+        hero = self.rng.choice(heroes)
+        dungeon = self.rng.choice(openings)
+        q = self.quests.post_delve(dungeon, hero)
+        hero._delve_to = dungeon.entrance_loc
+        hero._delve_dungeon = dungeon.id
+        hero._delve_quest = q.id
+        hero._delve_ticks = 0
+
+    def _maybe_resolve_delve(self, a: Agent) -> None:
+        """Once a summoned hero reaches the dungeon's frontier, the delve plays
+        out and the quest is closed by its outcome. A hero who cannot get there
+        in time gives up. No-op (and no RNG) for anyone not on a delve."""
+        dloc = getattr(a, "_delve_to", "")
+        if not dloc:
+            return
+        from .dungeons import DUNGEONS
+        a._delve_ticks = getattr(a, "_delve_ticks", 0) + 1
+        arrived = a.current_location == dloc
+        if not arrived and a._delve_ticks <= 90:
+            return
+        qid = getattr(a, "_delve_quest", "")
+        did = getattr(a, "_delve_dungeon", "")
+        a._delve_to = a._delve_dungeon = a._delve_quest = ""
+        if not arrived:
+            if qid:
+                self.quests.fail(qid, "never reached the way in")
+            self._observe(a, "I never found the way in, and turned for home.", 4.0, "event")
+            return
+        dungeon = next((d for d in DUNGEONS if d.id == did), None)
+        if dungeon is None:
+            return
+        res = self.resolve_delve(a, dungeon)
+        if qid:
+            if res["outcome"] == "triumph":
+                self.quests.complete(a, qid)
+            else:
+                self.quests.fail(qid, res["outcome"])
 
     # ---- magic (cast from a focus pool) -------------------------------
     def _tick_magic(self, a: Agent) -> None:
@@ -499,6 +539,12 @@ class Simulation:
                 a.activity, a.target_location = "pursue", target.current_location
                 return
             a._pursuing = ""
+        # answering the call to delve overrides ordinary life until they arrive
+        delve_to = getattr(a, "_delve_to", "")
+        if delve_to:
+            a.activity, a.target_location = (
+                ("delve", delve_to) if a.current_location == delve_to else ("travel", delve_to))
+            return
         # survival needs still hard-override the rest
         urgent = a.urgent_need()
         if urgent is not None:
@@ -951,6 +997,7 @@ class Simulation:
             self._maybe_craft(a)
             self._store_grain(a)         # haul reaped grain into the granary
             self._collect_yield(a)       # gather eggs/milk into the larder
+            self._maybe_resolve_delve(a) # if on a delve and arrived, descend
             self.mind.progress_goal(a)
             self._maybe_reflect(a)
 

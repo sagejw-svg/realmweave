@@ -23,6 +23,7 @@ class Dungeon:
     entrance: str
     levels: List[dict]          # [{name, denizens, hazard}]
     mystery: str
+    entrance_loc: str = ""      # the world location a delver travels to (its frontier)
     x: Optional[float] = None
     y: Optional[float] = None
 
@@ -30,13 +31,14 @@ class Dungeon:
         return {"id": self.id, "name": self.name, "theme": self.theme,
                 "region": self.region, "danger": self.danger,
                 "entrance": self.entrance, "levels": self.levels,
-                "mystery": self.mystery, "x": self.x, "y": self.y}
+                "mystery": self.mystery, "entrance_loc": self.entrance_loc,
+                "x": self.x, "y": self.y}
 
 
 DUNGEONS: List[Dungeon] = [
     Dungeon(
         id="kobold_warren", name="The Kobold Warren", theme="kobold stronghold",
-        region="the Ironbark Hills, east past the mine", danger=3,
+        region="the Ironbark Hills, east past the mine", danger=3, entrance_loc="mine",
         entrance="A timber-shored adit gouged into a hillside, its lintel scratched "
                  "with warning-glyphs no villager can read. Smoke leaks from cracks above it.",
         levels=[
@@ -54,7 +56,7 @@ DUNGEONS: List[Dungeon] = [
                 "forge-heart the kobolds stole from somewhere they will not name."),
     Dungeon(
         id="hollow_barrow", name="The Hollow Barrow", theme="undead barrow",
-        region="the Highmoor, north beyond the fields", danger=4,
+        region="the Highmoor, north beyond the fields", danger=4, entrance_loc="field",
         entrance="A sunken barrow-mound out on the cold moor, its capstone split as if "
                  "something pushed it aside from below. The grass will not grow within a spear's throw.",
         levels=[
@@ -72,7 +74,7 @@ DUNGEONS: List[Dungeon] = [
                 "believe the war he died in was ever lost."),
     Dungeon(
         id="weeping_caverns", name="The Weeping Caverns", theme="flooded caverns",
-        region="deep in Whisperwood, west of the village", danger=2,
+        region="deep in Whisperwood, west of the village", danger=2, entrance_loc="west_farm",
         entrance="A dripping cave-mouth curtained in grey web, far back in the old forest "
                  "where the trees lean inward and the birds go quiet.",
         levels=[
@@ -87,7 +89,7 @@ DUNGEONS: List[Dungeon] = [
                 "name when it is still, and the name is almost one you know."),
     Dungeon(
         id="welldeep", name="The Welldeep", theme="rats, then far worse",
-        region="beneath Oakhollow itself", danger=3, x=32, y=30,
+        region="beneath Oakhollow itself", danger=3, entrance_loc="well", x=32, y=30,
         entrance="Down the trap-door in the Gilded Stag's cellar, past the ale-casks and a "
                  "bold nest of rats, an old drain lets into the shaft of the Old Well - and the "
                  "well, it turns out, goes far, far deeper than any bucket has ever sounded.",

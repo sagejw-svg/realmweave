@@ -43,8 +43,10 @@ Legend: [ ] todo · [~] in progress · [x] done
       depth (wounds, rare death, loot); a full clear reveals the mystery. Able
       adventurers mount expeditions (gated by `delve_chance`, off in tests, on in
       the server/headless); cleared dungeons show on the map and delves in the
-      Chronicle. *Could still add:* quest-board hooks and a physical party that
-      travels to the entrance rather than an abstract expedition.
+      Chronicle. Delves are quest-driven: a delve quest is posted and taken, and
+      the adventurer physically travels to the dungeon's frontier before descending.
+      *Could still add:* a physical party rather than a lone hero, interior
+      tiles/rooms, and per-dungeon bosses and loot tables.
 - [ ] **More scenery variety.** Additional tree types, scattered rocks, bushes,
       dirt paths. `default_props()` in `world.py` + renderer glyphs. Effort: S
 

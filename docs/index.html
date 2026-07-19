@@ -217,8 +217,8 @@ function render(s){
 const feedEl = $("#feed");
 function addEvent(e){
   const kmap={trade:"k-trade",quest_posted:"k-quest",quest_accepted:"k-quest",
-    quest_completed:"k-quest",divine_suggestion:"k-divine",death:"k-death",shop_founded:"k-shop",
-    expedition:"k-delve",delve_result:"k-delve"};
+    quest_completed:"k-quest",quest_failed:"k-quest",divine_suggestion:"k-divine",
+    death:"k-death",shop_founded:"k-shop",expedition:"k-delve",delve_result:"k-delve"};
   let txt="";
   switch(e.kind){
     case "dialogue": txt=`${e.speaker_name} &rarr; ${e.listener_name}: "${e.text}"`; break;
@@ -227,6 +227,7 @@ function addEvent(e){
     case "quest_posted": txt=`New quest posted: ${e.title}`; break;
     case "quest_accepted": txt=`${e.agent_name} took on '${e.title}'`; break;
     case "quest_completed": txt=`${e.taker_name} completed '${e.title}' (+${e.reward_coin} coin)`; break;
+    case "quest_failed": txt=`'${e.title}' went unfinished${e.reason?` (${e.reason})`:""}`; break;
     case "divine_suggestion": txt=`${e.agent_name} ${e.outcome.toUpperCase()}s the god: "${e.reaction}"`; break;
     case "crime": txt = e.detected? `${e.perp_name} was seen committing ${e.crime}! Bounty ${e.bounty}` : `${e.perp_name} committed ${e.crime} unseen`; break;
     case "arrest": txt=`${e.by_name} arrested ${e.perp_name} (bounty ${e.bounty})`; break;
