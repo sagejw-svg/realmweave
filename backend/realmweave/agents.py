@@ -238,7 +238,8 @@ def default_agents() -> List[Agent]:
         Agent("dora", "Dora Meel", "Farmer", "home_dora", "field", 38, 10,
               persona="Weathered farmer, blunt and practical, feeds half the village. Watches the weather.",
               schedule=sched((0, "sleep", "home_dora"), (5, "work", "field"),
-                             (12, "eat", "tavern"), (13, "work", "field"),
+                             (11, "chores", "granary"), (12, "eat", "tavern"),
+                             (13, "work", "field"), (17, "chores", "granary"),
                              (19, "socialize", "tavern"), (21, "sleep", "home_dora"))),
         Agent("guard", "Sergeant Hale", "Gate guard", "gate", "gate", 32, 44,
               persona="Dutiful, weary gate guard. Seen enough to distrust strangers, kind to locals.",
@@ -271,8 +272,9 @@ def default_agents() -> List[Agent]:
         Agent("hollis", "Cob Hollis", "Farmhand", "home_hollis", "west_farm", 12, 14,
               persona="Broad-backed farmhand, up before dawn, cheerful and tireless. Talks to the crops.",
               schedule=sched((0, "sleep", "home_hollis"), (5, "work", "west_farm"),
-                             (9, "work", "west_field"), (12, "eat", "tavern"),
-                             (13, "work", "east_field"), (16, "work", "north_farm"),
+                             (9, "work", "west_field"), (11, "chores", "granary"),
+                             (12, "eat", "tavern"), (13, "work", "east_field"),
+                             (16, "work", "north_farm"), (18, "chores", "granary"),
                              (19, "socialize", "tavern"), (21, "sleep", "home_hollis"))),
     ]
     # seed a few relationships

@@ -76,7 +76,7 @@ const T_GRASS=[5,0], T_STONE=[8,0], T_FIELD=[2,7], T_WATER=[3,2],
       T_TREE=[13,10], T_PINE=[16,10], T_ROCK=[6,15];
 const ROOF={tavern:[16,26],home:[13,25],stable:[18,28],smithy:[19,29],
             shop:[15,26],gate:[14,25],well:[17,27],square:[13,25],field:[15,26],
-            farm:[18,28],mill:[19,29],orchard:[13,25],pasture:[13,25]};
+            farm:[18,28],mill:[19,29],orchard:[13,25],pasture:[13,25],granary:[15,26]};
 // role -> character sprite (col,row) on the character sheet
 const ROLE_TILE={Tavernkeeper:[0,10],"Stable hand":[1,3],Blacksmith:[0,5],"Street sweeper":[1,6],
   Farmer:[0,3],"Gate guard":[0,11],"Errand child":[0,9],Herbalist:[1,5],
@@ -129,8 +129,9 @@ function draw(){
     else if(k==="orchard"){ for(const dx of [-2,0,2]) for(const dy of [-2,2]){ const [a,b]=px(l.x+dx,l.y+dy); tile(TILES,T_TREE[0],T_TREE[1],a,b-SCALE*0.4,SCALE*2.2); } }
     else if(k==="pasture"){ /* enclosed by the fence pass above; grass only */ }
     else { const r=ROOF[k]||ROOF.home; for(const dx of [-1.2,0,1.2]) for(const dy of [-0.9,0.9]){ const [a,b]=px(l.x+dx,l.y+dy); tile(TILES,r[0],r[1],a,b,SCALE*1.5+2); } }
+    let lbl=l.name; if(k==="granary" && snap && snap.granary!=null) lbl=l.name+" ("+snap.granary+")";
     ctx.fillStyle="#e7e8ee"; ctx.font="10px system-ui"; ctx.textAlign="center";
-    ctx.strokeStyle="#0009"; ctx.lineWidth=3; ctx.strokeText(l.name, x, y+SCALE*1.9); ctx.fillText(l.name, x, y+SCALE*1.9); });
+    ctx.strokeStyle="#0009"; ctx.lineWidth=3; ctx.strokeText(lbl, x, y+SCALE*1.9); ctx.fillText(lbl, x, y+SCALE*1.9); });
   // trees & rocks
   (world.props||[]).forEach((p,i)=>{ const [x,y]=px(p.x,p.y);
     if(p.kind==="tree"){ const tr=(i%2===0)?T_TREE:T_PINE; tile(TILES,tr[0],tr[1],x,y-SCALE*0.4,SCALE*2.6); }

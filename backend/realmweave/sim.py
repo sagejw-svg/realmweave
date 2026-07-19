@@ -102,6 +102,7 @@ class Simulation:
         self._crops = {lid: round(self._crop_rng.uniform(0.6, 1.0), 3)
                        for lid, l in self.world.locations.items()
                        if l.kind in ("field", "farm")}
+        self.granary = 0            # shared grain store: hauled in, drawn on by the cook
         # logged-out player characters, frozen in a protected "resting" bubble
         # keyed by name: state is preserved and untouchable until they return
         self.offline_players: Dict[str, dict] = {}
@@ -624,6 +625,11 @@ class Simulation:
         # refining: secure the recipe's inputs before making anything
         for material, qty in RECIPES.get(skill, []):
             have = a.materials.get(material, 0)
+            if have < qty and material == "grain" and self.granary > 0:
+                take = min(self.granary, qty - have)   # the cook draws from the village granary
+                self.granary -= take
+                a.materials["grain"] = have + take
+                have += take
             if have < qty:
                 self.economy.supply.acquire(a, material, qty - have)
             if a.materials.get(material, 0) < qty:
@@ -647,6 +653,23 @@ class Simulation:
         self.emit("craft", agent=a.id, agent_name=a.name, item=item, quality=quality,
                   skill=skill, skill_value=a.sheet.skill(skill), roll=res.roll,
                   outcome=res.outcome.value)
+
+    def _store_grain(self, a: Agent) -> None:
+        """A field worker who reaches the granary (or the tavern on the way to
+        eat) tips the grain they've reaped into the shared store. Deterministic;
+        the cook draws from `self.granary` when cooking."""
+        if a.role not in ("Farmer", "Farmhand"):
+            return
+        if a.current_location not in ("granary", "tavern"):
+            return
+        got = a.materials.get("grain", 0)
+        if got <= 0:
+            return
+        a.materials["grain"] = 0
+        self.granary += got
+        self._observe(a, f"Stored {got} grain in the granary (now {self.granary}).", 1.5, "event")
+        self.emit("deliver", agent=a.id, agent_name=a.name, material="grain",
+                  qty=got, total=self.granary, location=a.current_location)
 
     def _on_goal_complete(self, agent: Agent, goal) -> None:
         """Hook the Mind calls when an agent finishes a goal. Turning a
@@ -788,6 +811,7 @@ class Simulation:
             if not a.alive:              # died this tick: skip the rest of its turn
                 continue
             self._maybe_craft(a)
+            self._store_grain(a)         # haul reaped grain into the granary
             self.mind.progress_goal(a)
             self._maybe_reflect(a)
 
@@ -848,6 +872,7 @@ class Simulation:
             "agents": [a.to_dict() for a in self.agents.values()],
             "animals": [an.to_dict() for an in self.animals],
             "crops": {lid: round(r, 2) for lid, r in self._crops.items()},
+            "granary": self.granary,
             "shops": [{"name": s.name, "location": s.location_id, "owner": s.owner_id,
                        "x": s.x, "y": s.y, "stock": len(s.stock)}
                       for s in self.economy.shops.values()],

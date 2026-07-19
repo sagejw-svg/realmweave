@@ -43,10 +43,10 @@
 <line x1="1064" y1="392" x2="904" y2="520" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
 <line x1="1064" y1="392" x2="840" y2="72" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
 <line x1="1064" y1="392" x2="744" y2="328" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
+<line x1="488" y1="104" x2="456" y2="296" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
 <line x1="488" y1="104" x2="616" y2="168" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
 <line x1="488" y1="104" x2="840" y2="72" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
 <line x1="488" y1="104" x2="264" y2="104" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
-<line x1="488" y1="104" x2="520" y2="392" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
 <line x1="488" y1="104" x2="328" y2="296" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
 <line x1="488" y1="104" x2="264" y2="264" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
 <line x1="520" y1="712" x2="232" y2="776" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
@@ -55,6 +55,11 @@
 <line x1="520" y1="712" x2="712" y2="872" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
 <line x1="520" y1="712" x2="360" y2="872" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
 <line x1="520" y1="712" x2="520" y2="488" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
+<line x1="456" y1="296" x2="616" y2="168" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
+<line x1="456" y1="296" x2="520" y2="392" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
+<line x1="456" y1="296" x2="328" y2="296" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
+<line x1="456" y1="296" x2="264" y2="264" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
+<line x1="456" y1="296" x2="520" y2="488" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
 <line x1="232" y1="360" x2="200" y2="200" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
 <line x1="232" y1="360" x2="392" y2="552" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
 <line x1="232" y1="360" x2="264" y2="104" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
@@ -110,7 +115,6 @@
 <line x1="520" y1="392" x2="328" y2="296" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
 <line x1="520" y1="392" x2="520" y2="488" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
 <line x1="328" y1="296" x2="264" y2="264" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
-<line x1="328" y1="296" x2="520" y2="488" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
 <line x1="328" y1="296" x2="104" y2="328" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
 <line x1="328" y1="296" x2="136" y2="488" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
 <line x1="264" y1="264" x2="104" y2="328" stroke="#5a4d2e" stroke-width="7" stroke-linecap="round" stroke-opacity="0.55"/>
@@ -230,6 +234,8 @@
 <text x="232" y="803" text-anchor="middle" font-size="10" fill="#9aa0b4" paint-order="stroke" stroke="#0e1013" stroke-width="3" stroke-linejoin="round">Shepherd's Rest</text>
 <g filter="url(#sh)"><circle cx="200" cy="200" r="15" fill="#12151b" fill-opacity="0.9" stroke="#4a5266" stroke-opacity="0.45"/><rect x="192.8" y="199.1" width="14.4" height="9.5" rx="1.5" fill="#252a36" stroke="#4a5266"/><polygon points="191.1,199.1 200,191.5 208.9,199.1" fill="#4a5266" stroke="none"/><rect x="198.2" y="203.0" width="3.6" height="5.5" rx="1.5" fill="#12151b" stroke="none"/></g>
 <text x="200" y="227" text-anchor="middle" font-size="10" fill="#9aa0b4" paint-order="stroke" stroke="#0e1013" stroke-width="3" stroke-linejoin="round">Hollis Cottage</text>
+<g filter="url(#sh)"><circle cx="456" cy="296" r="18" fill="#12151b" fill-opacity="0.9" stroke="#c9a24a" stroke-opacity="0.45"/><rect x="449.7" y="288.9" width="12.6" height="17.3" rx="1.5" fill="#252a36" stroke="#c9a24a"/><path d="M449.1,288.9 a6.9,6.9 0 0 1 13.9,0 Z" fill="#c9a24a"/><line x1="450.3" y1="295.0" x2="461.7" y2="295.0" stroke="#c9a24a" stroke-width="1.2" stroke-opacity="0.6"/><line x1="450.3" y1="300.1" x2="461.7" y2="300.1" stroke="#c9a24a" stroke-width="1.2" stroke-opacity="0.6"/></g>
+<text x="456" y="326" text-anchor="middle" font-size="12" fill="#e7e8ee" paint-order="stroke" stroke="#0e1013" stroke-width="3" stroke-linejoin="round">The Granary</text>
 <g><ellipse cx="340.3" cy="921.2" rx="3.6" ry="1.5" fill="#0004"/><ellipse cx="340.3" cy="919.2" rx="4" ry="3" fill="#e8e6df"/><circle cx="343.5" cy="918.2" r="2.1" fill="#e8e6df"/></g>
 <g><ellipse cx="376.9" cy="917.5" rx="3.6" ry="1.5" fill="#0004"/><ellipse cx="376.9" cy="915.5" rx="4" ry="3" fill="#e8e6df"/><circle cx="380.1" cy="914.5" r="2.1" fill="#e8e6df"/></g>
 <g><ellipse cx="364.0" cy="931.6" rx="3.6" ry="1.5" fill="#0004"/><ellipse cx="364.0" cy="929.6" rx="4" ry="3" fill="#e8e6df"/><circle cx="367.2" cy="928.6" r="2.1" fill="#e8e6df"/></g>
@@ -243,21 +249,22 @@
 <g><ellipse cx="893.3" cy="116.2" rx="3.6" ry="1.5" fill="#0004"/><ellipse cx="893.3" cy="114.2" rx="4" ry="3" fill="#e0c060"/><circle cx="896.5" cy="113.2" r="2.1" fill="#e0c060"/></g>
 <g><ellipse cx="880.1" cy="127.9" rx="3.6" ry="1.5" fill="#0004"/><ellipse cx="880.1" cy="125.9" rx="4" ry="3" fill="#e0c060"/><circle cx="883.3" cy="124.9" r="2.1" fill="#e0c060"/></g>
 <g><ellipse cx="800.2" cy="119.7" rx="3.6" ry="1.5" fill="#0004"/><ellipse cx="800.2" cy="117.7" rx="4" ry="3" fill="#e0c060"/><circle cx="803.4" cy="116.7" r="2.1" fill="#e0c060"/></g>
-<g><rect x="18" y="16" width="300" height="46" rx="8" fill="#161a22" stroke="#d9c46b" stroke-opacity="0.6"/><text x="34" y="40" font-size="21" fill="#d9c46b" font-weight="700" letter-spacing="1">Oakhollow</text><text x="34" y="56" font-size="11" fill="#9aa0b4">Local map · village + farmland · 25 locations</text></g>
+<g><rect x="18" y="16" width="300" height="46" rx="8" fill="#161a22" stroke="#d9c46b" stroke-opacity="0.6"/><text x="34" y="40" font-size="21" fill="#d9c46b" font-weight="700" letter-spacing="1">Oakhollow</text><text x="34" y="56" font-size="11" fill="#9aa0b4">Local map · village + farmland · 26 locations</text></g>
 <g transform="translate(1114,54)"><circle r="24" fill="#161a22" stroke="#2b3040"/><polygon points="0,-20 5,0 0,6 -5,0" fill="#c85a5a"/><polygon points="0,20 5,0 0,-6 -5,0" fill="#5a6274"/><text x="0" y="-26" text-anchor="middle" font-size="11" fill="#9aa0b4">N</text></g>
-<g><rect x="946" y="782" width="196" height="202" rx="8" fill="#161a22" stroke="#2b3040"/><text x="958" y="802" font-size="12" fill="#9aa0b4" letter-spacing="0.5">LEGEND</text>
-<rect x="958" y="811" width="12" height="12" rx="3" fill="#d9c46b" fill-opacity="0.35" stroke="#d9c46b"/><text x="978" y="820" font-size="11.5" fill="#e7e8ee">Square / gate</text>
-<rect x="958" y="825" width="12" height="12" rx="3" fill="#b98a4a" fill-opacity="0.35" stroke="#b98a4a"/><text x="978" y="834" font-size="11.5" fill="#e7e8ee">Tavern</text>
-<rect x="958" y="839" width="12" height="12" rx="3" fill="#5aa0c0" fill-opacity="0.35" stroke="#5aa0c0"/><text x="978" y="848" font-size="11.5" fill="#e7e8ee">Well</text>
-<rect x="958" y="853" width="12" height="12" rx="3" fill="#c85a5a" fill-opacity="0.35" stroke="#c85a5a"/><text x="978" y="862" font-size="11.5" fill="#e7e8ee">Smithy</text>
-<rect x="958" y="867" width="12" height="12" rx="3" fill="#8a6d3b" fill-opacity="0.35" stroke="#8a6d3b"/><text x="978" y="876" font-size="11.5" fill="#e7e8ee">Stable</text>
-<rect x="958" y="881" width="12" height="12" rx="3" fill="#5ab97a" fill-opacity="0.35" stroke="#5ab97a"/><text x="978" y="890" font-size="11.5" fill="#e7e8ee">Field</text>
-<rect x="958" y="895" width="12" height="12" rx="3" fill="#8b93a6" fill-opacity="0.35" stroke="#8b93a6"/><text x="978" y="904" font-size="11.5" fill="#e7e8ee">Mine</text>
-<rect x="958" y="909" width="12" height="12" rx="3" fill="#4a5266" fill-opacity="0.35" stroke="#4a5266"/><text x="978" y="918" font-size="11.5" fill="#e7e8ee">Homes</text>
-<rect x="958" y="923" width="12" height="12" rx="3" fill="#c0904a" fill-opacity="0.35" stroke="#c0904a"/><text x="978" y="932" font-size="11.5" fill="#e7e8ee">Farm</text>
-<rect x="958" y="937" width="12" height="12" rx="3" fill="#4e9a5a" fill-opacity="0.35" stroke="#4e9a5a"/><text x="978" y="946" font-size="11.5" fill="#e7e8ee">Orchard</text>
-<rect x="958" y="951" width="12" height="12" rx="3" fill="#93a0b0" fill-opacity="0.35" stroke="#93a0b0"/><text x="978" y="960" font-size="11.5" fill="#e7e8ee">Mill</text>
-<rect x="958" y="965" width="12" height="12" rx="3" fill="#8fae5a" fill-opacity="0.35" stroke="#8fae5a"/><text x="978" y="974" font-size="11.5" fill="#e7e8ee">Pasture</text>
+<g><rect x="946" y="768" width="196" height="216" rx="8" fill="#161a22" stroke="#2b3040"/><text x="958" y="788" font-size="12" fill="#9aa0b4" letter-spacing="0.5">LEGEND</text>
+<rect x="958" y="797" width="12" height="12" rx="3" fill="#d9c46b" fill-opacity="0.35" stroke="#d9c46b"/><text x="978" y="806" font-size="11.5" fill="#e7e8ee">Square / gate</text>
+<rect x="958" y="811" width="12" height="12" rx="3" fill="#b98a4a" fill-opacity="0.35" stroke="#b98a4a"/><text x="978" y="820" font-size="11.5" fill="#e7e8ee">Tavern</text>
+<rect x="958" y="825" width="12" height="12" rx="3" fill="#5aa0c0" fill-opacity="0.35" stroke="#5aa0c0"/><text x="978" y="834" font-size="11.5" fill="#e7e8ee">Well</text>
+<rect x="958" y="839" width="12" height="12" rx="3" fill="#c85a5a" fill-opacity="0.35" stroke="#c85a5a"/><text x="978" y="848" font-size="11.5" fill="#e7e8ee">Smithy</text>
+<rect x="958" y="853" width="12" height="12" rx="3" fill="#8a6d3b" fill-opacity="0.35" stroke="#8a6d3b"/><text x="978" y="862" font-size="11.5" fill="#e7e8ee">Stable</text>
+<rect x="958" y="867" width="12" height="12" rx="3" fill="#5ab97a" fill-opacity="0.35" stroke="#5ab97a"/><text x="978" y="876" font-size="11.5" fill="#e7e8ee">Field</text>
+<rect x="958" y="881" width="12" height="12" rx="3" fill="#8b93a6" fill-opacity="0.35" stroke="#8b93a6"/><text x="978" y="890" font-size="11.5" fill="#e7e8ee">Mine</text>
+<rect x="958" y="895" width="12" height="12" rx="3" fill="#4a5266" fill-opacity="0.35" stroke="#4a5266"/><text x="978" y="904" font-size="11.5" fill="#e7e8ee">Homes</text>
+<rect x="958" y="909" width="12" height="12" rx="3" fill="#c0904a" fill-opacity="0.35" stroke="#c0904a"/><text x="978" y="918" font-size="11.5" fill="#e7e8ee">Farm</text>
+<rect x="958" y="923" width="12" height="12" rx="3" fill="#4e9a5a" fill-opacity="0.35" stroke="#4e9a5a"/><text x="978" y="932" font-size="11.5" fill="#e7e8ee">Orchard</text>
+<rect x="958" y="937" width="12" height="12" rx="3" fill="#93a0b0" fill-opacity="0.35" stroke="#93a0b0"/><text x="978" y="946" font-size="11.5" fill="#e7e8ee">Mill</text>
+<rect x="958" y="951" width="12" height="12" rx="3" fill="#8fae5a" fill-opacity="0.35" stroke="#8fae5a"/><text x="978" y="960" font-size="11.5" fill="#e7e8ee">Pasture</text>
+<rect x="958" y="965" width="12" height="12" rx="3" fill="#c9a24a" fill-opacity="0.35" stroke="#c9a24a"/><text x="978" y="974" font-size="11.5" fill="#e7e8ee">Granary</text>
 </g>
 <line x1="24" y1="976" x2="152" y2="976" stroke="#e7e8ee" stroke-width="3"/>
 <line x1="24" y1="971" x2="24" y2="981" stroke="#e7e8ee" stroke-width="3"/>

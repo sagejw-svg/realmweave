@@ -54,6 +54,8 @@ def default_village() -> Dict[str, Location]:
         # homes for the farmhands who work the outer land
         Location("home_shep", "Shepherd's Rest", 14, 48, "home", capacity=2),
         Location("home_hollis", "Hollis Cottage", 12, 12, "home", capacity=2),
+        # the village grain store: farmhands haul harvest here, the cook draws from it
+        Location("granary", "The Granary", 28, 18, "granary", capacity=6),
     ]
     return {l.id: l for l in locs}
 
