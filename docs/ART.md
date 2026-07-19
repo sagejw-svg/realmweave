@@ -127,3 +127,26 @@ Later tiers, when we want a bigger jump (deferred, not scheduled):
 
 Avoid AI-generated tiles: poor cross-tileset consistency and a licensing/
 provenance liability against our CC0/MIT discipline.
+
+## LPC art (step 0, feature/lpc-art-step0)
+
+LPC Revised sheets staged under `godot_client/assets/lpc/` (OGA-BY 3.0, LFS-tracked,
+not yet wired into the renderers). Note: LPC is 32px-based (vs the current 16x16 /
+17px Kenney sheets) and characters are modular layers (Body/Head/Hair/Clothing),
+not pre-composed role sprites - both are wiring decisions for a later step.
+
+Missing structures (well, mill, granary) - resolution playbook:
+LPC Revised has no ready well, mill/windmill, or granary/silo sheet. Options, in
+preference order:
+1. Compose from existing LPC parts (no new license). Granary/silo = tall narrow
+   `structure/walls` + `structure/roofing` + `objects/small items/Hay & Straw` /
+   `Grains, Grasses`. Well = a stone-wall ring + a bucket prop, or the interim
+   `structure/misc/Fountain A.png`.
+2. Pull LPC-compatible sheets from OpenGameArt (the wider LPC ecosystem has well,
+   windmill, and watermill art). Filter to CC0 / CC-BY / OGA-BY; avoid CC-BY-SA
+   (share-alike) to keep the release flexible. Log each in ASSETS.md with its own
+   license and attribution before it ships.
+3. Original art (MIT, no attribution) for a distinct identity - best long term,
+   most effort.
+Avoid AI-generated tiles (provenance + style consistency, per this doc).
+Interim: `structure/misc/Fountain A.png` stands in for the well until replaced.

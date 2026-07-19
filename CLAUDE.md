@@ -106,3 +106,20 @@ Save format at v12 with migrations; tests: test_finance/test_supply/test_guilds.
 NEXT: inter-agent raw-goods market (gatherers sell surplus to refiners directly,
 not just via the NPC premium), guild job boards/contracts, and Phase 9 art polish
 (client render quality).
+
+## Art assets / LPC pipeline (learned 2026-07)
+- Higher-fidelity art lives under `godot_client/assets/lpc/` (LPC Revised, OGA-BY
+  3.0, Git LFS). LPC is 32px-based and characters are modular layers
+  (Body/Head/Hair/Clothing), unlike the 16x16 / 17px Kenney sheets and the
+  `ROLE_TILE` col/row mapping. Wiring LPC into the renderers is a separate step
+  (pitch change + assembled sprites).
+- Provenance: every LPC folder ships a `Credits.txt`; log each pack in ASSETS.md
+  with license + attribution before shipping. OGA-BY 3.0 requires attribution.
+- Missing well / mill / granary: no LPC sheet exists. See docs/ART.md
+  "resolution playbook" (compose from parts, or pull LPC-compatible OGA sheets;
+  Fountain A is the interim well stand-in).
+- Git / PR pipeline for large art: the PR flow needs `gh` authenticated on Windows
+  (`gh auth login`) and Git LFS installed. A Linux sandbox has neither and cannot
+  push (HTTPS creds live in Windows Credential Manager), so run
+  branch/LFS/commit/push/PR on Windows. Full char tree is ~64k files / ~350 MB, so
+  LFS is required; mind GitHub free-tier LFS quota (1 GB storage, 1 GB/mo bandwidth).
