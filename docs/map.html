@@ -79,7 +79,8 @@ const ROOF={tavern:[16,26],home:[13,25],stable:[18,28],smithy:[19,29],
             farm:[18,28],mill:[19,29],orchard:[13,25],pasture:[13,25]};
 // role -> character sprite (col,row) on the character sheet
 const ROLE_TILE={Tavernkeeper:[0,10],"Stable hand":[1,3],Blacksmith:[0,5],"Street sweeper":[1,6],
-  Farmer:[0,3],"Gate guard":[0,11],"Errand child":[0,9],Herbalist:[1,5]};
+  Farmer:[0,3],"Gate guard":[0,11],"Errand child":[0,9],Herbalist:[1,5],
+  Shepherd:[0,3],Farmhand:[0,3],Miner:[0,5]};
 
 const urlInput=$("#url");
 try{ urlInput.value=localStorage.getItem("rw_url")||DEFAULT_URL; }catch(e){ urlInput.value=DEFAULT_URL; }
@@ -105,6 +106,16 @@ function draw(){
   // pond
   (world.props||[]).filter(p=>p.kind==="pond").forEach(p=>{
     for(const dx of [-3,-1,1,3]) for(const dy of [-2,0,2]){ const [x,y]=px(p.x+dx,p.y+dy); tile(TILES,T_WATER[0],T_WATER[1],x,y,SCALE*2+2); } });
+  // post-and-rail fences around pastures and farmyards
+  (world.locations||[]).filter(l=>l.kind==="pasture"||l.kind==="farm").forEach(l=>{
+    const w=(l.kind==="pasture")?5.5:3.5, h=(l.kind==="pasture")?4.5:3;
+    const a=px(l.x-w,l.y-h), b=px(l.x+w,l.y+h), pr=Math.max(1.2,SCALE*0.16);
+    ctx.strokeStyle="#7a5230"; ctx.lineWidth=Math.max(1.4,SCALE*0.13); ctx.strokeRect(a[0],a[1],b[0]-a[0],b[1]-a[1]);
+    ctx.fillStyle="#5a3d20";
+    for(let t=0;t<=1.0001;t+=0.2){ const p1=px(l.x-w+2*w*t,l.y-h), p2=px(l.x-w+2*w*t,l.y+h);
+      ctx.beginPath();ctx.arc(p1[0],p1[1],pr,0,7);ctx.fill(); ctx.beginPath();ctx.arc(p2[0],p2[1],pr,0,7);ctx.fill(); }
+    for(let t=0.2;t<1;t+=0.2){ const p1=px(l.x-w,l.y-h+2*h*t), p2=px(l.x+w,l.y-h+2*h*t);
+      ctx.beginPath();ctx.arc(p1[0],p1[1],pr,0,7);ctx.fill(); ctx.beginPath();ctx.arc(p2[0],p2[1],pr,0,7);ctx.fill(); } });
   // buildings (top-down = roofs); wells, gates and the square are special
   (world.locations||[]).forEach(l=>{ const [x,y]=px(l.x,l.y); const k=l.kind;
     if(k==="field"){ }
@@ -112,7 +123,7 @@ function draw(){
     else if(k==="square"){ for(const dx of [-1.5,0,1.5]) for(const dy of [-1,1]){ const [a,b]=px(l.x+dx,l.y+dy); tile(TILES,T_STONE[0],T_STONE[1],a,b,SCALE*1.6); } }
     else if(k==="gate"){ tile(TILES,T_ROCK[0],T_ROCK[1],x,y,SCALE*1.8); }
     else if(k==="orchard"){ for(const dx of [-2,0,2]) for(const dy of [-2,2]){ const [a,b]=px(l.x+dx,l.y+dy); tile(TILES,T_TREE[0],T_TREE[1],a,b-SCALE*0.4,SCALE*2.2); } }
-    else if(k==="pasture"){ for(const dx of [-3,3]) for(const dy of [-2.5,2.5]){ const [a,b]=px(l.x+dx,l.y+dy); tile(TILES,T_STONE[0],T_STONE[1],a,b,SCALE*0.8); } }
+    else if(k==="pasture"){ /* enclosed by the fence pass above; grass only */ }
     else { const r=ROOF[k]||ROOF.home; for(const dx of [-1.2,0,1.2]) for(const dy of [-0.9,0.9]){ const [a,b]=px(l.x+dx,l.y+dy); tile(TILES,r[0],r[1],a,b,SCALE*1.5+2); } }
     ctx.fillStyle="#e7e8ee"; ctx.font="10px system-ui"; ctx.textAlign="center";
     ctx.strokeStyle="#0009"; ctx.lineWidth=3; ctx.strokeText(l.name, x, y+SCALE*1.9); ctx.fillText(l.name, x, y+SCALE*1.9); });
