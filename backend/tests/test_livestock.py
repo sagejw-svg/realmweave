@@ -23,12 +23,19 @@ class TestLivestock(unittest.TestCase):
     def test_default_herd_present(self):
         animals = livestock.default_animals()
         kinds = {a.kind for a in animals}
-        self.assertLessEqual({"sheep", "cow", "horse", "pig", "chicken"}, kinds)
+        self.assertLessEqual({"sheep", "cow", "horse", "pig", "chicken", "goat"}, kinds)
         self.assertGreaterEqual(len(animals), 8)
         w = World()
         for a in animals:
             self.assertIn(a.home, w.locations)
             self.assertIn(a.pen, w.locations)
+
+    def test_stable_paddock_has_horses_and_goats(self):
+        stable = [a for a in livestock.default_animals() if a.home == "stable"]
+        horses = sum(1 for a in stable if a.kind == "horse")
+        goats = sum(1 for a in stable if a.kind == "goat")
+        self.assertGreaterEqual(horses, 4)
+        self.assertGreaterEqual(goats, 2)
 
     def test_animals_move_and_stay_near_home_by_day(self):
         w = World(); animals = livestock.default_animals(); rng = random.Random(1)

@@ -30,8 +30,9 @@ Legend: [ ] todo · [~] in progress · [x] done
 - [ ] **Crop destruction (raiders / blight).** The one way a harvest should fail:
       a raid or blight ruins standing crops in a field. Rare and telegraphed;
       ties to a future threat/event system. Effort: M
-- [ ] **Stable buildout.** Expand the existing `stable` location into pens with
-      horses/animals and a hand at work. Effort: S-M
+- [x] **Stable buildout.** The stable is now a fenced paddock with a herd of
+      four horses and two goats, tended by Isla the stable hand. Drawn on the
+      live map and the atlas.
 - [ ] **Three dungeons.** Map entrances + interior tiles + encounters/loot hooks
       into the rules/combat system. Suggest phasing: (1) entrances on the map,
       (2) one playable interior, (3) encounters + rewards. `world.py`, `quests/`,

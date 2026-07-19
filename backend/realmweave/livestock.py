@@ -37,8 +37,11 @@ def default_animals() -> List["Animal"]:
     for i in range(4):
         a.append(Animal(f"sheep{i}", "sheep", 22, 54, "south_pasture", "south_pasture"))
     a.append(Animal("cow0", "cow", 24, 52, "south_pasture", "south_pasture"))
-    for i in range(2):
+    # the stable paddock: a small herd of horses and a couple of goats
+    for i in range(4):
         a.append(Animal(f"horse{i}", "horse", 46, 20, "stable", "stable"))
+    for i in range(2):
+        a.append(Animal(f"goat{i}", "goat", 48, 22, "stable", "stable"))
     a.append(Animal("pig0", "pig", 6, 20, "west_farm", "west_farm"))
     for i in range(3):
         a.append(Animal(f"hen{i}", "chicken", 52, 4, "north_farm", "north_farm"))
