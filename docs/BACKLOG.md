@@ -12,8 +12,10 @@ Legend: [ ] todo · [~] in progress · [x] done
       edge (roads out, biomes, borders) so Oakhollow sits in a place, not a void.
       Touches `backend/realmweave/world.py` (new outer locations/zones) and the
       map renderers. Effort: L
-- [~] **Farms and croplands.** Working farm plots that grow and get harvested;
-      tie into the economy (food supply). `world.py`, `economy/`. Effort: M
+- [x] **Farms and croplands.** Fields and farms carry a ripeness that grows
+      over time; working a ripe one harvests grain (yield scales with ripeness),
+      then it regrows. Grain feeds the existing Cooking chain, so the fields
+      actually feed the village. Growth stages show on the map (bare/green/gold).
 - [x] **Fields with animals / livestock.** Ambient animals (sheep, cow, horses,
       pig, hens) graze near home by day and gather at a pen at night
       (`realmweave/livestock.py`), streamed in the snapshot and drawn on the map.

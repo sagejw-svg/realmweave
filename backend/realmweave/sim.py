@@ -59,6 +59,8 @@ HEALTH_REGEN = 0.03
 STUCK_TICKS = 15
 STUCK_NEED = 0.10
 FORAGE = 0.05                         # meager: reaching a real source is better
+CROP_GROWTH = 0.011                  # ripeness gained per tick (~0.6 day to ripen)
+HARVEST_THRESHOLD = 0.55             # a crop must be this ripe before it's worth reaping
 
 
 @dataclass
@@ -88,6 +90,13 @@ class Simulation:
         self._routes: Dict[str, List[str]] = {}   # agent id -> remaining road waypoints
         self.animals = livestock.default_animals()
         self._animal_rng = random.Random(self.cfg.seed + 9973)  # isolated so it never perturbs agent RNG
+        # crop ripeness per field/farm, growing over time and reset by harvest.
+        # Fields start ripe (harvest season) on a dedicated RNG, so seeding never
+        # touches the agent RNG stream.
+        self._crop_rng = random.Random(self.cfg.seed + 4241)
+        self._crops = {lid: round(self._crop_rng.uniform(0.6, 1.0), 3)
+                       for lid, l in self.world.locations.items()
+                       if l.kind in ("field", "farm")}
         # logged-out player characters, frozen in a protected "resting" bubble
         # keyed by name: state is preserved and untouchable until they return
         self.offline_players: Dict[str, dict] = {}
@@ -566,7 +575,7 @@ class Simulation:
         kind = self.world.loc(a.current_location).kind
         if kind == "smithy":
             skill, item = "Smithing", "a piece of armor"
-        elif kind == "field":
+        elif kind in ("field", "farm"):
             skill, item = "Farming", "a bushel of produce"
         elif kind == "well":
             skill, item = "Herbalism", "a healing remedy"
@@ -587,6 +596,17 @@ class Simulation:
             self._observe(a, f"Mined {mat} (now {a.materials[mat]} on hand).", 1.5, "event")
             self.emit("gather", agent=a.id, agent_name=a.name, material=mat,
                       qty=a.materials[mat], location=a.current_location)
+            return
+        if kind in ("field", "farm"):
+            ripe = self._crops.get(a.current_location, 0.0)
+            if ripe >= HARVEST_THRESHOLD:
+                bushels = 2 + int(ripe * 2)            # 2..4; a riper field reaps richer
+                a.materials["grain"] = a.materials.get("grain", 0) + bushels
+                self._crops[a.current_location] = 0.0  # reaped; the field regrows
+                self._observe(a, f"Harvested {bushels} grain (now {a.materials['grain']} on hand).", 1.8, "event")
+                self.emit("harvest", agent=a.id, agent_name=a.name, material="grain",
+                          qty=bushels, location=a.current_location)
+            # a green field is tended, not reaped: nothing to gather yet
             return
         mat = GATHER.get(kind)
         if mat is not None:
@@ -776,6 +796,8 @@ class Simulation:
         self.divine.regen()
         self.justice.step()
         livestock.update(self.animals, self.world, self.clock, self._animal_rng)
+        for lid in self._crops:                      # crops ripen (deterministic, no RNG)
+            self._crops[lid] = min(1.0, self._crops[lid] + CROP_GROWTH)
 
         self.emit("tick", tick=self.tick_count)
 
@@ -819,6 +841,7 @@ class Simulation:
             "world": self.world.to_dict(),
             "agents": [a.to_dict() for a in self.agents.values()],
             "animals": [an.to_dict() for an in self.animals],
+            "crops": {lid: round(r, 2) for lid, r in self._crops.items()},
             "shops": [{"name": s.name, "location": s.location_id, "owner": s.owner_id,
                        "x": s.x, "y": s.y, "stock": len(s.stock)}
                       for s in self.economy.shops.values()],

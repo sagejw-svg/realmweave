@@ -100,9 +100,13 @@ function draw(){
     const n=Math.floor(Math.hypot(bx-ax,by-ay)/1.4)+1;
     for(let k=0;k<=n;k++){ const x=ax+(bx-ax)*k/n, y=ay+(by-ay)*k/n; const [px_,py_]=px(x,y);
       tile(TILES,T_STONE[0],T_STONE[1],px_,py_,SCALE*1.7); } });
-  // crop field patches
+  // crop field patches, tinted by ripeness: bare soil -> green -> gold
   (world.locations||[]).filter(l=>l.kind==="field"||l.kind==="farm").forEach(l=>{
-    for(const dx of [-2,0,2]) for(const dy of [-2,0,2]){ const [x,y]=px(l.x+dx,l.y+dy); tile(TILES,T_FIELD[0],T_FIELD[1],x,y,SCALE*2+2); } });
+    for(const dx of [-2,0,2]) for(const dy of [-2,0,2]){ const [x,y]=px(l.x+dx,l.y+dy); tile(TILES,T_FIELD[0],T_FIELD[1],x,y,SCALE*2+2); }
+    const r=(snap&&snap.crops&&snap.crops[l.id]!=null)?snap.crops[l.id]:0.6;
+    const col = r<0.15 ? "rgba(96,66,40,0.6)" : r<0.6 ? "rgba(95,150,70,0.42)" : "rgba(217,196,107,0.45)";
+    const a=px(l.x-3,l.y-3), b=px(l.x+3,l.y+3);
+    ctx.fillStyle=col; ctx.fillRect(a[0],a[1],b[0]-a[0],b[1]-a[1]); });
   // pond
   (world.props||[]).filter(p=>p.kind==="pond").forEach(p=>{
     for(const dx of [-3,-1,1,3]) for(const dy of [-2,0,2]){ const [x,y]=px(p.x+dx,p.y+dy); tile(TILES,T_WATER[0],T_WATER[1],x,y,SCALE*2+2); } });
