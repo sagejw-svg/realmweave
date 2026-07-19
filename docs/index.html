@@ -164,7 +164,8 @@ function needBars(n){
 
 function render(s){
   $("#clock").textContent = s.clock
-    ? `Day ${s.clock.day_index} - ${s.clock.day_name} - ${s.clock.hhmm} (${s.clock.part_of_day})`
+    ? `Day ${s.clock.day_index} - ${s.clock.day_name} - ${s.clock.hhmm}`
+      + (s.clock.season ? ` · ${s.clock.season}` : "") + ` (${s.clock.part_of_day})`
     : "--";
   const alive = (s.agents||[]).filter(a=>a.alive).length;
   const stats=[

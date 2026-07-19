@@ -63,5 +63,34 @@ class TestCrops(unittest.TestCase):
         self.assertTrue(all(0.0 <= r <= 1.0 for r in crops.values()))
 
 
+WINTER_START_MIN = 84 * 24 * 60   # day 84 = start of Winter (28 days per season)
+
+
+class TestSeasonalCrops(unittest.TestCase):
+    def test_crops_grow_in_spring(self):
+        sim = fresh_sim()                      # day 0 is Spring
+        self.assertEqual(sim.clock.season, "Spring")
+        sim._crops["field"] = 0.0
+        sim.tick()
+        self.assertGreater(sim._crops["field"], 0.0)
+
+    def test_winter_is_dormant(self):
+        sim = fresh_sim()
+        sim.clock.minutes = WINTER_START_MIN
+        self.assertEqual(sim.clock.season, "Winter")
+        sim._crops["field"] = 0.3              # below harvest threshold, so it won't be reaped
+        sim.tick()
+        self.assertEqual(sim._crops["field"], 0.3)   # no growth in winter
+
+    def test_a_dormant_winter_never_starves_the_village(self):
+        # the whole point of "easy" seasons: a fallow winter must not kill anyone
+        sim = fresh_sim()
+        sim.clock.minutes = WINTER_START_MIN
+        for _ in range(1600):                  # ~11 winter days with no crop growth
+            sim.tick()
+        alive = sum(1 for a in sim.agents.values() if a.alive)
+        self.assertEqual(alive, len(sim.agents), "a fallow winter must not starve anyone")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
