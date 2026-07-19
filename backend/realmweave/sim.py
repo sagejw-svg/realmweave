@@ -22,6 +22,7 @@ import random
 
 from .time_system import WorldClock
 from .world import World
+from . import livestock
 from .agents import Agent, default_agents
 from .memory import MemoryStream
 from .rules.skills import role_sheet
@@ -85,6 +86,8 @@ class Simulation:
         self.tick_count = 0
         self._last_reflect: Dict[str, int] = {}
         self._routes: Dict[str, List[str]] = {}   # agent id -> remaining road waypoints
+        self.animals = livestock.default_animals()
+        self._animal_rng = random.Random(self.cfg.seed + 9973)  # isolated so it never perturbs agent RNG
         # logged-out player characters, frozen in a protected "resting" bubble
         # keyed by name: state is preserved and untouchable until they return
         self.offline_players: Dict[str, dict] = {}
@@ -772,6 +775,7 @@ class Simulation:
         self.quests.maybe_generate()
         self.divine.regen()
         self.justice.step()
+        livestock.update(self.animals, self.world, self.clock, self._animal_rng)
 
         self.emit("tick", tick=self.tick_count)
 
@@ -814,6 +818,7 @@ class Simulation:
             "clock": self.clock.to_dict(),
             "world": self.world.to_dict(),
             "agents": [a.to_dict() for a in self.agents.values()],
+            "animals": [an.to_dict() for an in self.animals],
             "shops": [{"name": s.name, "location": s.location_id, "owner": s.owner_id,
                        "x": s.x, "y": s.y, "stock": len(s.stock)}
                       for s in self.economy.shops.values()],

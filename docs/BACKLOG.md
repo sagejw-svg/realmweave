@@ -14,9 +14,9 @@ Legend: [ ] todo · [~] in progress · [x] done
       map renderers. Effort: L
 - [~] **Farms and croplands.** Working farm plots that grow and get harvested;
       tie into the economy (food supply). `world.py`, `economy/`. Effort: M
-- [ ] **Fields with animals / livestock.** Pastures near the stable with simple
-      animal entities (graze, wander, pen at night). New lightweight entity type
-      + sprites. Effort: M-L
+- [x] **Fields with animals / livestock.** Ambient animals (sheep, cow, horses,
+      pig, hens) graze near home by day and gather at a pen at night
+      (`realmweave/livestock.py`), streamed in the snapshot and drawn on the map.
 - [ ] **Stable buildout.** Expand the existing `stable` location into pens with
       horses/animals and a hand at work. Effort: S-M
 - [ ] **Three dungeons.** Map entrances + interior tiles + encounters/loot hooks
@@ -44,7 +44,8 @@ Legend: [ ] todo · [~] in progress · [x] done
 - [ ] **Bring the new building look to the live renderers.** Match the upgraded
       icon style in `docs/map.html` and the Godot client (`Main.gd`) so the live
       map and game view match the atlas. Effort: M
-- [ ] **Animal sprites** for livestock/pets. Effort: S-M
+- [x] **Animal sprites** for livestock (drawn on the live map + atlas; could be
+      upgraded to tile art later).
 - [ ] **Dungeon tiles and entrance art.** Effort: M
 - [ ] **Optional higher-fidelity art pass.** If we want painted scenes rather
       than vector/tile art, use an image generator (see Tooling). Log every
