@@ -215,9 +215,28 @@ def legend(p, W, H):
                  f'<text x="{bx+32}" y="{ly}" font-size="11.5" fill="#e7e8ee">{lbl}</text>')
     p.append('</g>')
 
+def draw_livestock(p):
+    """A few decorative animals grazing near the pasture, stable, and farms."""
+    import random as _rnd
+    rng = _rnd.Random(7)
+    pts = {lid: (x, y) for (lid, _n, x, y, _k) in LOCS}
+    herds = [("south_pasture", "#e8e6df", 4, False), ("stable", "#8a5a3a", 2, True),
+             ("west_farm", "#d98fa0", 1, False), ("north_farm", "#e0c060", 3, False)]
+    for (lid, col, n, big) in herds:
+        if lid not in pts:
+            continue
+        lx, ly = pts[lid]
+        rw, rh = (6, 4) if big else (4, 3)
+        for _ in range(n):
+            ax, ay = X(lx + rng.uniform(-3.5, 3.5)), Y(ly + rng.uniform(2.5, 5.5))
+            p.append(f'<g><ellipse cx="{_r(ax)}" cy="{_r(ay+2)}" rx="{rw*0.9}" ry="1.5" fill="#0004"/>'
+                     f'<ellipse cx="{_r(ax)}" cy="{_r(ay)}" rx="{rw}" ry="{rh}" fill="{col}"/>'
+                     f'<circle cx="{_r(ax+rw*0.8)}" cy="{_r(ay-1)}" r="{_r(rh*0.7)}" fill="{col}"/></g>')
+
 def build_local():
     p, W, H = local_map()
     buildings(p)
+    draw_livestock(p)
     frame(p, W, H, "Oakhollow", f"Local map · village + farmland · {len(LOCS)} locations")
     legend(p, W, H)
     scalebar(p, H)

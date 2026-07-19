@@ -62,7 +62,7 @@ const WORLD_W=72, WORLD_H=58;
 const SCALE=Math.min(cv.width/(WORLD_W+4), cv.height/(WORLD_H+4));
 const OX=(cv.width-WORLD_W*SCALE)/2, OY=(cv.height-WORLD_H*SCALE)/2;
 let ws=null, demoTimer=null, isDemo=false;
-let world=null, snap=null, rpos={};
+let world=null, snap=null, rpos={}, apos={};
 
 // --- Kenney Roguelike/RPG tiles (CC0). 16x16 tiles, 1px margin => 17px pitch.
 // See ASSETS.md for provenance and docs/ART.md for the tile-index reference.
@@ -120,6 +120,25 @@ function draw(){
   (world.props||[]).forEach((p,i)=>{ const [x,y]=px(p.x,p.y);
     if(p.kind==="tree"){ const tr=(i%2===0)?T_TREE:T_PINE; tile(TILES,tr[0],tr[1],x,y-SCALE*0.4,SCALE*2.6); }
     else if(p.kind==="rock"){ tile(TILES,T_ROCK[0],T_ROCK[1],x,y,SCALE*1.4); } });
+  // livestock (drawn creatures, not tile sprites) - graze by day, pen at night
+  const AC={sheep:"#e8e6df",cow:"#b98a5a",pig:"#d98fa0",chicken:"#e0c060",horse:"#8a5a3a"};
+  (snap&&snap.animals||[]).forEach(a=>{
+    const id="an_"+a.id, tgt=px(a.x,a.y);
+    if(!apos[id]) apos[id]=tgt.slice();
+    apos[id][0]+=(tgt[0]-apos[id][0])*0.15; apos[id][1]+=(tgt[1]-apos[id][1])*0.15;
+    const [x,y]=apos[id]; const col=AC[a.kind]||"#ccc";
+    const big=(a.kind==="cow"||a.kind==="horse"); const rw=SCALE*(big?0.9:0.58), rh=SCALE*(big?0.58:0.4);
+    ctx.save();
+    ctx.fillStyle="#0003"; ctx.beginPath(); ctx.ellipse(x,y+rh*0.7,rw*0.9,rh*0.4,0,0,7); ctx.fill();
+    ctx.fillStyle=col; ctx.beginPath(); ctx.ellipse(x,y,rw,rh,0,0,7); ctx.fill();
+    const hx=x+rw*0.85, hd=rh*0.7;
+    ctx.beginPath(); ctx.arc(hx,y-rh*0.2,hd,0,7); ctx.fill();
+    if(a.kind==="cow"){ ctx.fillStyle="#efece4"; ctx.beginPath(); ctx.ellipse(x-rw*0.25,y,rw*0.38,rh*0.55,0,0,7); ctx.fill(); }
+    if(a.kind==="pig"){ ctx.fillStyle="#a86477"; ctx.beginPath(); ctx.arc(hx+hd*0.5,y-rh*0.2,hd*0.4,0,7); ctx.fill(); }
+    if(a.kind==="chicken"){ ctx.fillStyle="#c85a5a"; ctx.beginPath(); ctx.arc(hx,y-rh*0.75,hd*0.45,0,7); ctx.fill(); }
+    if(a.kind==="horse"){ ctx.fillStyle="#4a2f1c"; ctx.beginPath(); ctx.ellipse(hx-hd*0.5,y-rh*0.7,hd*0.3,hd*0.75,0.5,0,7); ctx.fill(); }
+    ctx.restore();
+  });
   // agents (character sprites)
   (snap&&snap.agents||[]).forEach(a=>{
     const id=a.id, tgt=px(a.x,a.y);
