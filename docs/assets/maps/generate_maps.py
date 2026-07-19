@@ -221,8 +221,9 @@ def draw_livestock(p):
     import random as _rnd
     rng = _rnd.Random(7)
     pts = {lid: (x, y) for (lid, _n, x, y, _k) in LOCS}
-    herds = [("south_pasture", "#e8e6df", 4, False), ("stable", "#8a5a3a", 2, True),
-             ("west_farm", "#d98fa0", 1, False), ("north_farm", "#e0c060", 3, False)]
+    herds = [("south_pasture", "#e8e6df", 4, False), ("stable", "#8a5a3a", 3, True),
+             ("stable", "#b8b0a0", 2, False), ("west_farm", "#d98fa0", 1, False),
+             ("north_farm", "#e0c060", 3, False)]
     for (lid, col, n, big) in herds:
         if lid not in pts:
             continue
@@ -237,9 +238,9 @@ def draw_livestock(p):
 def draw_fences(p):
     """Post-and-rail fences enclosing the pastures and farmyards."""
     for (lid, _n, lx, ly, k) in LOCS:
-        if k not in ("pasture", "farm"):
+        if k not in ("pasture", "farm", "stable"):
             continue
-        w, h = (6.5, 5.0) if k == "pasture" else (4.0, 3.3)
+        w, h = (6.5, 5.0) if k == "pasture" else (5.0, 4.0) if k == "stable" else (4.0, 3.3)
         x0, y0, x1, y1 = X(lx - w), Y(ly - h), X(lx + w), Y(ly + h)
         p.append(f'<rect x="{_r(x0)}" y="{_r(y0)}" width="{_r(x1-x0)}" height="{_r(y1-y0)}" '
                  f'rx="3" fill="none" stroke="#7a5230" stroke-width="2" stroke-opacity="0.85"/>')
