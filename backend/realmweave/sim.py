@@ -61,6 +61,7 @@ STUCK_NEED = 0.10
 FORAGE = 0.05                         # meager: reaching a real source is better
 CROP_GROWTH = 0.011                  # ripeness gained per tick (~0.6 day to ripen)
 HARVEST_THRESHOLD = 0.55             # a crop must be this ripe before it's worth reaping
+YIELD_INTERVAL = 72                  # ticks between animal yields (hens lay, the cow milks); ~half a day
 # Seasonal multiplier on crop growth. Winter is dormant (fields rest, bare), the
 # others grow. Food never fails from a fallow season: the tavern still buys grain
 # through the supply chain, and the forage floor keeps anyone from starving - so
@@ -103,6 +104,17 @@ class Simulation:
                        for lid, l in self.world.locations.items()
                        if l.kind in ("field", "farm")}
         self.granary = 0            # shared grain store: hauled in, drawn on by the cook
+        # animal yields: hens lay eggs and the cow gives milk on a timer; a hand
+        # collects them into the larder. Deterministic (tick-based), no RNG.
+        self.larder = {"egg": 0, "milk": 0}
+        self._yield_kind: Dict[str, str] = {}    # location -> "egg"/"milk"
+        self._yield_count: Dict[str, int] = {}   # location -> producing animals there
+        for an in self.animals:
+            k = {"chicken": "egg", "cow": "milk"}.get(an.kind)
+            if k:
+                self._yield_kind[an.home] = k
+                self._yield_count[an.home] = self._yield_count.get(an.home, 0) + 1
+        self._pending = {loc: 0 for loc in self._yield_kind}
         # logged-out player characters, frozen in a protected "resting" bubble
         # keyed by name: state is preserved and untouchable until they return
         self.offline_players: Dict[str, dict] = {}
@@ -671,6 +683,40 @@ class Simulation:
         self.emit("deliver", agent=a.id, agent_name=a.name, material="grain",
                   qty=got, total=self.granary, location=a.current_location)
 
+    def _collect_yield(self, a: Agent) -> None:
+        """A field worker at the henhouse or the pasture gathers the eggs the
+        hens have laid or the milk the cow has given into the shared larder."""
+        if a.role not in ("Farmer", "Farmhand", "Shepherd"):
+            return
+        loc = a.current_location
+        n = self._pending.get(loc, 0)
+        if n <= 0:
+            return
+        kind = self._yield_kind[loc]
+        self._pending[loc] = 0
+        self.larder[kind] = self.larder.get(kind, 0) + n
+        self._observe(a, f"Collected {n} {kind} (larder now {self.larder[kind]}).", 1.3, "event")
+        self.emit("collect", agent=a.id, agent_name=a.name, material=kind,
+                  qty=n, total=self.larder[kind], location=loc)
+
+    def _gather_yields(self) -> None:
+        """A living field hand does the daily rounds, gathering whatever eggs and
+        milk are waiting into the larder. Keeps the store filling reliably even
+        when no one happens to be standing in the henhouse. Deterministic."""
+        hands = [a for a in self.living() if a.role in ("Farmer", "Farmhand", "Shepherd")]
+        if not hands:
+            return
+        hand = min(hands, key=lambda a: a.id)
+        for loc in list(self._pending):
+            n = self._pending[loc]
+            if n <= 0:
+                continue
+            self._pending[loc] = 0
+            kind = self._yield_kind[loc]
+            self.larder[kind] = self.larder.get(kind, 0) + n
+            self.emit("collect", agent=hand.id, agent_name=hand.name, material=kind,
+                      qty=n, total=self.larder[kind], location=loc)
+
     def _on_goal_complete(self, agent: Agent, goal) -> None:
         """Hook the Mind calls when an agent finishes a goal. Turning a
         'build a livelihood' aim into a shop, or a quest into its reward,
@@ -812,6 +858,7 @@ class Simulation:
                 continue
             self._maybe_craft(a)
             self._store_grain(a)         # haul reaped grain into the granary
+            self._collect_yield(a)       # gather eggs/milk into the larder
             self.mind.progress_goal(a)
             self._maybe_reflect(a)
 
@@ -828,6 +875,10 @@ class Simulation:
         grow = CROP_GROWTH * SEASON_GROWTH.get(self.clock.season, 1.0)
         for lid in self._crops:                      # crops ripen by season (deterministic, no RNG)
             self._crops[lid] = min(1.0, self._crops[lid] + grow)
+        if self._yield_kind and self.tick_count % YIELD_INTERVAL == 0:   # hens lay, the cow milks
+            for loc, n in self._yield_count.items():
+                self._pending[loc] += n
+            self._gather_yields()   # a hand does the rounds so nothing piles up uncollected
 
         self.emit("tick", tick=self.tick_count)
 
@@ -873,6 +924,7 @@ class Simulation:
             "animals": [an.to_dict() for an in self.animals],
             "crops": {lid: round(r, 2) for lid, r in self._crops.items()},
             "granary": self.granary,
+            "larder": dict(self.larder),
             "shops": [{"name": s.name, "location": s.location_id, "owner": s.owner_id,
                        "x": s.x, "y": s.y, "stock": len(s.stock)}
                       for s in self.economy.shops.values()],

@@ -26,8 +26,9 @@ Legend: [ ] todo · [~] in progress · [x] done
       farmhands tip their reaped grain in when they reach the granary or the
       tavern, and the cook draws from the store (free) before buying. Shown on
       the map (with a live count) and the dashboard.
-- [ ] **Egg & milk yields.** Hens lay eggs and the cow gives milk on a timer; a
-      farmhand collects them into food stock. `livestock.py`, `sim.py`. Effort: S-M
+- [x] **Egg & milk yields.** Hens lay eggs and the cow gives milk on a timer; a
+      living field hand does the daily rounds and gathers them into a shared
+      larder, shown on the dashboard. (Could later feed cooking or be sold.)
 - [ ] **Crop destruction (raiders / blight).** The one way a harvest should fail:
       a raid or blight ruins standing crops in a field. Rare and telegraphed;
       ties to a future threat/event system. Effort: M
