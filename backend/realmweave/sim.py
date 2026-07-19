@@ -61,6 +61,11 @@ STUCK_NEED = 0.10
 FORAGE = 0.05                         # meager: reaching a real source is better
 CROP_GROWTH = 0.011                  # ripeness gained per tick (~0.6 day to ripen)
 HARVEST_THRESHOLD = 0.55             # a crop must be this ripe before it's worth reaping
+# Seasonal multiplier on crop growth. Winter is dormant (fields rest, bare), the
+# others grow. Food never fails from a fallow season: the tavern still buys grain
+# through the supply chain, and the forage floor keeps anyone from starving - so
+# only deliberate destruction (a future mechanic) should ever ruin a harvest.
+SEASON_GROWTH = {"Spring": 1.3, "Summer": 1.1, "Autumn": 0.7, "Winter": 0.0}
 
 
 @dataclass
@@ -796,8 +801,9 @@ class Simulation:
         self.divine.regen()
         self.justice.step()
         livestock.update(self.animals, self.world, self.clock, self._animal_rng)
-        for lid in self._crops:                      # crops ripen (deterministic, no RNG)
-            self._crops[lid] = min(1.0, self._crops[lid] + CROP_GROWTH)
+        grow = CROP_GROWTH * SEASON_GROWTH.get(self.clock.season, 1.0)
+        for lid in self._crops:                      # crops ripen by season (deterministic, no RNG)
+            self._crops[lid] = min(1.0, self._crops[lid] + grow)
 
         self.emit("tick", tick=self.tick_count)
 
