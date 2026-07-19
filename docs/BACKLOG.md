@@ -35,14 +35,16 @@ Legend: [ ] todo · [~] in progress · [x] done
 - [x] **Stable buildout.** The stable is now a fenced paddock with a herd of
       four horses and two goats, tended by Isla the stable hand. Drawn on the
       live map and the atlas.
-- [~] **Dungeons.** *Phase 1 done:* four dungeons with lore in
-      `realmweave/dungeons.py` - the Kobold Warren (kobold stronghold), the Hollow
-      Barrow (undead), the Weeping Caverns (spiders), and the Welldeep (the Gilded
-      Stag's cellar rats down the Old Well into deep mystery). Entrances ride in
-      the snapshot, are marked on the realm map and the live map, and are described
-      on the atlas. *Phase 2 (todo):* make them delvable - a party travels to an
-      entrance, encounters and loot resolved through the combat system, danger
-      scaling with depth; quest hooks to send an adventurer. Effort: L
+- [x] **Dungeons.** Four dungeons with lore (`realmweave/dungeons.py`) - the
+      Kobold Warren, the Hollow Barrow, the Weeping Caverns, and the Welldeep
+      (the Gilded Stag's cellar rats down the Old Well into deep mystery), marked
+      on the maps and described on the atlas. *Delvable:* `sim.resolve_delve`
+      plays a dungeon level by level as combat exchanges scaling with danger and
+      depth (wounds, rare death, loot); a full clear reveals the mystery. Able
+      adventurers mount expeditions (gated by `delve_chance`, off in tests, on in
+      the server/headless); cleared dungeons show on the map and delves in the
+      Chronicle. *Could still add:* quest-board hooks and a physical party that
+      travels to the entrance rather than an abstract expedition.
 - [ ] **More scenery variety.** Additional tree types, scattered rocks, bushes,
       dirt paths. `default_props()` in `world.py` + renderer glyphs. Effort: S
 

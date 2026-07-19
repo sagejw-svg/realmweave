@@ -58,7 +58,7 @@
   .feed div{padding:4px 6px;border-bottom:1px solid #23283455;font-size:12.5px}
   .feed .k{color:var(--dim);font-size:10px;text-transform:uppercase;margin-right:6px}
   .k-trade{color:var(--green)} .k-quest{color:var(--blue)} .k-divine{color:var(--purple)}
-  .k-death{color:var(--red)} .k-shop{color:var(--gold)}
+  .k-death{color:var(--red)} .k-shop{color:var(--gold)} .k-delve{color:#e7c9a0}
   .muted{color:var(--dim)}
   footer{color:var(--dim);font-size:11px;text-align:center;padding:18px}
 </style>
@@ -217,7 +217,8 @@ function render(s){
 const feedEl = $("#feed");
 function addEvent(e){
   const kmap={trade:"k-trade",quest_posted:"k-quest",quest_accepted:"k-quest",
-    quest_completed:"k-quest",divine_suggestion:"k-divine",death:"k-death",shop_founded:"k-shop"};
+    quest_completed:"k-quest",divine_suggestion:"k-divine",death:"k-death",shop_founded:"k-shop",
+    expedition:"k-delve",delve_result:"k-delve"};
   let txt="";
   switch(e.kind){
     case "dialogue": txt=`${e.speaker_name} &rarr; ${e.listener_name}: "${e.text}"`; break;
@@ -231,6 +232,10 @@ function addEvent(e){
     case "arrest": txt=`${e.by_name} arrested ${e.perp_name} (bounty ${e.bounty})`; break;
     case "rumor": txt=`${e.from_name} told ${e.to_name} that ${e.subject} has died`; break;
     case "death": txt=`${e.name} has died (${e.cause})`; break;
+    case "expedition": txt=`${e.agent_name} set out to delve ${e.dungeon_name}`; break;
+    case "delve_result": {
+      const v={triumph:"delved to the bottom of",withdrew:"withdrew bloodied from",slain:"was lost in"}[e.outcome]||("returned from");
+      txt=`${e.agent_name} ${v} ${e.dungeon_name} (depth ${e.depth})`; break; }
     default: return;
   }
   const div=document.createElement("div");
