@@ -14,6 +14,32 @@ AI is optional and local-first: a tiered LLM router (Ollama) with a
 deterministic **stub** fallback so everything runs and tests with no GPU. The
 hosted world runs with `force_stub: true` (scripted NPCs, no LLM).
 
+## Agent quickstart (read this, do not re-explore)
+
+This file is auto-loaded. Use the map below; do not crawl the whole tree. Grab
+only what a task needs.
+
+Verify client graphics for real (headless, no GPU, no editor) instead of
+guessing: `tools/screenshot.sh out.png` starts the stub server and renders a PNG
+of the Godot client. It works in a plain Linux sandbox (downloads Godot 4.3 if
+missing, uses xvfb + software GL). The client has a built-in capture mode:
+`-- --capture=PATH --capture-delay=SECONDS --weather=clear|rain|snow --hour=NN
+--player=NAME` (keep delay ~3s so a run fits tight time budgets).
+
+Character sprite reference (Kenney char sheet, col,row, 17px pitch): docs/ART.md.
+Cols 0-1 are full figures, cols 6+ are armour icons; role->tile is `ROLE_TILE`
+in `godot_client/scripts/Main.gd`.
+
+Cowork/sandbox gotchas:
+- Files written with the Edit tool land on the host but can lag the Linux
+  shell's mount view. When a shell step must read a just-edited file, write it
+  from the shell instead, or check its size first.
+- `git` inside the mounted Windows folder can hit a stuck `.git/index.lock`
+  that the sandbox cannot delete. Finish the commit on Windows
+  (`del .git\index.lock` then `git commit`).
+- The mount reports every file as mode 100755; run `git config core.fileMode
+  false` to avoid spurious mode diffs.
+
 ## Key locations
 - Repository / working folder: `C:\Users\USER\Documents\realmweave` (this repo; on
   the dev machine it is a connected Cowork folder you can read and write).
