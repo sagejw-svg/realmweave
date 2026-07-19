@@ -136,6 +136,19 @@ function draw(){
   (world.props||[]).forEach((p,i)=>{ const [x,y]=px(p.x,p.y);
     if(p.kind==="tree"){ const tr=(i%2===0)?T_TREE:T_PINE; tile(TILES,tr[0],tr[1],x,y-SCALE*0.4,SCALE*2.6); }
     else if(p.kind==="rock"){ tile(TILES,T_ROCK[0],T_ROCK[1],x,y,SCALE*1.4); } });
+  // dungeon entrances (points of interest) - the Welldeep opens under the well
+  (world.dungeons||[]).forEach(d=>{ if(d.x==null||d.y==null) return;
+    const [x,y]=px(d.x,d.y);
+    ctx.save();
+    ctx.fillStyle="#0a0a0c"; ctx.strokeStyle="#c85a5a"; ctx.lineWidth=Math.max(1.5,SCALE*0.14);
+    ctx.beginPath(); ctx.arc(x,y-SCALE*0.4,SCALE*0.85,0,7); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle="#c9a24a"; ctx.lineWidth=Math.max(1.4,SCALE*0.12); ctx.beginPath();
+    ctx.moveTo(x-SCALE*0.38,y-SCALE*0.62); ctx.lineTo(x,y-SCALE*0.22); ctx.lineTo(x+SCALE*0.38,y-SCALE*0.62); ctx.stroke();
+    const lab=d.name+" "+"★".repeat(Math.max(1,d.danger||1));
+    ctx.fillStyle="#e7c9a0"; ctx.font="10px system-ui"; ctx.textAlign="center";
+    ctx.strokeStyle="#000a"; ctx.lineWidth=3;
+    ctx.strokeText(lab,x,y-SCALE*1.3); ctx.fillText(lab,x,y-SCALE*1.3);
+    ctx.restore(); });
   // livestock (drawn creatures, not tile sprites) - graze by day, pen at night
   const AC={sheep:"#e8e6df",cow:"#b98a5a",pig:"#d98fa0",chicken:"#e0c060",horse:"#8a5a3a",goat:"#b8b0a0"};
   (snap&&snap.animals||[]).forEach(a=>{
