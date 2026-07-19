@@ -67,3 +67,21 @@ with the required CC BY 4.0 attribution.
 - [ ] No trademarked terms ("D&D", "Dungeons & Dragons", etc.) in the product
       name, store page, or marketing.
 - [ ] Model licenses reviewed for any bundled or recommended model.
+
+## LPC Revised art pack (feature/lpc-art-step0)
+
+Staged under `godot_client/assets/lpc/` and tracked with Git LFS. Not yet wired
+into the renderers. Pack-level license is **OGA-BY 3.0** (attribution required).
+Some individual sheets inside are CC0 or CC-BY; each folder's `Credits.txt`
+records the exact per-sheet license and artist(s), and those files ship alongside
+the art. Required credit names: Eliza Wyatt (DeathsDarling), Lanea Zimmerman
+(Sharm), Stephen Challener (Redshrike), Johannes Sjolund (Wulax), BlueCarrot16,
+BenCreating, Durrani, YuriNikolai, Craftpix.net. Source and future-dev link:
+https://github.com/ElizaWy/LPC
+
+| Item | Source | License | Commercial | Attribution | License file |
+|------|--------|---------|------------|-------------|--------------|
+| `godot_client/assets/lpc/terrain/**` (grass, soil, trees, plants, rocks, water; 4 seasons) | LPC Revised (ElizaWy) | OGA-BY 3.0 | Yes | Required: `lpc/terrain/Credits.txt` | `godot_client/assets/lpc/Credits.txt` |
+| `godot_client/assets/lpc/structure/**` (walls, roofing, doors, windows, fences, signs, structures, misc) | LPC Revised (ElizaWy) | OGA-BY 3.0 | Yes | Required: per-folder `Credits.txt` | `godot_client/assets/lpc/Credits.txt` |
+| `godot_client/assets/lpc/objects/**` (smithy set, furniture, small items) | LPC Revised (ElizaWy) | OGA-BY 3.0 | Yes | Required: per-folder `Credits.txt` | `godot_client/assets/lpc/Credits.txt` |
+| `godot_client/assets/lpc/characters/**` (modular body/head/hair/clothing layers) | LPC Revised (ElizaWy) | OGA-BY 3.0 | Yes | Required: per-folder `Credits.txt` | `godot_client/assets/lpc/Credits.txt` |
