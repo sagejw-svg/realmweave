@@ -109,6 +109,35 @@ class QuestBoard:
         if getattr(taker, "memory", None) is not None:
             self.sim._observe(taker, f"I completed the quest '{q.title}' and was rewarded.", 7.0, "event")
 
+    # ---- delve quests (driven by the sim's expedition system) ---------
+    def post_delve(self, dungeon, taker) -> Quest:
+        """Post a delve quest already taken by `taker`, who has answered the call
+        to descend `dungeon`. The sim drives the delve; complete()/fail() close it."""
+        step = Step(name=f"delve {dungeon.name}", activity="delve",
+                    location=getattr(dungeon, "entrance_loc", "") or "square",
+                    kind="wait", target=1)
+        q = Quest(id=self._new_id(), title=f"Delve {dungeon.name}",
+                  description=f"{dungeon.entrance} Danger {dungeon.danger}.",
+                  domains=["Combat", "Exploration"], giver_id="", objectives=[step],
+                  reward_coin=30 + dungeon.danger * 20, reward_skill="Blades",
+                  reward_amount=2, status="active", taker_id=taker.id,
+                  created_at=self.sim.clock.minutes)
+        self.quests[q.id] = q
+        self.sim.emit("quest_posted", quest=q.id, title=q.title,
+                      domains=q.domains, reward_coin=q.reward_coin)
+        self.sim.emit("quest_accepted", quest=q.id, title=q.title,
+                      agent=taker.id, agent_name=taker.name)
+        self.sim._observe(taker, f"I answered the call to delve {dungeon.name}.", 6.0, "reflection")
+        return q
+
+    def fail(self, quest_id: str, reason: str = "") -> None:
+        q = self.quests.get(quest_id)
+        if q is None or q.status in ("completed", "failed"):
+            return
+        q.status = "failed"
+        self.sim.emit("quest_failed", quest=q.id, title=q.title,
+                      taker=q.taker_id, reason=reason)
+
     def get(self, quest_id: str) -> Optional[Quest]:
         return self.quests.get(quest_id)
 
