@@ -34,6 +34,7 @@ LOCS = [
  ("south_field","Southmeadow",44,54,"field"),
  ("home_shep","Shepherd's Rest",14,48,"home"),
  ("home_hollis","Hollis Cottage",12,12,"home"),
+ ("granary","The Granary",28,18,"granary"),
 ]
 TREES = [(8,8),(12,40),(52,8),(56,40),(6,26),(58,24),(24,4),(40,46),
          (18,44),(48,4),(2,16),(60,34),(30,48),(34,2)]
@@ -57,7 +58,7 @@ ROADS = _knn_road_coords(5)
 COL = {"square":"#d9c46b","tavern":"#b98a4a","well":"#5aa0c0","stable":"#8a6d3b",
        "smithy":"#c85a5a","field":"#5ab97a","mine":"#8b93a6","gate":"#d9c46b",
        "home":"#4a5266","farm":"#c0904a","orchard":"#4e9a5a","mill":"#93a0b0",
-       "pasture":"#8fae5a"}
+       "pasture":"#8fae5a","granary":"#c9a24a"}
 # playable extent, derived from the data (+ margin), so the frame fits new land
 GW = int(max([x for (_, _, x, _, _) in LOCS])) + 6
 GH = int(max([y for (_, _, _, y, _) in LOCS])) + 6
@@ -160,6 +161,12 @@ def icon(kind, cx, cy, s, c):
     elif kind=="pasture":
         for tx in (-s*0.5, 0, s*0.5):
             P.append(f'<path d="M{_r(cx+tx-2)},{_r(cy+s*0.4)} q2,-8 4,0" fill="none" stroke="{c}" stroke-width="1.6"/>')
+    elif kind == "granary":  # a grain silo: rounded body with a domed cap
+        bw, bh = s*1.05, s*1.7
+        P.append(rect(cx-bw/2, cy-bh*0.35, bw, bh*0.85, body, c))
+        P.append(f'<path d="M{_r(cx-bw*0.55)},{_r(cy-bh*0.35)} a{_r(bw*0.55)},{_r(bw*0.55)} 0 0 1 {_r(bw*1.1)},0 Z" fill="{c}"/>')
+        for hy in (-0.05, 0.2):
+            P.append(f'<line x1="{_r(cx-bw*0.45)}" y1="{_r(cy+bh*hy)}" x2="{_r(cx+bw*0.45)}" y2="{_r(cy+bh*hy)}" stroke="{c}" stroke-width="1.2" stroke-opacity="0.6"/>')
     return "".join(P)
 
 def buildings(p):
@@ -202,7 +209,8 @@ def legend(p, W, H):
     items = [("square","Square / gate"),("tavern","Tavern"),("well","Well"),
              ("smithy","Smithy"),("stable","Stable"),("field","Field"),
              ("mine","Mine"),("home","Homes"),("farm","Farm"),
-             ("orchard","Orchard"),("mill","Mill"),("pasture","Pasture")]
+             ("orchard","Orchard"),("mill","Mill"),("pasture","Pasture"),
+             ("granary","Granary")]
     boxh = 34 + len(items)*14
     bx, by = W-214, H-boxh-16
     p.append(f'<g><rect x="{bx}" y="{by}" width="196" height="{boxh}" rx="8" '

@@ -22,9 +22,10 @@ Legend: [ ] todo · [~] in progress · [x] done
 - [x] **Seasonal crop growth.** Crops grow by season and lie dormant in winter;
       deliberately forgiving, so a fallow winter never starves the village. The
       current season shows on the dashboard clock.
-- [ ] **Granary + haul grain.** Farmhands carry harvested grain to the tavern or
-      a new granary for storage instead of holding it personally; the cook draws
-      from the store. `world.py`, `sim.py`, `economy/`. Effort: M
+- [x] **Granary + haul grain.** A new granary holds a shared grain store;
+      farmhands tip their reaped grain in when they reach the granary or the
+      tavern, and the cook draws from the store (free) before buying. Shown on
+      the map (with a live count) and the dashboard.
 - [ ] **Egg & milk yields.** Hens lay eggs and the cow gives milk on a timer; a
       farmhand collects them into food stock. `livestock.py`, `sim.py`. Effort: S-M
 - [ ] **Crop destruction (raiders / blight).** The one way a harvest should fail:
