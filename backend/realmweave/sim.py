@@ -80,6 +80,10 @@ class SimConfig:
     # deterministic (tests); the headless demo and server can raise it so the
     # world produces natural deaths - and the grief that follows - on its own.
     illness_chance: float = 0.0
+    # per-tick chance an able adventurer mounts an expedition into an uncleared
+    # dungeon. 0.0 keeps seeded/stub runs deterministic (tests); the server and
+    # the headless demo raise it so the dungeons actually get delved.
+    delve_chance: float = 0.0
 
 
 class Simulation:
@@ -104,6 +108,7 @@ class Simulation:
                        for lid, l in self.world.locations.items()
                        if l.kind in ("field", "farm")}
         self.granary = 0            # shared grain store: hauled in, drawn on by the cook
+        self.cleared_dungeons: set = set()   # dungeon ids delved to the bottom
         # animal yields: hens lay eggs and the cow gives milk on a timer; a hand
         # collects them into the larder. Deterministic (tick-based), no RNG.
         self.larder = {"egg": 0, "milk": 0}
@@ -327,6 +332,93 @@ class Simulation:
                   result=ex.result.value, severity=severity,
                   downed=downed, lethal=lethal)
         return ex
+
+    # ---- dungeon delving ----------------------------------------------
+    def resolve_delve(self, hero: Agent, dungeon) -> dict:
+        """Play out a delve: the hero descends level by level, each an encounter
+        resolved as combat exchanges with the level's denizens - danger rising
+        with depth. Wounds accrue; a grave one deep down can be fatal. Clearing
+        every level is a triumph that reveals the dungeon's mystery. Uses the
+        combat system and self.rng; emits events for the Chronicle."""
+        from .rules.combat import resolve_exchange, ExchangeResult, OFFENSE_SKILLS, DEFENSE_SKILLS
+        from .rules.equipment import weapon_skill, weapon_offense_mod
+        off = self._best_skill(hero, OFFENSE_SKILLS)
+        w = hero.equipment.get("weapon")
+        if w is not None and hero.sheet is not None:
+            off = max(off, hero.sheet.effective(weapon_skill(w)) + weapon_offense_mod(w))
+        base_def = self._best_skill(hero, DEFENSE_SKILLS)
+
+        self.emit("expedition", agent=hero.id, agent_name=hero.name,
+                  dungeon=dungeon.id, dungeon_name=dungeon.name, danger=dungeon.danger)
+        self._observe(hero, f"I set out to delve {dungeon.name}.", 6.0, "reflection")
+
+        depth, loot, downed = 0, 0, False
+        for i, level in enumerate(dungeon.levels):
+            foe = 42 + dungeon.danger * 6 + i * 7       # rises with danger and depth
+            cleared = False
+            for _round in range(3):
+                pen = hero.wound_penalty()
+                if resolve_exchange(off - pen, foe, self.rng).result == ExchangeResult.HIT:
+                    cleared = True
+                back = resolve_exchange(foe, base_def - pen, self.rng)
+                if back.result == ExchangeResult.HIT and back.severity > 0:
+                    hero.add_wound(back.severity, source=f"{level['denizens']} in {dungeon.name}")
+                    if back.severity >= 3:
+                        downed = True
+                if downed or cleared:
+                    break
+            if downed:
+                self.emit("delve_level", agent=hero.id, agent_name=hero.name,
+                          dungeon=dungeon.id, level=level["name"], outcome="overwhelmed")
+                break
+            if not cleared:
+                self.emit("delve_level", agent=hero.id, agent_name=hero.name,
+                          dungeon=dungeon.id, level=level["name"], outcome="turned_back")
+                break
+            depth += 1
+            loot += dungeon.danger * 4 + i * 3
+            self.emit("delve_level", agent=hero.id, agent_name=hero.name,
+                      dungeon=dungeon.id, level=level["name"], outcome="cleared", depth=depth)
+
+        died = False
+        if downed and hero.alive and self.rng.random() < 0.25:
+            self.kill(hero.id, cause=f"fell delving {dungeon.name}")
+            died = True
+        if died:
+            outcome = "slain"
+        elif depth >= len(dungeon.levels):
+            outcome = "triumph"
+            hero.coin += loot + dungeon.danger * 10
+            self.cleared_dungeons.add(dungeon.id)
+            hero.known_facts.add(f"mystery:{dungeon.id}")
+            self.world.add_rumor(f"{hero.name} came back from {dungeon.name}: {dungeon.mystery}")
+            self._observe(hero, f"I delved {dungeon.name} to the bottom. {dungeon.mystery}",
+                          8.0, "reflection")
+        else:
+            outcome = "withdrew"
+            hero.coin += loot
+            self._observe(hero, f"I pulled back from {dungeon.name}, {depth} level(s) deep and bloodied.",
+                          6.0, "reflection")
+        self.emit("delve_result", agent=hero.id, agent_name=hero.name, dungeon=dungeon.id,
+                  dungeon_name=dungeon.name, outcome=outcome, depth=depth, loot=loot, died=died)
+        return {"outcome": outcome, "depth": depth, "loot": loot, "died": died}
+
+    def _maybe_expedition(self) -> None:
+        """With chance `delve_chance` (0 in seeded tests), send an able, unhurt
+        adventurer to delve an uncleared dungeon."""
+        if self.cfg.delve_chance <= 0 or self.rng.random() > self.cfg.delve_chance:
+            return
+        from .rules.combat import OFFENSE_SKILLS
+        from .dungeons import DUNGEONS
+        openings = [d for d in DUNGEONS if d.id not in self.cleared_dungeons]
+        if not openings:
+            return
+        heroes = [a for a in self.living()
+                  if a.health > 0.75 and not a.wounds
+                  and self._best_skill(a, OFFENSE_SKILLS) >= 52]
+        if not heroes:
+            return
+        self.resolve_delve(self.rng.choice(heroes), self.rng.choice(openings))
 
     # ---- magic (cast from a focus pool) -------------------------------
     def _tick_magic(self, a: Agent) -> None:
@@ -871,6 +963,7 @@ class Simulation:
         self.quests.maybe_generate()
         self.divine.regen()
         self.justice.step()
+        self._maybe_expedition()     # an adventurer may set off to delve a dungeon
         livestock.update(self.animals, self.world, self.clock, self._animal_rng)
         grow = CROP_GROWTH * SEASON_GROWTH.get(self.clock.season, 1.0)
         for lid in self._crops:                      # crops ripen by season (deterministic, no RNG)
@@ -925,6 +1018,7 @@ class Simulation:
             "crops": {lid: round(r, 2) for lid, r in self._crops.items()},
             "granary": self.granary,
             "larder": dict(self.larder),
+            "cleared_dungeons": sorted(self.cleared_dungeons),
             "shops": [{"name": s.name, "location": s.location_id, "owner": s.owner_id,
                        "x": s.x, "y": s.y, "stock": len(s.stock)}
                       for s in self.economy.shops.values()],

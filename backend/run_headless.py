@@ -32,6 +32,8 @@ def main() -> None:
     ap.add_argument("--illness", type=float, default=0.0015,
                     help="per-agent, per-tick chance of a natural illness/accident death "
                          "(0 disables; the world otherwise only dies of starvation)")
+    ap.add_argument("--delve", type=float, default=0.02,
+                    help="per-tick chance an able adventurer sets off to delve a dungeon (0 disables)")
     args = ap.parse_args()
 
     cfg = load_config()
@@ -41,6 +43,7 @@ def main() -> None:
     router = LLMRouter(cfg, ollama=OllamaClient(cfg["ollama_host"]))
     scfg = SimConfig(**cfg["sim"])
     scfg.illness_chance = args.illness      # let the demo world die of natural causes
+    scfg.delve_chance = args.delve          # let adventurers delve the dungeons
     sim = Simulation(router, scfg)
 
     backend = "stub (GPU-free)" if cfg.get("force_stub") or not router._ollama_available() else "Ollama"

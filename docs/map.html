@@ -139,12 +139,13 @@ function draw(){
   // dungeon entrances (points of interest) - the Welldeep opens under the well
   (world.dungeons||[]).forEach(d=>{ if(d.x==null||d.y==null) return;
     const [x,y]=px(d.x,d.y);
+    const cleared = snap && snap.cleared_dungeons && snap.cleared_dungeons.indexOf(d.id)>=0;
     ctx.save();
-    ctx.fillStyle="#0a0a0c"; ctx.strokeStyle="#c85a5a"; ctx.lineWidth=Math.max(1.5,SCALE*0.14);
+    ctx.fillStyle="#0a0a0c"; ctx.strokeStyle=cleared?"#5ab97a":"#c85a5a"; ctx.lineWidth=Math.max(1.5,SCALE*0.14);
     ctx.beginPath(); ctx.arc(x,y-SCALE*0.4,SCALE*0.85,0,7); ctx.fill(); ctx.stroke();
     ctx.strokeStyle="#c9a24a"; ctx.lineWidth=Math.max(1.4,SCALE*0.12); ctx.beginPath();
     ctx.moveTo(x-SCALE*0.38,y-SCALE*0.62); ctx.lineTo(x,y-SCALE*0.22); ctx.lineTo(x+SCALE*0.38,y-SCALE*0.62); ctx.stroke();
-    const lab=d.name+" "+"★".repeat(Math.max(1,d.danger||1));
+    const lab=d.name+" "+"★".repeat(Math.max(1,d.danger||1))+(cleared?" ✓":"");
     ctx.fillStyle="#e7c9a0"; ctx.font="10px system-ui"; ctx.textAlign="center";
     ctx.strokeStyle="#000a"; ctx.lineWidth=3;
     ctx.strokeText(lab,x,y-SCALE*1.3); ctx.fillText(lab,x,y-SCALE*1.3);

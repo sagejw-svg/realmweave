@@ -54,7 +54,9 @@ class RealmweaveServer:
         self.cfg = config
         self.scfg = config["server"]
         router = LLMRouter(config, ollama=OllamaClient(config["ollama_host"]))
-        self.sim = Simulation(router, SimConfig(**config["sim"]))
+        _scfg = SimConfig(**config["sim"])
+        _scfg.delve_chance = float(config["sim"].get("delve_chance", 0.01))  # adventurers delve the dungeons
+        self.sim = Simulation(router, _scfg)
         self.clients: Set = set()
         self.players: Dict[str, dict] = {}
         self._observing: Dict[object, str] = {}    # ws -> agent id being watched
