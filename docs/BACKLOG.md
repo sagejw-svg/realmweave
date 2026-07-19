@@ -35,10 +35,14 @@ Legend: [ ] todo · [~] in progress · [x] done
 - [x] **Stable buildout.** The stable is now a fenced paddock with a herd of
       four horses and two goats, tended by Isla the stable hand. Drawn on the
       live map and the atlas.
-- [ ] **Three dungeons.** Map entrances + interior tiles + encounters/loot hooks
-      into the rules/combat system. Suggest phasing: (1) entrances on the map,
-      (2) one playable interior, (3) encounters + rewards. `world.py`, `quests/`,
-      `rules/`. Effort: L (split into 3)
+- [~] **Dungeons.** *Phase 1 done:* four dungeons with lore in
+      `realmweave/dungeons.py` - the Kobold Warren (kobold stronghold), the Hollow
+      Barrow (undead), the Weeping Caverns (spiders), and the Welldeep (the Gilded
+      Stag's cellar rats down the Old Well into deep mystery). Entrances ride in
+      the snapshot, are marked on the realm map and the live map, and are described
+      on the atlas. *Phase 2 (todo):* make them delvable - a party travels to an
+      entrance, encounters and loot resolved through the combat system, danger
+      scaling with depth; quest hooks to send an adventurer. Effort: L
 - [ ] **More scenery variety.** Additional tree types, scattered rocks, bushes,
       dirt paths. `default_props()` in `world.py` + renderer glyphs. Effort: S
 

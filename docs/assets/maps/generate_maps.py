@@ -333,8 +333,25 @@ def realm_marks(p, W, H):
     p.append(f'<text x="{W-40}" y="{H-30}" text-anchor="end" font-size="10" fill="#6a7080" '
              f'font-style="italic">Oakhollow is the simulated village; neighbors are lore, not yet in-sim.</text>')
 
+def draw_realm_dungeons(p):
+    """Mark the dungeons out in the realm (kept in step with backend/dungeons.py)."""
+    marks = [("The Kobold Warren", 3, 884, 452),
+             ("The Hollow Barrow", 4, 636, 150),
+             ("The Weeping Caverns", 2, 150, 508),
+             ("The Welldeep", 3, 512, 452)]
+    for (name, danger, x, y) in marks:
+        stars = "★" * danger
+        p.append(f'<g><circle cx="{x}" cy="{y-6}" r="11" fill="#0a0a0c" stroke="#c85a5a" stroke-width="2"/>'
+                 f'<path d="M{x-6},{y-10} L{x},{y-3} L{x+6},{y-10}" fill="none" stroke="#c9a24a" stroke-width="2"/>'
+                 f'<text x="{x}" y="{y+15}" text-anchor="middle" font-size="12" fill="#e7c9a0" '
+                 f'paint-order="stroke" stroke="#0c0e11" stroke-width="3">{esc(name)} {stars}</text></g>')
+
 def build_realm_full():
-    p,W,H = build_realm(); realm_marks(p,W,H); p.append('</svg>'); return "\n".join(p)
+    p, W, H = build_realm()
+    realm_marks(p, W, H)
+    draw_realm_dungeons(p)
+    p.append('</svg>')
+    return "\n".join(p)
 
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)

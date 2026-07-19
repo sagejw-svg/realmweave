@@ -10,6 +10,8 @@ import heapq
 from dataclasses import dataclass, field
 from typing import Dict, List, Tuple
 
+from .dungeons import DUNGEONS
+
 
 @dataclass
 class Location:
@@ -167,5 +169,6 @@ class World:
                        self.locations[b].x, self.locations[b].y]
                       for a in self.paths for b in self.paths[a]
                       if a < b and a in self.locations and b in self.locations],
+            "dungeons": [d.to_dict() for d in DUNGEONS],
             "rumors": self.rumors[-10:],
         }
