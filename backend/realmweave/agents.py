@@ -263,6 +263,17 @@ def default_agents() -> List[Agent]:
               schedule=sched((0, "sleep", "home_gart"), (6, "work", "mine"),
                              (12, "eat", "tavern"), (13, "work", "mine"),
                              (20, "socialize", "tavern"), (22, "sleep", "home_gart"))),
+        Agent("shep", "Nan Ewart", "Shepherd", "home_shep", "south_pasture", 16, 50,
+              persona="Quiet shepherd who knows every ewe by name; happiest out with the flock, wary of crowds.",
+              schedule=sched((0, "sleep", "home_shep"), (5, "work", "south_pasture"),
+                             (12, "eat", "tavern"), (13, "work", "south_pasture"),
+                             (18, "socialize", "tavern"), (21, "sleep", "home_shep"))),
+        Agent("hollis", "Cob Hollis", "Farmhand", "home_hollis", "west_farm", 12, 14,
+              persona="Broad-backed farmhand, up before dawn, cheerful and tireless. Talks to the crops.",
+              schedule=sched((0, "sleep", "home_hollis"), (5, "work", "west_farm"),
+                             (9, "work", "west_field"), (12, "eat", "tavern"),
+                             (13, "work", "east_field"), (16, "work", "north_farm"),
+                             (19, "socialize", "tavern"), (21, "sleep", "home_hollis"))),
     ]
     # seed a few relationships
     cast_by = {a.id: a for a in cast}

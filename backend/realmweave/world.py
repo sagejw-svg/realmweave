@@ -51,6 +51,9 @@ def default_village() -> Dict[str, Location]:
         Location("mill", "Old Mill", 66, 36, "mill", capacity=4),
         Location("south_pasture", "South Pasture", 22, 54, "pasture", capacity=16),
         Location("south_field", "Southmeadow", 44, 54, "field", capacity=12),
+        # homes for the farmhands who work the outer land
+        Location("home_shep", "Shepherd's Rest", 14, 48, "home", capacity=2),
+        Location("home_hollis", "Hollis Cottage", 12, 12, "home", capacity=2),
     ]
     return {l.id: l for l in locs}
 

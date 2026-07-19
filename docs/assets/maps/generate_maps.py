@@ -32,6 +32,8 @@ LOCS = [
  ("mill","Old Mill",66,36,"mill"),
  ("south_pasture","South Pasture",22,54,"pasture"),
  ("south_field","Southmeadow",44,54,"field"),
+ ("home_shep","Shepherd's Rest",14,48,"home"),
+ ("home_hollis","Hollis Cottage",12,12,"home"),
 ]
 TREES = [(8,8),(12,40),(52,8),(56,40),(6,26),(58,24),(24,4),(40,46),
          (18,44),(48,4),(2,16),(60,34),(30,48),(34,2)]
@@ -156,9 +158,8 @@ def icon(kind, cx, cy, s, c):
             P.append(f'<circle cx="{_r(cx+ox)}" cy="{_r(cy+oy)}" r="{_r(s*0.32)}" fill="#2f6b3a"/>')
             P.append(f'<circle cx="{_r(cx+ox-2)}" cy="{_r(cy+oy-2)}" r="{_r(s*0.18)}" fill="#3c8049"/>')
     elif kind=="pasture":
-        P.append(rect(cx-s*0.9, cy-s*0.65, s*1.8, s*1.3, "none", c))
-        for tx in (-s*0.45, s*0.05, s*0.5):
-            P.append(f'<path d="M{_r(cx+tx-2)},{_r(cy+s*0.4)} q2,-7 4,0" fill="none" stroke="{c}" stroke-width="1.5"/>')
+        for tx in (-s*0.5, 0, s*0.5):
+            P.append(f'<path d="M{_r(cx+tx-2)},{_r(cy+s*0.4)} q2,-8 4,0" fill="none" stroke="{c}" stroke-width="1.6"/>')
     return "".join(P)
 
 def buildings(p):
@@ -233,8 +234,28 @@ def draw_livestock(p):
                      f'<ellipse cx="{_r(ax)}" cy="{_r(ay)}" rx="{rw}" ry="{rh}" fill="{col}"/>'
                      f'<circle cx="{_r(ax+rw*0.8)}" cy="{_r(ay-1)}" r="{_r(rh*0.7)}" fill="{col}"/></g>')
 
+def draw_fences(p):
+    """Post-and-rail fences enclosing the pastures and farmyards."""
+    for (lid, _n, lx, ly, k) in LOCS:
+        if k not in ("pasture", "farm"):
+            continue
+        w, h = (6.5, 5.0) if k == "pasture" else (4.0, 3.3)
+        x0, y0, x1, y1 = X(lx - w), Y(ly - h), X(lx + w), Y(ly + h)
+        p.append(f'<rect x="{_r(x0)}" y="{_r(y0)}" width="{_r(x1-x0)}" height="{_r(y1-y0)}" '
+                 f'rx="3" fill="none" stroke="#7a5230" stroke-width="2" stroke-opacity="0.85"/>')
+        n = 6
+        for i in range(n + 1):
+            fx = X(lx - w + 2 * w * i / n)
+            p.append(f'<circle cx="{_r(fx)}" cy="{_r(y0)}" r="2.1" fill="#5a3d20"/>'
+                     f'<circle cx="{_r(fx)}" cy="{_r(y1)}" r="2.1" fill="#5a3d20"/>')
+        for i in range(1, 4):
+            fy = Y(ly - h + 2 * h * i / 4)
+            p.append(f'<circle cx="{_r(x0)}" cy="{_r(fy)}" r="2.1" fill="#5a3d20"/>'
+                     f'<circle cx="{_r(x1)}" cy="{_r(fy)}" r="2.1" fill="#5a3d20"/>')
+
 def build_local():
     p, W, H = local_map()
+    draw_fences(p)
     buildings(p)
     draw_livestock(p)
     frame(p, W, H, "Oakhollow", f"Local map · village + farmland · {len(LOCS)} locations")
