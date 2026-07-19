@@ -19,6 +19,17 @@ Legend: [ ] todo · [~] in progress · [x] done
 - [x] **Fields with animals / livestock.** Ambient animals (sheep, cow, horses,
       pig, hens) graze near home by day and gather at a pen at night
       (`realmweave/livestock.py`), streamed in the snapshot and drawn on the map.
+- [x] **Seasonal crop growth.** Crops grow by season and lie dormant in winter;
+      deliberately forgiving, so a fallow winter never starves the village. The
+      current season shows on the dashboard clock.
+- [ ] **Granary + haul grain.** Farmhands carry harvested grain to the tavern or
+      a new granary for storage instead of holding it personally; the cook draws
+      from the store. `world.py`, `sim.py`, `economy/`. Effort: M
+- [ ] **Egg & milk yields.** Hens lay eggs and the cow gives milk on a timer; a
+      farmhand collects them into food stock. `livestock.py`, `sim.py`. Effort: S-M
+- [ ] **Crop destruction (raiders / blight).** The one way a harvest should fail:
+      a raid or blight ruins standing crops in a field. Rare and telegraphed;
+      ties to a future threat/event system. Effort: M
 - [ ] **Stable buildout.** Expand the existing `stable` location into pens with
       horses/animals and a hand at work. Effort: S-M
 - [ ] **Three dungeons.** Map entrances + interior tiles + encounters/loot hooks
@@ -32,12 +43,12 @@ Legend: [ ] todo · [~] in progress · [x] done
 
 - [x] **Villagers walk the roads.** Nearest-neighbour road network + routing so
       NPCs follow paths instead of cutting across (`world.py`, `sim.py`).
-- [ ] **Dialogue line database.** A curated pool of canned lines NPCs draw from
-      at random when they speak (greetings, gossip, grumbles, grief, trade
-      banter), keyed by context and mood. Gives variety without always calling
-      the LLM, and a richer deterministic fallback than today's stub. Touches the
-      dialogue/stub layer (`realmweave/llm/stub.py`, `sim.py`) plus a data file
-      of lines. Effort: M
+- [x] **Dialogue line database.** `realmweave/llm/dialogue.py`: rich line pools
+      keyed by time of day, mood, place, the other's trade, and gossip/grief,
+      with a weighted composer that reads the prompt and picks an apt line. The
+      stub now sounds context-aware (role-, place-, and mood-appropriate) without
+      calling the LLM. Could grow: more categories, trade/haggle banter, per-NPC
+      verbal tics, weather/season lines.
 
 ## Art and graphics
 

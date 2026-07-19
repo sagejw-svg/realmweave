@@ -8,6 +8,8 @@ from __future__ import annotations
 import random
 from typing import List
 
+from . import dialogue
+
 _GREETINGS = [
     "Well met, {other}.", "Morning to you, {other}.", "Ah, {other}. Good to see a familiar face.",
     "You look weary, {other}.", "{other}. Fancy meeting you here.",
@@ -62,27 +64,10 @@ class StubLLM:
         return rng.choice(pool).format(other=other or "friend", speaker=speaker or "someone")
 
     def generate(self, prompt: str, system: str = "", **kw) -> str:
-        # crude routing by keyword so the stub stays vaguely relevant
+        # A dedicated, per-prompt RNG (never touches the sim's RNG stream), then
+        # the context-aware dialogue database picks an apt, varied line.
+        rng = random.Random(hash(prompt) & 0xFFFFFFFF)
         p = prompt.lower()
-        other = kw.get("other", "friend")
-        # reactions to a divine suggestion, by the stance embedded in the prompt
         if "divine voice" in p or "the gods" in p:
-            rng = random.Random(hash(prompt) & 0xFFFFFFFF)
-            if "refuse" in p:
-                stance = "refuse"
-            elif "half-accept" in p:
-                stance = "partial"
-            elif "bargain" in p:
-                stance = "bargain"
-            else:
-                stance = "accept"
-            return rng.choice(_DIVINE[stance])
-        if "died" in p or "grief" in p or "buried" in p:
-            return self.line("grief", other=other, seed=prompt)
-        if "tavern" in p or "ale" in p or "stag" in p:
-            return self.line("tavern", seed=prompt)
-        if "work" in p or "stable" in p or "field" in p or "smith" in p:
-            return self.line("work", seed=prompt)
-        if "meet" in p or "greet" in p or "hello" in p:
-            return self.line("greeting", other=other, seed=prompt)
-        return self.line("idle", seed=prompt)
+            return dialogue.divine(prompt, rng)
+        return dialogue.compose(prompt, other=kw.get("other", "friend"), rng=rng)
