@@ -6,6 +6,28 @@ Effort is rough: S = hours, M = a day or two, L = multi-day.
 
 Legend: [ ] todo · [~] in progress · [x] done
 
+## Now / next (top of the stack, 2026-07-20)
+
+Recently shipped (on the open PRs #45/#46/#47, not yet merged): LPC art render path,
+world zoom, client+server versions, the tag-filterable **Memories** panel, the
+scrollable/pausable **event log**, and the LLM-free dialogue grammar. See "Current
+work state" in `CLAUDE.md` for the full status and known-weak list.
+
+Next up, roughly in order:
+
+- [ ] **Decide + do the PR merge order** (#45 -> #46 -> #47) to consolidate and stop
+      branch divergence. Effort: S
+- [ ] **User verification pass**: F5 the client, confirm the Memories panel (click tag
+      chips) and event-log scroll/pause, and send day+night screenshots for graphics tuning.
+- [ ] **Reliable graphics verification** - the top blocker. A CI job (or stable local
+      render) that produces a client screenshot artifact, so visuals stop shipping
+      unverified. Today the sandbox render dies and remote screenshots can't capture the
+      GL window. Effort: M
+- [ ] **Character overview: next tabs** - Bag (inventory + coin + bounty) and Social
+      (relationships/affinity) reuse the panel + tagged-payload pattern just built. Effort: M
+- [ ] **Building/character depth sort** and **architecture-aware light occlusion**
+      (`LightOccluder2D`) - the real night-scene quality jump. Effort: M / L
+
 ## World and map content
 
 - [~] **Flesh out the lands around town.** Define the region beyond the village
@@ -118,3 +140,17 @@ Legend: [ ] todo · [~] in progress · [x] done
 - [ ] **Add an image-generation connector** so raster art can be produced in-app
       for the higher-fidelity art pass. James to enable; I can suggest options.
       Effort: S
+- [ ] **CI screenshot artifact for the client.** A CI job that runs `tools/screenshot.sh`
+      (headless Godot + xvfb + stub server) and uploads a PNG per PR, so client visuals are
+      checked automatically instead of relying on a manual F5. This is the fix for the
+      top-of-`CLAUDE.md` "graphics verification" weakness. Effort: M
+- [ ] **Unify the version number to a single source.** Client (`CLIENT_VERSION`), server
+      (`__version__`), and installer (`AppVersion`) are three separate strings that can drift.
+      Read one canonical version (e.g. a `VERSION` file or `backend/realmweave.__version__`)
+      into all three at build time. Effort: S
+- [ ] **Run the LPC/client branch through CI** (export + tests) rather than hand-building the
+      exe in the sandbox, which has been unreliable. Effort: M
+- [ ] **Dialogue pre-built-intelligence, remaining steps** (from the plan): offline
+      corpus-baker (LLM expands the grammar once, curated to data files), utility-AI/GOAP
+      cleanup of the reflex tier, and a runtime response cache keyed by situation signature.
+      Effort: M each

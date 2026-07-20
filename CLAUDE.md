@@ -149,3 +149,50 @@ not just via the NPC premium), guild job boards/contracts, and Phase 9 art polis
   push (HTTPS creds live in Windows Credential Manager), so run
   branch/LFS/commit/push/PR on Windows. Full char tree is ~64k files / ~350 MB, so
   LFS is required; mind GitHub free-tier LFS quota (1 GB storage, 1 GB/mo bandwidth).
+
+## Current work state (updated 2026-07-20) - read this before continuing
+
+Three open PRs against `main`, none merged (stop-at-PR discipline). Merge order to
+decide: #45 first (or note it is already contained in #46), then #46, then #47.
+- **#45** `feature/lpc-art-step0` - the LPC Revised asset drop (~350 MB via Git LFS, OGA-BY 3.0).
+- **#46** `feature/lpc-art-step1` - the ACTIVE client branch. Stacks on #45's assets plus a
+  merge of `ui-graphics-upgrade`. Contains: the LPC render path (terrain / assembled per-role
+  villagers / prefab-house buildings, Kenney fully removed), world zoom (mouse wheel + Z/X),
+  client+server version numbers, a scrollable tag-filterable **Memories** panel (character
+  overview, press O near a villager), and a scrollable/pausable **event-log** panel.
+- **#47** `feature/dialogue-grammar` - LLM-free dialogue upgrade (generative grammar + memory/
+  relationship-conditioned lines in `llm/dialogue.py`). Independent of the art; off `main`.
+
+Pre-release **v0.3.0-lpc-preview** on GitHub Releases carries current client + server exes.
+Versions are three separate sources (client `v0.3.0-lpc`, server `0.2.0`, installer `0.3.0`) -
+not unified yet.
+
+### Solid / verified
+- Backend fully test-covered (224 tests pass) and Python-testable end to end: dialogue grammar,
+  memory tag derivation, and the subjective payload were all verified by running Python.
+- LPC asset pipeline + character assembly verified by rendered images (villager/village shots).
+
+### Weak / unverified (the honest state)
+- **Graphics verification is the #1 friction.** The sandbox xvfb *render* dies constantly and
+  computer-use screenshots capture the Godot GL window as blank grey, so client *visuals ship
+  unverified* - only the user's F5 / their own screenshots confirm them. `--export` also went
+  flaky (frequent timeouts). Establish a reliable path (CI screenshot artifact, or a stable
+  local render) before trusting graphics changes.
+- **Interactive UI is unverified**: the Memories + event-log panels compile and `_ready` builds
+  them clean, but click/scroll/filter behaviour is only user-verified.
+- **Night lighting still passes through walls** - only mitigated (smaller, doorway-positioned
+  pools), not fixed. Needs `LightOccluder2D` on buildings.
+- **No building/character depth sort** - villagers draw over buildings they stand behind.
+- **Buildings are 3 prefab houses** mapped to all kinds; no distinct mill/granary/well
+  (Fountain A is the well stand-in). The Errand child is a body-recolor hack.
+- **Dialogue** has only its first slice; the corpus-baker / utility-AI / response-cache steps
+  are not started.
+- The LPC branch does not go through CI; the shipped exe is hand-built in the (flaky) sandbox.
+
+### Sandbox build/verify recipe (learned this session)
+- Godot 4.3 lives at `/tmp/godot`; Windows export templates at
+  `~/.local/share/godot/export_templates/4.3.stable/`. `--headless --export-release
+  "Windows Desktop" build/RealmweaveClient.exe` works when the sandbox is not loaded.
+- Add a `.gdignore` to `assets/lpc/characters` (and structure/objects) so Godot does not
+  import the 64k raw layers; the renderer uses the assembled `villagers/` + copied `buildings/`.
+- Backend + dialogue are the reliable things to build/verify here (pure Python, no GPU).
