@@ -11,7 +11,10 @@ extends Node2D
 ## weather overlays, drawn on this node, stay at full brightness. Press L to A/B
 ## the real lighting against the immediate-mode fallback glow.
 
-const SCALE := 20.0                 # pixels per world unit (a bit zoomed in for detail)
+var SCALE := 20.0                   # pixels per world unit (mutated by zoom - see _zoom_by)
+const BASE_SCALE := 20.0            # default zoom (1x)
+const ZOOM_MIN := 9.0               # most zoomed out
+const ZOOM_MAX := 46.0              # most zoomed in
 const ORIGIN := Vector2(60, 90)     # legacy map origin (unused since the camera follows)
 const CAM_LERP := 3.0               # how quickly the camera eases toward the player
 const AGENT_R := 7.0
@@ -548,6 +551,12 @@ func _on_event(evt: Dictionary) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	# mouse wheel zooms the world in/out (works even while a text field has focus)
+	if event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
+			_zoom_by(1.12)
+		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			_zoom_by(1.0 / 1.12)
 	if not (event is InputEventKey) or not event.pressed or event.echo:
 		return
 	# while typing in any text field, keys belong to it (Esc just unfocuses)
@@ -569,6 +578,10 @@ func _input(event: InputEvent) -> void:
 			_cycle_weather()
 		KEY_L:
 			_toggle_lighting()
+		KEY_Z:
+			_zoom_by(1.15)
+		KEY_X:
+			_zoom_by(1.0 / 1.15)
 		KEY_V:
 			_show_plates = not _show_plates
 			_log("Nameplates: " + ("on" if _show_plates else "off"))
@@ -941,6 +954,14 @@ func _toggle_lighting() -> void:
 	_log("Lighting: " + _lighting + ("  (real Light2D)" if _lighting == "lights2d" else "  (immediate glow)"))
 
 
+## Zoom the world view. `f` > 1 zooms in, < 1 zooms out; clamped to a sane range.
+## Everything keys off SCALE (positions and sprite sizes), so this scales the whole
+## scene uniformly around the camera.
+func _zoom_by(f: float) -> void:
+	SCALE = clamp(SCALE * f, ZOOM_MIN, ZOOM_MAX)
+	_log("Zoom: %.0f%%" % (SCALE / BASE_SCALE * 100.0))
+
+
 ## 0 = full day, 1 = deep night; smooth dawn/dusk shoulders.
 func _night_amount(h: float) -> float:
 	if h >= 21.0 or h < 5.0:
@@ -988,6 +1009,7 @@ func _update_lighting(_delta: float) -> void:
 	for pl in _loc_lights:
 		var src: Dictionary = pl.get_meta("src")
 		pl.position = world_to_screen(src["x"], src["y"])   # follow the camera
+		pl.texture_scale = max(0.25, float(src["r"]) * SCALE * 2.0 / 256.0)   # scale with zoom
 		if not on:
 			pl.energy = 0.0
 			continue
@@ -997,6 +1019,7 @@ func _update_lighting(_delta: float) -> void:
 		pl.energy = n * float(src["base"]) * 1.25 * max(0.3, fl)
 	if _player_light:
 		_player_light.position = world_to_screen(_player_pos.x, _player_pos.y)
+		_player_light.texture_scale = 1.5 * SCALE / BASE_SCALE   # scale with zoom
 		_player_light.energy = lerp(0.0, 0.7, n) if on else 0.0
 
 
@@ -1274,7 +1297,7 @@ func _draw_hud(font: Font) -> void:
 	var spd := "PAUSED" if _paused else "%sx  (%.0f min/s)" % [str(_time_scale), _game_min_per_sec]
 	var spd_col := Color(0.95, 0.6, 0.5) if _paused else Color(0.6, 0.85, 0.7)
 	draw_string(font, Vector2(234, 47), spd, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, spd_col)
-	var hint := "WASD move   Enter talk   O eyes   V plates   M map   R weather   L light   -/+ speed   Space pause   Esc menu"
+	var hint := "WASD move   Enter talk   O eyes   V plates   M map   R weather   L light   wheel/Z-X zoom   -/+ speed   Space pause   Esc menu"
 	var hy := vp.y - 150.0
 	_panel(Rect2(10, hy, vp.x - 20, 20))
 	draw_string(font, Vector2(18, hy + 14), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.62, 0.66, 0.74))
