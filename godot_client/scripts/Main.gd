@@ -76,6 +76,14 @@ var _mem_list: VBoxContainer
 var _mem_tags: Dictionary = {}       # tag -> selected (bool); drives the memory filter
 var _mem_sig := 0                    # signature of the shown memory log (rebuild only on change)
 
+# --- event log panel (scrollable, pausable) ---
+var _log_layer: CanvasLayer
+var _log_list: VBoxContainer
+var _log_scroll: ScrollContainer
+var _log_pause_btn: Button
+var _log_paused := false
+const LOG_MAX := 250                 # lines kept in the scrollback
+
 # live time control (server-authoritative; the client just requests changes)
 var _time_scale := 1.0
 var _game_min_per_sec := 0.0
@@ -243,6 +251,7 @@ func _ready() -> void:
 	get_window().theme = _make_ui_theme()   # nicer chat box + settings menu
 	_build_settings_ui()
 	_build_char_ui()
+	_build_log_ui()
 	set_process(true)
 	_maybe_setup_capture()
 
@@ -564,13 +573,17 @@ func _on_event(evt: Dictionary) -> void:
 			_log("** %s has died: %s **" % [evt.get("name", "?"), evt.get("cause", "")])
 
 
-func _input(event: InputEvent) -> void:
-	# mouse wheel zooms the world in/out (works even while a text field has focus)
+## Mouse wheel zooms the world - handled in _unhandled_input so GUI scroll
+## containers (event log, memories list) consume the wheel first when hovered.
+func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			_zoom_by(1.12)
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			_zoom_by(1.0 / 1.12)
+
+
+func _input(event: InputEvent) -> void:
 	if not (event is InputEventKey) or not event.pressed or event.echo:
 		return
 	# while typing in any text field, keys belong to it (Esc just unfocuses)
@@ -1476,18 +1489,76 @@ func _draw_hud(font: Font) -> void:
 	var hy := vp.y - 150.0
 	_panel(Rect2(10, hy, vp.x - 20, 20))
 	draw_string(font, Vector2(18, hy + 14), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.62, 0.66, 0.74))
-	_panel(Rect2(10, vp.y - 126, vp.x - 20, 116))
-	var lines := _events.slice(max(0, _events.size() - 7), _events.size())
-	var n := lines.size()
-	var y := vp.y - 112.0
-	for i in range(n):
-		var fade := 0.5 + 0.5 * (float(i + 1) / float(max(1, n)))
-		draw_string(font, Vector2(20, y), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.82, 0.83, 0.88, fade))
-		y += 16
+	# the event log now lives in the _log_layer Control panel (scrollable + pausable)
 
 
 func _log(msg: String) -> void:
 	_events.append(msg)
-	if _events.size() > 40:
-		_events = _events.slice(_events.size() - 40, _events.size())
+	if _events.size() > LOG_MAX:
+		_events = _events.slice(_events.size() - LOG_MAX, _events.size())
 	print("[Realmweave] ", msg)
+	_add_log_line(msg)
+
+
+## The event log: a scrollable line list with a pause/resume toggle. While paused
+## the view holds still (you can scroll back) even as new lines keep arriving.
+func _build_log_ui() -> void:
+	_log_layer = CanvasLayer.new()
+	_log_layer.layer = 8
+	add_child(_log_layer)
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	panel.offset_left = 10; panel.offset_right = -10
+	panel.offset_top = -126; panel.offset_bottom = -10
+	_log_layer.add_child(panel)
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 2)
+	panel.add_child(vb)
+	var head := HBoxContainer.new()
+	var title := Label.new()
+	title.text = "Events"
+	title.add_theme_font_size_override("font_size", 11)
+	title.modulate = Color(0.6, 0.63, 0.72)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(title)
+	_log_pause_btn = Button.new()
+	_log_pause_btn.text = "Pause"
+	_log_pause_btn.add_theme_font_size_override("font_size", 11)
+	_log_pause_btn.pressed.connect(_toggle_log_pause)
+	head.add_child(_log_pause_btn)
+	vb.add_child(head)
+	_log_scroll = ScrollContainer.new()
+	_log_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_log_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	vb.add_child(_log_scroll)
+	_log_list = VBoxContainer.new()
+	_log_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_log_list.add_theme_constant_override("separation", 1)
+	_log_scroll.add_child(_log_list)
+	for line in _events:            # seed with anything logged before the UI existed
+		_add_log_line(line)
+
+
+func _add_log_line(msg: String) -> void:
+	if _log_list == null:
+		return
+	var l := Label.new()
+	l.text = msg
+	l.add_theme_font_size_override("font_size", 11)
+	l.modulate = Color(0.82, 0.83, 0.88)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_log_list.add_child(l)
+	while _log_list.get_child_count() > LOG_MAX:
+		var old := _log_list.get_child(0)
+		_log_list.remove_child(old)
+		old.queue_free()
+	if not _log_paused:
+		_log_scroll.set_deferred("scroll_vertical", 1 << 20)   # jump to newest
+
+
+func _toggle_log_pause() -> void:
+	_log_paused = not _log_paused
+	_log_pause_btn.text = "Play" if _log_paused else "Pause"
+	if not _log_paused:
+		_log_scroll.set_deferred("scroll_vertical", 1 << 20)   # catch up to newest
