@@ -83,6 +83,10 @@ Legend: [ ] todo · [~] in progress · [x] done
       same labeling, so a single NPC's needs are readable. Effort: S
 - [ ] **Player-facing "what do I need" panel** for an embodied player character
       (once player needs are modeled). Effort: M
+- [ ] **Event log panel: scroll bars + pause/play.** The in-client event log
+      (bottom panel in `Main.gd`) currently shows only the last few lines and
+      auto-scrolls. Add a scroll bar to page back through the history and a
+      pause/resume toggle so the stream can be frozen while reading. Effort: M
 
 ## Tooling
 
