@@ -1,12 +1,19 @@
 """A context-aware dialogue database for the GPU-free stub.
 
-The goal is apparent intelligence: instead of a handful of generic lines, the
-stub reads the signals already in the prompt (time of day, mood, where you are,
-who you are talking to and their trade, and any death on your mind) and picks an
-apt, varied line. No LLM, just a well-organised pool and a weighted chooser.
+The goal is apparent intelligence without an LLM: read the signals already in the
+prompt (time of day, mood, where you are, who you are talking to and their trade,
+a death on your mind, and the speaker's recent memories) and pick an apt, varied
+line. Two mechanisms do the heavy lifting:
+
+  1. A small generative GRAMMAR (Tracery-style fragment recombination) so a compact,
+     human-editable fragment set yields thousands of non-repeating lines.
+  2. Memory/relationship conditioning: recent memories that mention the other person
+     (or carry a clear sentiment) let a canned line become specific and personal.
+
 Selection is seeded by the prompt so a given situation is reproducible.
 """
 from __future__ import annotations
+import random as _random
 import re
 
 # Greetings addressed to {other}, coloured by the time of day.
@@ -91,11 +98,79 @@ GRIEF = ["Can't believe {subject} is gone. The village won't be the same.",
          "{subject} deserved better than that end.",
          "I keep expecting to see {subject} round the corner."]
 
-# Mundane small talk, always safe.
+# Mundane small talk (legacy pool; the GRAMMAR below now produces most of it).
 SMALLTALK = ["Clouds gathering over the fields.", "My back aches. Getting old, I am.",
              "Wonder what's cooking at the Stag.", "Quiet day. Suits me fine.",
              "Long as the roof holds, I'll not complain.", "Prices creep up every season.",
              "Sleep's been poor. Strange dreams."]
+
+# Lines that reference shared history, chosen when a memory mentions the other
+# person or carries a clear sentiment. This is what makes canned lines feel personal.
+HISTORY = {
+    "kindness": ["I've not forgotten your kindness, {other}.",
+                 "That good turn of yours still warms me, {other}.",
+                 "You did right by me once, {other}. I remember."],
+    "debt": ["I still owe you for that, {other}.",
+             "You stood by me when it counted, {other}.",
+             "Don't think I've forgotten what you did for me, {other}."],
+    "quarrel": ["We've had our words, {other}. Let's leave them buried.",
+                "I've a long memory, {other}. Mind that.",
+                "You and I aren't square yet, {other}."],
+    "familiar": ["Feels like we're always crossing paths, {other}.",
+                 "You again, {other} - small village.",
+                 "Can't turn a corner without you, {other}. Not that I mind."],
+}
+_MEM_KEYS = [
+    ("kindness", ("gift", "gave", "kind", "shared", "generous", "thanked")),
+    ("debt", ("helped", "aided", "saved", "stood by", "carried", "mended", "healed")),
+    ("quarrel", ("argued", "angry", "insult", "stole", "wronged", "cheated", "struck", "threatened")),
+]
+
+# --- generative grammar: recombine fragments into fresh, coherent chatter -----
+# Symbols reference each other with #symbol#. _expand() resolves them recursively.
+GRAMMAR = {
+    "smalltalk": ["#weather#", "#ache#", "#village_talk#", "#gripe#", "#hope#", "#observe#"],
+
+    "weather": ["#sky# #weather_tail#"],
+    "sky": ["Clouds are gathering", "Sky's clear for once", "Wind's turned cold",
+            "Looks like rain", "Sun's out, rare enough", "Frost on the ground this morning"],
+    "weather_tail": ["over the fields.", "these past days.",
+                     "- mark my words, the weather's turning.", ". Won't last, I'd wager."],
+
+    "ache": ["#body# #ache_tail#"],
+    "body": ["My back", "These old knees", "My hands", "This shoulder of mine"],
+    "ache_tail": ["aches something fierce.", "isn't what it was.",
+                  "tells me a storm's coming.", "won't let me sleep."],
+
+    "village_talk": ["Heard #rumor_subj# #rumor_tail#", "They're saying #rumor_subj# #rumor_tail#"],
+    "rumor_subj": ["the roads north", "the miller", "the harvest",
+                   "the gate watch", "prices at market", "the old well"],
+    "rumor_tail": ["are worth watching.", "again - who's to say.",
+                   ", if you believe it.", ". Small village, big mouths."],
+
+    "gripe": ["#gripe_subj# #gripe_tail#"],
+    "gripe_subj": ["Prices", "The work", "This weather", "The young ones today"],
+    "gripe_tail": ["never let up.", "creep up every season.",
+                   "will be the end of me.", "test a soul's patience."],
+
+    "hope": ["Long as #hope_subj#, I'll not complain.", "If #hope_subj#, we'll manage well enough."],
+    "hope_subj": ["the roof holds", "the well stays full", "the crop comes in",
+                  "the cold breaks soon", "the roads stay open"],
+
+    "observe": ["Quiet day. #quiet_tail#", "Busy about the village today. #busy_tail#"],
+    "quiet_tail": ["Suits me fine.", "Too quiet, if you ask me.", "I'll take it."],
+    "busy_tail": ["No rest for any of us.", "Feels like a festival's coming.",
+                  "Everyone's got somewhere to be."],
+}
+
+
+def _expand(sym, rng, depth=0):
+    """Resolve a grammar symbol into a concrete string, recursively."""
+    if depth > 8 or sym not in GRAMMAR:
+        return sym
+    choice = rng.choice(GRAMMAR[sym])
+    return re.sub(r"#(\w+)#", lambda m: _expand(m.group(1), rng, depth + 1), choice)
+
 
 # Reactions to a divine suggestion, by the stance embedded in the prompt.
 DIVINE = {
@@ -158,6 +233,35 @@ def _subject(prompt):
     return m.group(1) if m else ""
 
 
+def _memories(prompt):
+    """Recent memories are embedded as 'Recent memories: [text] [text]. Say one line'."""
+    m = re.search(r"[Rr]ecent memories:\s*(.+?)(?:\.\s*Say one line|$)", prompt)
+    if not m:
+        return []
+    body = m.group(1)
+    if body.strip().lower().startswith("none"):
+        return []
+    return [t.strip() for t in re.findall(r"\[(.*?)\]", body)]
+
+
+def _history_line(mems, other, mood, rng):
+    """A shared-history line if a memory carries clear sentiment or names the other."""
+    if not mems:
+        return ""
+    blob = " ".join(mems).lower()
+    for cat, keys in _MEM_KEYS:
+        if any(k in blob for k in keys):
+            if cat == "quarrel" and mood != "cold":
+                continue
+            if cat in ("kindness", "debt") and mood == "cold":
+                continue
+            return rng.choice(HISTORY[cat])
+    # otherwise, if a memory clearly involves the other person, a "familiar" line
+    if other and other != "friend" and other.lower() in blob:
+        return rng.choice(HISTORY["familiar"])
+    return ""
+
+
 def _fmt(line, other, subject, place, role):
     return line.format(other=other or "friend", subject=subject or "them",
                        place=place or "here", role=(role or "friend"))
@@ -173,9 +277,9 @@ def divine(prompt, rng):
 
 def compose(prompt, other="friend", rng=None):
     """Pick an apt, varied line for a dialogue prompt. Weighted toward the parts
-    of the situation that carry meaning (where you are, who you're talking to,
-    a death on your mind) so replies feel considered rather than canned."""
-    import random as _random
+    of the situation that carry meaning (where you are, who you're talking to, a
+    death on your mind, your shared history with them) so replies feel considered
+    rather than canned. Small talk is grammar-generated for variety."""
     if rng is None:
         rng = _random.Random(hash(prompt) & 0xFFFFFFFF)
     p = prompt.lower()
@@ -188,11 +292,15 @@ def compose(prompt, other="friend", rng=None):
         return _fmt(rng.choice(pool), other, subject, place_name, role)
 
     pod, mood, place = _pod(p), _mood(p), _place_kind(place_name)
-    cats = [("greet", 2), ("mood", 2), ("small", 2)]
+    mems = _memories(prompt)
+
+    cats = [("greet", 2), ("mood", 2), ("small", 3)]
     if place in PLACE:
         cats.append(("place", 4))
     if role in TO_ROLE:
         cats.append(("role", 3))
+    if _history_line(mems, other, mood, rng):
+        cats.append(("history", 3))   # personal callbacks when we share history
     total = sum(w for _, w in cats)
     pick, upto, chosen = rng.random() * total, 0, "small"
     for c, w in cats:
@@ -200,14 +308,18 @@ def compose(prompt, other="friend", rng=None):
         if pick <= upto:
             chosen = c
             break
+
     if chosen == "greet":
-        pool = GREET.get(pod, []) + GREET["any"]
+        line = rng.choice(GREET.get(pod, []) + GREET["any"])
     elif chosen == "mood":
-        pool = WARM if mood == "warm" else COLD if mood == "cold" else NEUTRAL
+        line = rng.choice(WARM if mood == "warm" else COLD if mood == "cold" else NEUTRAL)
     elif chosen == "place":
-        pool = PLACE[place]
+        line = rng.choice(PLACE[place])
     elif chosen == "role":
-        pool = TO_ROLE[role]
+        line = rng.choice(TO_ROLE[role])
+    elif chosen == "history":
+        line = _history_line(mems, other, mood, rng)
     else:
-        pool = SMALLTALK
-    return _fmt(rng.choice(pool), other, subject, place_name, role)
+        # grammar-generated small talk (occasionally fall back to the legacy pool)
+        line = _expand("smalltalk", rng) if rng.random() < 0.85 else rng.choice(SMALLTALK)
+    return _fmt(line, other, subject, place_name, role)
