@@ -673,10 +673,9 @@ func _draw_world() -> void:
 	for gx in range(cx - 40, cx + 42, gt):
 		for gy in range(cy - 30, cy + 32, gt):
 			var h := _cell_hash(gx, gy)
-			var g := 0.98 + h * 0.04                       # very subtle mottling (no checkerboard)
-			_ltile(L_GRASS, world_to_screen(gx, gy), SCALE * 2 + 2, Color(g, g, g))
-			if h > 0.82:                                    # a tuft of taller grass here and there
-				_ltile(L_GRASS2, world_to_screen(gx + 0.6, gy + 0.5), SCALE * 2 + 2)
+			_ltile(L_GRASS, world_to_screen(gx, gy), SCALE * 2 + 2)   # uniform lawn
+			if h > 0.94:                                    # rare, small tuft (keeps grass reading flat)
+				_ltile(L_GRASS2, world_to_screen(gx + 0.55, gy + 0.5), SCALE * 0.9)
 	# stone paths radiating from the square hub
 	var sq := _find_loc("square")
 	if not sq.is_empty():
@@ -687,10 +686,12 @@ func _draw_world() -> void:
 			var ay: float = sq.get("y", 0.0)
 			var bx: float = loc.get("x", 0.0)
 			var by: float = loc.get("y", 0.0)
-			var n := int(Vector2(bx - ax, by - ay).length() / 1.4) + 1
+			var n := int(Vector2(bx - ax, by - ay).length() / 0.85) + 1
 			for k in range(n + 1):
 				var t := float(k) / float(n)
-				_ltile(L_DIRT, world_to_screen(ax + (bx - ax) * t, ay + (by - ay) * t), SCALE * 2.0, Color(1, 1, 1).lerp(Color(0.88, 0.82, 0.72), _cell_hash(int((ax + (bx - ax) * t) * 2.0), int((ay + (by - ay) * t) * 2.0)) * 0.35))
+				var pc := world_to_screen(ax + (bx - ax) * t, ay + (by - ay) * t)
+				var dv := 0.90 + _cell_hash(int(pc.x), int(pc.y)) * 0.12   # subtle dirt shade
+				_ltile(L_DIRT, pc, SCALE * 2.5, Color(dv, dv * 0.97, dv * 0.92))
 	# crop field patches, then buildings (top-down = roofs)
 	for loc in _locations:
 		var p := world_to_screen(loc["x"], loc["y"])
@@ -702,6 +703,7 @@ func _draw_world() -> void:
 						_gtile(_tilled, L_TILLED, world_to_screen(loc["x"] + dx, loc["y"] + dy), SCALE * 2 + 2)
 			"well":
 				_ltile(L_FLAG, p, SCALE * 2 + 2)
+				_shadow(p + Vector2(0, SCALE * 0.15), SCALE * 1.5, SCALE * 0.7)
 				_building_draw(_fountain, p, 1.8)
 			"square":
 				for dx in [-1.5, 0.0, 1.5]:
@@ -709,9 +711,11 @@ func _draw_world() -> void:
 						_ltile(L_FLAG, world_to_screen(loc["x"] + dx, loc["y"] + dy), SCALE * 1.7)
 			"gate":
 				_ltile(L_COBBLE, p, SCALE * 2 + 2)
+				_shadow(p + Vector2(0, SCALE * 0.2), SCALE * 1.9, SCALE * 1.0)
 				_building_draw(_bld_b, p, 3.0)
 			_:
-				_shadow(world_to_screen(loc["x"], loc["y"] + 0.4), SCALE * 3.2, SCALE * 1.0)
+				# wide ground-contact shadow so the building rests on the terrain, not floats
+				_shadow(p + Vector2(0, SCALE * 0.15), _building_w(kind) * SCALE * 0.62, SCALE * 1.25)
 				_building_draw(_building_tex(kind, loc["x"]), p, _building_w(kind))
 		if kind != "field":
 			_label(_world_node, font, p + Vector2(-40, 28), loc.get("name", ""), 9, Color(0.9, 0.88, 0.78), HORIZONTAL_ALIGNMENT_CENTER, 80)
@@ -1039,13 +1043,16 @@ func _light_sources() -> Array:
 	var out: Array = []
 	for l in _locations:
 		match l.get("kind", ""):
-			"smithy": out.append({"x": l["x"], "y": l["y"] - 0.3, "r": 5.5, "c": Color(1.0, 0.55, 0.18), "amp": 0.35, "sp": 9.0, "base": 1.0})
-			"tavern": out.append({"x": l["x"], "y": l["y"], "r": 5.0, "c": Color(1.0, 0.77, 0.38), "amp": 0.14, "sp": 5.0, "base": 0.9})
-			"square": out.append({"x": l["x"], "y": l["y"], "r": 4.6, "c": Color(1.0, 0.82, 0.59), "amp": 0.10, "sp": 4.0, "base": 0.85})
-			"well": out.append({"x": l["x"], "y": l["y"], "r": 3.6, "c": Color(1.0, 0.80, 0.55), "amp": 0.10, "sp": 4.0, "base": 0.7})
-			"gate": out.append({"x": l["x"], "y": l["y"], "r": 3.6, "c": Color(1.0, 0.78, 0.55), "amp": 0.12, "sp": 4.0, "base": 0.7})
-			"shop": out.append({"x": l["x"], "y": l["y"], "r": 3.8, "c": Color(1.0, 0.78, 0.47), "amp": 0.12, "sp": 5.0, "base": 0.7})
-			"home": out.append({"x": l["x"], "y": l["y"], "r": 3.0, "c": Color(1.0, 0.71, 0.43), "amp": 0.10, "sp": 3.0, "base": 0.55})
+			# lights sit at the building FRONT (y + ~0.5, where the door/windows are, in
+			# front of the sprite) with tighter radii, so they read as spill from a
+			# doorway/window rather than a big blob engulfing the whole structure.
+			"smithy": out.append({"x": l["x"], "y": l["y"] + 0.5, "r": 3.0, "c": Color(1.0, 0.52, 0.16), "amp": 0.35, "sp": 9.0, "base": 0.9})
+			"tavern": out.append({"x": l["x"], "y": l["y"] + 0.6, "r": 2.8, "c": Color(1.0, 0.74, 0.36), "amp": 0.14, "sp": 5.0, "base": 0.8})
+			"square": out.append({"x": l["x"], "y": l["y"], "r": 3.6, "c": Color(1.0, 0.82, 0.59), "amp": 0.10, "sp": 4.0, "base": 0.7})
+			"well": out.append({"x": l["x"], "y": l["y"] + 0.3, "r": 2.0, "c": Color(1.0, 0.80, 0.55), "amp": 0.10, "sp": 4.0, "base": 0.55})
+			"gate": out.append({"x": l["x"], "y": l["y"] + 0.5, "r": 2.4, "c": Color(1.0, 0.78, 0.55), "amp": 0.12, "sp": 4.0, "base": 0.6})
+			"shop": out.append({"x": l["x"], "y": l["y"] + 0.6, "r": 2.4, "c": Color(1.0, 0.78, 0.47), "amp": 0.12, "sp": 5.0, "base": 0.6})
+			"home": out.append({"x": l["x"], "y": l["y"] + 0.6, "r": 2.0, "c": Color(1.0, 0.71, 0.43), "amp": 0.10, "sp": 3.0, "base": 0.45})
 	return out
 
 
