@@ -92,7 +92,8 @@ const UI_INK := Color(0.05, 0.055, 0.085, 0.86)
 const UI_EDGE := Color(0.62, 0.55, 0.35, 0.85)
 # Client build version, shown in the HUD so you can tell which build is running.
 # Bump this whenever the client art/behaviour changes meaningfully.
-const CLIENT_VERSION := "v0.2.0-lpc"
+const CLIENT_VERSION := "v0.3.0-lpc"
+var _server_version := ""            # reported by the server in its 'hello' message
 
 const KIND_COLORS := {
 	"tavern": Color(0.72, 0.45, 0.20),
@@ -496,6 +497,7 @@ func _on_message(text: String) -> void:
 		return
 	match data.get("type", ""):
 		"hello":
+			_server_version = str(data.get("version", ""))
 			_locations = data.get("world", {}).get("locations", [])
 			_props = data.get("world", {}).get("props", [])
 			var cfg: Dictionary = data.get("config", {})
@@ -1289,7 +1291,8 @@ func _draw_hud(font: Font) -> void:
 	_panel(Rect2(10, 10, 320, 46))
 	draw_circle(Vector2(24, 24), 4.0, Color(0.45, 0.82, 0.5) if _connected else Color(0.85, 0.45, 0.4))
 	draw_string(font, Vector2(36, 27), "Realmweave - Oakhollow", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, UI_GOLD)
-	draw_string(font, Vector2(10, 46), CLIENT_VERSION, HORIZONTAL_ALIGNMENT_RIGHT, 316, 10, Color(0.6, 0.62, 0.7))
+	var ver := CLIENT_VERSION + ("  |  server " + _server_version if _server_version != "" else "")
+	draw_string(font, Vector2(10, 46), ver, HORIZONTAL_ALIGNMENT_RIGHT, 316, 10, Color(0.6, 0.62, 0.7))
 	var stamp := "Connecting..."
 	if not _clock.is_empty():
 		stamp = "Day %d  %s  %s  (%s)" % [_clock.get("day_index", 0), _clock.get("day_name", ""), _clock.get("hhmm", ""), _clock.get("part_of_day", "")]
