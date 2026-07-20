@@ -100,35 +100,6 @@ const KIND_COLORS := {
 	"shop": Color(0.80, 0.65, 0.25),
 }
 
-# --- Kenney Roguelike/RPG tiles (CC0). 16x16 tiles, 1px margin => 17px pitch.
-# See ASSETS.md for provenance and docs/ART.md for the tile-index reference.
-var _sheet: Texture2D = load("res://assets/tiles/roguelikeSheet_transparent.png")
-var _chars: Texture2D = load("res://assets/sprites/roguelikeChar_transparent.png")
-const T_GRASS := Vector2i(5, 0)
-const T_STONE := Vector2i(8, 0)
-const T_FIELD := Vector2i(2, 7)
-const T_WATER := Vector2i(3, 2)
-const T_TREE := Vector2i(13, 10)
-const T_PINE := Vector2i(16, 10)
-const T_ROCK := Vector2i(6, 15)
-const ROOF := {
-	"tavern": Vector2i(16, 26), "home": Vector2i(13, 25), "stable": Vector2i(18, 28),
-	"smithy": Vector2i(19, 29), "shop": Vector2i(15, 26), "gate": Vector2i(14, 25),
-	"well": Vector2i(17, 27), "square": Vector2i(13, 25), "field": Vector2i(15, 26),
-}
-# Character-sheet cells (col,row). Every role now maps to a distinct *human*
-# figure. NOTE: Farmer and Stable hand previously pointed at (0,3)/(1,3), which
-# are green goblin/orc sprites on this sheet - the "green villagers" bug. They
-# are remapped to people here, and Farmhand/Miner/Shepherd (previously unmapped,
-# so they fell back to a blank tile) now have sprites too.
-const ROLE_TILE := {
-	"Tavernkeeper": Vector2i(0, 10), "Stable hand": Vector2i(1, 9), "Blacksmith": Vector2i(0, 5),
-	"Street sweeper": Vector2i(1, 6), "Farmer": Vector2i(0, 8), "Gate guard": Vector2i(0, 11),
-	"Errand child": Vector2i(0, 9), "Herbalist": Vector2i(1, 5),
-	"Farmhand": Vector2i(0, 6), "Miner": Vector2i(1, 7), "Shepherd": Vector2i(0, 7),
-}
-const ROLE_TILE_DEFAULT := Vector2i(1, 0)   # plain villager for any unmapped role
-
 # --- LPC Revised art (OGA-BY 3.0). 32px terrain atlas + assembled 64px villagers.
 # See ASSETS.md / docs/ART.md. Terrain tiles are (col,row) in a 16x26 grid.
 var _lterrain: Texture2D = load("res://assets/lpc/terrain/terrain_summer.png")
@@ -145,16 +116,15 @@ const VILLAGER_ROLES := ["Blacksmith", "Herbalist", "Tavernkeeper", "Farmer",
 	"Stable hand", "Gate guard", "Street sweeper", "Errand child", "Player"]
 const VILLAGER_DEFAULT := "Stable hand"
 var _vill: Dictionary = {}           # role -> Texture2D
-
-
-## Blit one 16x16 tile from a Kenney sheet, centered on `center`, scaled to `size` px.
-## Drawn on the world layer so lighting affects it.
-func _tile(tex: Texture2D, t: Vector2i, center: Vector2, size: float, mod: Color = Color(1, 1, 1)) -> void:
-	if tex == null or _world_node == null:
-		return
-	_world_node.draw_texture_rect_region(tex,
-		Rect2(center - Vector2(size, size) * 0.5, Vector2(size, size)),
-		Rect2(t.x * 17, t.y * 17, 16, 16), mod)
+# LPC building prefabs (3/4 elevation) + fountain (well) + tilled soil (fields).
+var _bld_a: Texture2D = load("res://assets/lpc/buildings/house_brick_a.png")
+var _bld_b: Texture2D = load("res://assets/lpc/buildings/house_brick_b.png")
+var _bld_p: Texture2D = load("res://assets/lpc/buildings/house_paneled_a.png")
+var _fountain: Texture2D = load("res://assets/lpc/buildings/fountain.png")
+var _tilled: Texture2D = load("res://assets/lpc/terrain/tilled_soil.png")
+const L_TILLED := Vector2i(1, 1)     # plowed dirt tile in tilled_soil (8x8 grid)
+const TREE_REG := Rect2(160, 0, 64, 128)     # round tree (canopy+trunk) in trees_summer
+const PINE_REG := Rect2(160, 352, 64, 160)   # conifer in trees_summer
 
 
 ## Deterministic 0..1 hash for a world cell, so terrain variation is stable
@@ -163,27 +133,57 @@ func _cell_hash(gx: int, gy: int) -> float:
 	return fmod(abs(sin(float(gx) * 12.9898 + float(gy) * 78.233) * 43758.5453), 1.0)
 
 
-## Blit a sprite tile, optionally mirrored horizontally (to face left).
-func _tile_h(tex: Texture2D, t: Vector2i, center: Vector2, size: float, flip: bool, mod: Color = Color(1, 1, 1)) -> void:
-	if not flip:
-		_tile(tex, t, center, size, mod)
-		return
+## Blit one 32px tile (col,row) from any LPC atlas, centered on `center`, scaled to `size` px.
+func _gtile(tex: Texture2D, t: Vector2i, center: Vector2, size: float, mod: Color = Color(1, 1, 1)) -> void:
 	if tex == null or _world_node == null:
 		return
-	_world_node.draw_set_transform(center, 0.0, Vector2(-1, 1))
 	_world_node.draw_texture_rect_region(tex,
-		Rect2(-Vector2(size, size) * 0.5, Vector2(size, size)),
-		Rect2(t.x * 17, t.y * 17, 16, 16), mod)
-	_world_node.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-
-
-## Blit one 32px LPC terrain tile (col,row), centered on `center`, scaled to `size` px.
-func _ltile(t: Vector2i, center: Vector2, size: float, mod: Color = Color(1, 1, 1)) -> void:
-	if _lterrain == null or _world_node == null:
-		return
-	_world_node.draw_texture_rect_region(_lterrain,
 		Rect2(center - Vector2(size, size) * 0.5, Vector2(size, size)),
 		Rect2(t.x * L_TILE, t.y * L_TILE, L_TILE, L_TILE), mod)
+
+
+## Blit a 32px terrain tile from terrain_summer.
+func _ltile(t: Vector2i, center: Vector2, size: float, mod: Color = Color(1, 1, 1)) -> void:
+	_gtile(_lterrain, t, center, size, mod)
+
+
+## Draw an LPC building prefab (3/4 elevation) so its base sits on `feet`, sized to
+## span `world_w` world units wide (aspect preserved).
+func _building_draw(tex: Texture2D, feet: Vector2, world_w: float, mod: Color = Color(1, 1, 1)) -> void:
+	if tex == null or _world_node == null:
+		return
+	var dw := world_w * SCALE
+	var dh := dw * float(tex.get_height()) / float(tex.get_width())
+	var top_left := feet - Vector2(dw * 0.5, dh * 0.9)
+	_world_node.draw_texture_rect(tex, Rect2(top_left, Vector2(dw, dh)), false, mod)
+
+
+## Draw a tree (region from trees_summer) standing on `feet`, `h` px tall.
+func _tree_draw(reg: Rect2, feet: Vector2, h: float) -> void:
+	if _ltrees == null or _world_node == null:
+		return
+	var w := h * reg.size.x / reg.size.y
+	var top_left := feet - Vector2(w * 0.5, h * 0.88)
+	_world_node.draw_texture_rect_region(_ltrees, Rect2(top_left, Vector2(w, h)), reg)
+
+
+## Pick a building prefab for a location kind (homes vary by position hash).
+func _building_tex(kind: String, seed: float) -> Texture2D:
+	match kind:
+		"tavern": return _bld_a
+		"smithy", "granary": return _bld_b
+		"stable", "shop": return _bld_p
+		"home":
+			return [_bld_p, _bld_b, _bld_a][int(_cell_hash(int(seed * 3.0), 7) * 3.0) % 3]
+	return _bld_p
+
+
+## On-screen width (world units) for a building kind.
+func _building_w(kind: String) -> float:
+	match kind:
+		"tavern": return 6.0
+		"smithy", "granary": return 5.0
+		_: return 4.5
 
 
 ## Draw an assembled LPC villager. The sheet is 256x64 (frames up,left,down,right).
@@ -696,25 +696,20 @@ func _draw_world() -> void:
 			"field":
 				for dx in [-2, 0, 2]:
 					for dy in [-2, 0, 2]:
-						_tile(_sheet, T_FIELD, world_to_screen(loc["x"] + dx, loc["y"] + dy), SCALE * 2 + 2)
+						_gtile(_tilled, L_TILLED, world_to_screen(loc["x"] + dx, loc["y"] + dy), SCALE * 2 + 2)
 			"well":
-				_tile(_sheet, T_STONE, p, SCALE * 1.7)
-				_tile(_sheet, T_WATER, p, SCALE * 0.9)
+				_ltile(L_FLAG, p, SCALE * 2 + 2)
+				_building_draw(_fountain, p, 1.8)
 			"square":
 				for dx in [-1.5, 0.0, 1.5]:
 					for dy in [-1.0, 1.0]:
-						_tile(_sheet, T_STONE, world_to_screen(loc["x"] + dx, loc["y"] + dy), SCALE * 1.6)
+						_ltile(L_FLAG, world_to_screen(loc["x"] + dx, loc["y"] + dy), SCALE * 1.7)
 			"gate":
-				_tile(_sheet, T_ROCK, p, SCALE * 1.8)
+				_ltile(L_COBBLE, p, SCALE * 2 + 2)
+				_building_draw(_bld_b, p, 3.0)
 			_:
-				var r: Vector2i = ROOF.get(kind, ROOF["home"])
-				_shadow(world_to_screen(loc["x"], loc["y"] + 1.15), SCALE * 4.6, SCALE * 1.4)
-				for dx in [-1.2, 0.0, 1.2]:
-					for dy in [-0.9, 0.9]:
-						# front (lower) row sits in the building's own shadow -> darker,
-						# giving a flat roof cluster a bit of solid, 3D weight
-						var sh := 1.0 if dy < 0.0 else 0.68
-						_tile(_sheet, r, world_to_screen(loc["x"] + dx, loc["y"] + dy), SCALE * 1.5 + 2, Color(sh, sh, sh))
+				_shadow(world_to_screen(loc["x"], loc["y"] + 0.4), SCALE * 3.2, SCALE * 1.0)
+				_building_draw(_building_tex(kind, loc["x"]), p, _building_w(kind))
 		if kind != "field":
 			_label(_world_node, font, p + Vector2(-40, 28), loc.get("name", ""), 9, Color(0.9, 0.88, 0.78), HORIZONTAL_ALIGNMENT_CENTER, 80)
 	# decorative scenery
@@ -789,14 +784,15 @@ func _draw_props() -> void:
 		var p := world_to_screen(pr.get("x", 0), pr.get("y", 0))
 		match pr.get("kind", ""):
 			"tree":
-				_shadow(p + Vector2(0, SCALE * 0.7), SCALE * 1.7, SCALE * 0.6)
-				_tile(_sheet, T_TREE if i % 2 == 0 else T_PINE, p - Vector2(0, SCALE * 0.4), SCALE * 2.6)
+				_shadow(p + Vector2(0, SCALE * 0.15), SCALE * 1.8, SCALE * 0.55)
+				_tree_draw(TREE_REG if i % 2 == 0 else PINE_REG, p, SCALE * 3.4)
 			"rock":
-				_tile(_sheet, T_ROCK, p, SCALE * 1.4)
+				_world_node.draw_circle(p, SCALE * 0.55, Color(0.40, 0.40, 0.45))
+				_world_node.draw_circle(p - Vector2(SCALE * 0.15, SCALE * 0.12), SCALE * 0.32, Color(0.55, 0.55, 0.60))
 			"pond":
 				for dx in [-3, -1, 1, 3]:
 					for dy in [-2, 0, 2]:
-						_tile(_sheet, T_WATER, world_to_screen(pr.get("x", 0) + dx, pr.get("y", 0) + dy), SCALE * 2 + 2)
+						_ltile(L_WATER, world_to_screen(pr.get("x", 0) + dx, pr.get("y", 0) + dy), SCALE * 2 + 2)
 		i += 1
 
 

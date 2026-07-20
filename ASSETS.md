@@ -85,3 +85,10 @@ https://github.com/ElizaWy/LPC
 | `godot_client/assets/lpc/structure/**` (walls, roofing, doors, windows, fences, signs, structures, misc) | LPC Revised (ElizaWy) | OGA-BY 3.0 | Yes | Required: per-folder `Credits.txt` | `godot_client/assets/lpc/Credits.txt` |
 | `godot_client/assets/lpc/objects/**` (smithy set, furniture, small items) | LPC Revised (ElizaWy) | OGA-BY 3.0 | Yes | Required: per-folder `Credits.txt` | `godot_client/assets/lpc/Credits.txt` |
 | `godot_client/assets/lpc/characters/**` (modular body/head/hair/clothing layers) | LPC Revised (ElizaWy) | OGA-BY 3.0 | Yes | Required: per-folder `Credits.txt` | `godot_client/assets/lpc/Credits.txt` |
+
+## LPC derived render assets (step 1)
+
+| Item | Source | License | Commercial | Attribution | License file |
+|------|--------|---------|------------|-------------|--------------|
+| `godot_client/assets/lpc/villagers/*.png` (per-role villagers, composited from LPC Body/Head/Hair/Clothing layers) | Derived from LPC Revised (ElizaWy) | OGA-BY 3.0 | Yes | Required (same LPC artists) | `godot_client/assets/lpc/Credits.txt` |
+| `godot_client/assets/lpc/buildings/*.png` (house/fountain prefabs copied from LPC Structure/Structures + Structure/Misc) | LPC Revised (ElizaWy) | OGA-BY 3.0 | Yes | Required (same LPC artists) | `godot_client/assets/lpc/Credits.txt` |
