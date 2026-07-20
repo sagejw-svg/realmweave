@@ -439,6 +439,13 @@ class RealmweaveServer:
         if websockets is None:
             raise RuntimeError("The 'websockets' package is required: pip install websockets")
         host, port = self.scfg["host"], self.scfg["port"]
+        import sys as _sys
+        if _sys.platform == "win32":                     # show the version in the console window title
+            try:
+                import ctypes
+                ctypes.windll.kernel32.SetConsoleTitleW(f"Realmweave Server v{__version__}")
+            except Exception:
+                pass
         print(f"Realmweave server v{__version__} listening on ws://{host}:{port}")
         try:
             async with websockets.serve(self.handler, host, port):

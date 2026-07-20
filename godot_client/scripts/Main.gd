@@ -218,6 +218,7 @@ func _load_villagers() -> void:
 func _ready() -> void:
 	# crisp pixel art (no bilinear blur when the 16px tiles are scaled up)
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	get_window().title = "Realmweave Client " + CLIENT_VERSION   # version in the title bar
 	_build_world_layer()
 	_load_villagers()
 	if ProjectSettings.has_setting("network/realmweave/server_url"):
