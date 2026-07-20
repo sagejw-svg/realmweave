@@ -98,6 +98,20 @@ Legend: [ ] todo · [~] in progress · [x] done
       (bottom panel in `Main.gd`) currently shows only the last few lines and
       auto-scrolls. Add a scroll bar to page back through the history and a
       pause/resume toggle so the stream can be frozen while reading. Effort: M
+- [ ] **Character overview panel (scrollable, tabbed).** Clicking/inspecting an
+      agent opens a scrollable overview with tabs: **Kills** (from death/justice
+      events), **Bag** (inventory items + coin + bounty), **Memories**, **Social**
+      (relationships / affinity), **Quests**, and **Crafting** (known recipes and
+      outputs). Modeled on the character view in play.artificiety.world. Builds on
+      the existing observe/subjective stream. Effort: L
+- [ ] **Tagged, filterable memories** (the standout from Artificiety). Give each
+      memory tags - derived from its `kind`, the people/places it names, and the
+      event type - and render them as clickable chips in the overview; clicking a
+      tag filters the memory list (faceted, multi-select). Most data already
+      exists: `MemoryEntry` has text/importance/kind, and inventory/coin/bounty/
+      recipes/quests/justice are all modeled. The work is (1) a protocol field
+      exposing the richer per-agent payload, (2) tag derivation, and (3) a Godot
+      `ScrollContainer` + tab UI with toggle-able tag chips. Effort: M
 
 ## Tooling
 
