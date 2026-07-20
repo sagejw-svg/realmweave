@@ -14,6 +14,32 @@ AI is optional and local-first: a tiered LLM router (Ollama) with a
 deterministic **stub** fallback so everything runs and tests with no GPU. The
 hosted world runs with `force_stub: true` (scripted NPCs, no LLM).
 
+## Agent quickstart (read this, do not re-explore)
+
+This file is auto-loaded. Use the map below; do not crawl the whole tree. Grab
+only what a task needs.
+
+Verify client graphics for real (headless, no GPU, no editor) instead of
+guessing: `tools/screenshot.sh out.png` starts the stub server and renders a PNG
+of the Godot client. It works in a plain Linux sandbox (downloads Godot 4.3 if
+missing, uses xvfb + software GL). The client has a built-in capture mode:
+`-- --capture=PATH --capture-delay=SECONDS --weather=clear|rain|snow --hour=NN
+--player=NAME` (keep delay ~3s so a run fits tight time budgets).
+
+Character sprite reference (Kenney char sheet, col,row, 17px pitch): docs/ART.md.
+Cols 0-1 are full figures, cols 6+ are armour icons; role->tile is `ROLE_TILE`
+in `godot_client/scripts/Main.gd`.
+
+Cowork/sandbox gotchas:
+- Files written with the Edit tool land on the host but can lag the Linux
+  shell's mount view. When a shell step must read a just-edited file, write it
+  from the shell instead, or check its size first.
+- `git` inside the mounted Windows folder can hit a stuck `.git/index.lock`
+  that the sandbox cannot delete. Finish the commit on Windows
+  (`del .git\index.lock` then `git commit`).
+- The mount reports every file as mode 100755; run `git config core.fileMode
+  false` to avoid spurious mode diffs.
+
 ## Key locations
 - Repository / working folder: `C:\Users\USER\Documents\realmweave` (this repo; on
   the dev machine it is a connected Cowork folder you can read and write).
@@ -106,3 +132,20 @@ Save format at v12 with migrations; tests: test_finance/test_supply/test_guilds.
 NEXT: inter-agent raw-goods market (gatherers sell surplus to refiners directly,
 not just via the NPC premium), guild job boards/contracts, and Phase 9 art polish
 (client render quality).
+
+## Art assets / LPC pipeline (learned 2026-07)
+- Higher-fidelity art lives under `godot_client/assets/lpc/` (LPC Revised, OGA-BY
+  3.0, Git LFS). LPC is 32px-based and characters are modular layers
+  (Body/Head/Hair/Clothing), unlike the 16x16 / 17px Kenney sheets and the
+  `ROLE_TILE` col/row mapping. Wiring LPC into the renderers is a separate step
+  (pitch change + assembled sprites).
+- Provenance: every LPC folder ships a `Credits.txt`; log each pack in ASSETS.md
+  with license + attribution before shipping. OGA-BY 3.0 requires attribution.
+- Missing well / mill / granary: no LPC sheet exists. See docs/ART.md
+  "resolution playbook" (compose from parts, or pull LPC-compatible OGA sheets;
+  Fountain A is the interim well stand-in).
+- Git / PR pipeline for large art: the PR flow needs `gh` authenticated on Windows
+  (`gh auth login`) and Git LFS installed. A Linux sandbox has neither and cannot
+  push (HTTPS creds live in Windows Credential Manager), so run
+  branch/LFS/commit/push/PR on Windows. Full char tree is ~64k files / ~350 MB, so
+  LFS is required; mind GitHub free-tier LFS quota (1 GB storage, 1 GB/mo bandwidth).

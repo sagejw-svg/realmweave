@@ -1,5 +1,5 @@
 extends Node2D
-## Realmweave 2D client.
+## Realmweave 2D client. (UI/graphics upgrade pass)
 ##
 ## Connects to the Python backend over WebSocket, receives the authoritative
 ## world (locations) and a stream of snapshots (agent positions, state, speech)
@@ -11,7 +11,10 @@ extends Node2D
 ## weather overlays, drawn on this node, stay at full brightness. Press L to A/B
 ## the real lighting against the immediate-mode fallback glow.
 
-const SCALE := 20.0                 # pixels per world unit (a bit zoomed in for detail)
+var SCALE := 20.0                   # pixels per world unit (mutated by zoom - see _zoom_by)
+const BASE_SCALE := 20.0            # default zoom (1x)
+const ZOOM_MIN := 9.0               # most zoomed out
+const ZOOM_MAX := 46.0              # most zoomed in
 const ORIGIN := Vector2(60, 90)     # legacy map origin (unused since the camera follows)
 const CAM_LERP := 3.0               # how quickly the camera eases toward the player
 const AGENT_R := 7.0
@@ -77,6 +80,21 @@ var _settings_open := false
 var _url_edit: LineEdit
 var _speed_value_label: Label
 
+# --- UI/interface upgrade state ---
+var _talk_target := ""              # nearest alive villager the chat box will address
+var _show_plates := true           # V toggles floating nameplates + inspect card
+var _show_minimap := true          # M toggles the corner minimap
+var _join_name := "James"          # player display name (override with -- --player=NAME)
+var _force_hour := -1.0            # capture-only: pin the time of day (>=0 overrides clock)
+const TALK_RANGE := 6.0            # world units within which "press Enter to speak" shows
+const UI_GOLD := Color(0.86, 0.74, 0.42)
+const UI_INK := Color(0.05, 0.055, 0.085, 0.86)
+const UI_EDGE := Color(0.62, 0.55, 0.35, 0.85)
+# Client build version, shown in the HUD so you can tell which build is running.
+# Bump this whenever the client art/behaviour changes meaningfully.
+const CLIENT_VERSION := "v0.3.0-lpc"
+var _server_version := ""            # reported by the server in its 'hello' message
+
 const KIND_COLORS := {
 	"tavern": Color(0.72, 0.45, 0.20),
 	"home": Color(0.35, 0.38, 0.55),
@@ -89,37 +107,31 @@ const KIND_COLORS := {
 	"shop": Color(0.80, 0.65, 0.25),
 }
 
-# --- Kenney Roguelike/RPG tiles (CC0). 16x16 tiles, 1px margin => 17px pitch.
-# See ASSETS.md for provenance and docs/ART.md for the tile-index reference.
-var _sheet: Texture2D = load("res://assets/tiles/roguelikeSheet_transparent.png")
-var _chars: Texture2D = load("res://assets/sprites/roguelikeChar_transparent.png")
-const T_GRASS := Vector2i(5, 0)
-const T_STONE := Vector2i(8, 0)
-const T_FIELD := Vector2i(2, 7)
-const T_WATER := Vector2i(3, 2)
-const T_TREE := Vector2i(13, 10)
-const T_PINE := Vector2i(16, 10)
-const T_ROCK := Vector2i(6, 15)
-const ROOF := {
-	"tavern": Vector2i(16, 26), "home": Vector2i(13, 25), "stable": Vector2i(18, 28),
-	"smithy": Vector2i(19, 29), "shop": Vector2i(15, 26), "gate": Vector2i(14, 25),
-	"well": Vector2i(17, 27), "square": Vector2i(13, 25), "field": Vector2i(15, 26),
-}
-const ROLE_TILE := {
-	"Tavernkeeper": Vector2i(0, 10), "Stable hand": Vector2i(1, 3), "Blacksmith": Vector2i(0, 5),
-	"Street sweeper": Vector2i(1, 6), "Farmer": Vector2i(0, 3), "Gate guard": Vector2i(0, 11),
-	"Errand child": Vector2i(0, 9), "Herbalist": Vector2i(1, 5),
-}
-
-
-## Blit one 16x16 tile from a Kenney sheet, centered on `center`, scaled to `size` px.
-## Drawn on the world layer so lighting affects it.
-func _tile(tex: Texture2D, t: Vector2i, center: Vector2, size: float, mod: Color = Color(1, 1, 1)) -> void:
-	if tex == null or _world_node == null:
-		return
-	_world_node.draw_texture_rect_region(tex,
-		Rect2(center - Vector2(size, size) * 0.5, Vector2(size, size)),
-		Rect2(t.x * 17, t.y * 17, 16, 16), mod)
+# --- LPC Revised art (OGA-BY 3.0). 32px terrain atlas + assembled 64px villagers.
+# See ASSETS.md / docs/ART.md. Terrain tiles are (col,row) in a 16x26 grid.
+var _lterrain: Texture2D = load("res://assets/lpc/terrain/terrain_summer.png")
+var _ltrees: Texture2D = load("res://assets/lpc/terrain/trees_summer.png")
+const L_TILE := 32
+const L_GRASS := Vector2i(1, 1)      # solid grass
+const L_GRASS2 := Vector2i(1, 4)     # tufted grass (variation)
+const L_DIRT := Vector2i(4, 1)       # dirt / worn path
+const L_COBBLE := Vector2i(10, 3)    # cobblestone
+const L_FLAG := Vector2i(10, 1)      # pale flagstone (plaza)
+const L_WATER := Vector2i(14, 16)    # solid water
+# Assembled per-role villager sheets (256x64 = 4 frames: up,left,down,right).
+const VILLAGER_ROLES := ["Blacksmith", "Herbalist", "Tavernkeeper", "Farmer",
+	"Stable hand", "Gate guard", "Street sweeper", "Errand child", "Player"]
+const VILLAGER_DEFAULT := "Stable hand"
+var _vill: Dictionary = {}           # role -> Texture2D
+# LPC building prefabs (3/4 elevation) + fountain (well) + tilled soil (fields).
+var _bld_a: Texture2D = load("res://assets/lpc/buildings/house_brick_a.png")
+var _bld_b: Texture2D = load("res://assets/lpc/buildings/house_brick_b.png")
+var _bld_p: Texture2D = load("res://assets/lpc/buildings/house_paneled_a.png")
+var _fountain: Texture2D = load("res://assets/lpc/buildings/fountain.png")
+var _tilled: Texture2D = load("res://assets/lpc/terrain/tilled_soil.png")
+const L_TILLED := Vector2i(1, 1)     # plowed dirt tile in tilled_soil (8x8 grid)
+const TREE_REG := Rect2(160, 0, 64, 128)     # round tree (canopy+trunk) in trees_summer
+const PINE_REG := Rect2(160, 352, 64, 160)   # conifer in trees_summer
 
 
 ## Deterministic 0..1 hash for a world cell, so terrain variation is stable
@@ -128,24 +140,87 @@ func _cell_hash(gx: int, gy: int) -> float:
 	return fmod(abs(sin(float(gx) * 12.9898 + float(gy) * 78.233) * 43758.5453), 1.0)
 
 
-## Blit a sprite tile, optionally mirrored horizontally (to face left).
-func _tile_h(tex: Texture2D, t: Vector2i, center: Vector2, size: float, flip: bool, mod: Color = Color(1, 1, 1)) -> void:
-	if not flip:
-		_tile(tex, t, center, size, mod)
-		return
+## Blit one 32px tile (col,row) from any LPC atlas, centered on `center`, scaled to `size` px.
+func _gtile(tex: Texture2D, t: Vector2i, center: Vector2, size: float, mod: Color = Color(1, 1, 1)) -> void:
 	if tex == null or _world_node == null:
 		return
-	_world_node.draw_set_transform(center, 0.0, Vector2(-1, 1))
 	_world_node.draw_texture_rect_region(tex,
-		Rect2(-Vector2(size, size) * 0.5, Vector2(size, size)),
-		Rect2(t.x * 17, t.y * 17, 16, 16), mod)
-	_world_node.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		Rect2(center - Vector2(size, size) * 0.5, Vector2(size, size)),
+		Rect2(t.x * L_TILE, t.y * L_TILE, L_TILE, L_TILE), mod)
+
+
+## Blit a 32px terrain tile from terrain_summer.
+func _ltile(t: Vector2i, center: Vector2, size: float, mod: Color = Color(1, 1, 1)) -> void:
+	_gtile(_lterrain, t, center, size, mod)
+
+
+## Draw an LPC building prefab (3/4 elevation) so its base sits on `feet`, sized to
+## span `world_w` world units wide (aspect preserved).
+func _building_draw(tex: Texture2D, feet: Vector2, world_w: float, mod: Color = Color(1, 1, 1)) -> void:
+	if tex == null or _world_node == null:
+		return
+	var dw := world_w * SCALE
+	var dh := dw * float(tex.get_height()) / float(tex.get_width())
+	var top_left := feet - Vector2(dw * 0.5, dh * 0.9)
+	_world_node.draw_texture_rect(tex, Rect2(top_left, Vector2(dw, dh)), false, mod)
+
+
+## Draw a tree (region from trees_summer) standing on `feet`, `h` px tall.
+func _tree_draw(reg: Rect2, feet: Vector2, h: float) -> void:
+	if _ltrees == null or _world_node == null:
+		return
+	var w := h * reg.size.x / reg.size.y
+	var top_left := feet - Vector2(w * 0.5, h * 0.88)
+	_world_node.draw_texture_rect_region(_ltrees, Rect2(top_left, Vector2(w, h)), reg)
+
+
+## Pick a building prefab for a location kind (homes vary by position hash).
+func _building_tex(kind: String, seed: float) -> Texture2D:
+	match kind:
+		"tavern": return _bld_a
+		"smithy", "granary": return _bld_b
+		"stable", "shop": return _bld_p
+		"home":
+			return [_bld_p, _bld_b, _bld_a][int(_cell_hash(int(seed * 3.0), 7) * 3.0) % 3]
+	return _bld_p
+
+
+## On-screen width (world units) for a building kind.
+func _building_w(kind: String) -> float:
+	match kind:
+		"tavern": return 6.0
+		"smithy", "granary": return 5.0
+		_: return 4.5
+
+
+## Draw an assembled LPC villager. The sheet is 256x64 (frames up,left,down,right).
+## `feet` is the ground position; the sprite stands on it. `dir` picks the facing
+## column; `h` is the on-screen sprite height in px.
+func _villager_draw(role: String, feet: Vector2, dir: int, h: float, mod: Color = Color(1, 1, 1)) -> void:
+	if _world_node == null:
+		return
+	var tex: Texture2D = _vill.get(role, _vill.get(VILLAGER_DEFAULT, null))
+	if tex == null:
+		return
+	var top_left := feet - Vector2(h * 0.5, h * 0.86)
+	_world_node.draw_texture_rect_region(tex,
+		Rect2(top_left, Vector2(h, h)),
+		Rect2(dir * 64, 0, 64, 64), mod)
+
+
+func _load_villagers() -> void:
+	for role in VILLAGER_ROLES:
+		var t: Texture2D = load("res://assets/lpc/villagers/%s.png" % role)
+		if t != null:
+			_vill[role] = t
 
 
 func _ready() -> void:
 	# crisp pixel art (no bilinear blur when the 16px tiles are scaled up)
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	get_window().title = "Realmweave Client " + CLIENT_VERSION   # version in the title bar
 	_build_world_layer()
+	_load_villagers()
 	if ProjectSettings.has_setting("network/realmweave/server_url"):
 		_server_url = ProjectSettings.get_setting("network/realmweave/server_url")
 	_ws.connect_to_url(_server_url)
@@ -156,9 +231,53 @@ func _ready() -> void:
 	_chat_input.position = Vector2(12, 58)
 	_chat_input.text_submitted.connect(_on_chat_submitted)
 	add_child(_chat_input)
+	get_window().theme = _make_ui_theme()   # nicer chat box + settings menu
 	_build_settings_ui()
 	set_process(true)
 	_maybe_setup_capture()
+
+
+## A small theme so the Control-based UI (chat box, settings menu) matches the
+## in-world HUD: dark rounded panels, gold focus, legible text.
+func _make_ui_theme() -> Theme:
+	var th := Theme.new()
+	var sb_panel := StyleBoxFlat.new()
+	sb_panel.bg_color = Color(0.07, 0.075, 0.11, 0.97)
+	sb_panel.border_color = UI_EDGE
+	sb_panel.set_border_width_all(1)
+	sb_panel.set_corner_radius_all(8)
+	sb_panel.set_content_margin_all(14)
+	th.set_stylebox("panel", "PanelContainer", sb_panel)
+
+	var sb_le := StyleBoxFlat.new()
+	sb_le.bg_color = Color(0.10, 0.11, 0.15, 0.97)
+	sb_le.border_color = Color(0.40, 0.42, 0.50)
+	sb_le.set_border_width_all(1)
+	sb_le.set_corner_radius_all(6)
+	sb_le.set_content_margin_all(8)
+	th.set_stylebox("normal", "LineEdit", sb_le)
+	var sb_le_f := sb_le.duplicate() as StyleBoxFlat
+	sb_le_f.border_color = UI_GOLD
+	th.set_stylebox("focus", "LineEdit", sb_le_f)
+	th.set_color("font_color", "LineEdit", Color(0.92, 0.93, 0.97))
+	th.set_color("font_placeholder_color", "LineEdit", Color(0.60, 0.63, 0.70))
+
+	var sb_btn := StyleBoxFlat.new()
+	sb_btn.bg_color = Color(0.16, 0.17, 0.22)
+	sb_btn.border_color = Color(0.40, 0.42, 0.50)
+	sb_btn.set_border_width_all(1)
+	sb_btn.set_corner_radius_all(6)
+	sb_btn.set_content_margin_all(8)
+	th.set_stylebox("normal", "Button", sb_btn)
+	var sb_bh := sb_btn.duplicate() as StyleBoxFlat
+	sb_bh.bg_color = Color(0.22, 0.23, 0.30)
+	sb_bh.border_color = UI_GOLD
+	th.set_stylebox("hover", "Button", sb_bh)
+	var sb_bp := sb_btn.duplicate() as StyleBoxFlat
+	sb_bp.bg_color = Color(0.12, 0.13, 0.17)
+	th.set_stylebox("pressed", "Button", sb_bp)
+	th.set_color("font_color", "Button", Color(0.90, 0.91, 0.96))
+	return th
 
 
 ## Dev/CI screenshot mode: run the client with `-- --capture=PATH [--capture-delay=SECONDS]`
@@ -167,11 +286,18 @@ func _ready() -> void:
 func _maybe_setup_capture() -> void:
 	var path := ""
 	var delay := 6.0
+	# these can be set outside capture too, to override name/conditions
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--capture="):
 			path = a.substr("--capture=".length())
 		elif a.begins_with("--capture-delay="):
 			delay = float(a.substr("--capture-delay=".length()))
+		elif a.begins_with("--player="):
+			_join_name = a.substr("--player=".length())
+		elif a.begins_with("--weather="):
+			_wx_mode = a.substr("--weather=".length())
+		elif a.begins_with("--hour="):
+			_force_hour = clamp(float(a.substr("--hour=".length())), 0.0, 24.0)
 	if path == "":
 		return
 	get_tree().create_timer(delay).timeout.connect(func() -> void:
@@ -333,6 +459,7 @@ func _process(delta: float) -> void:
 		if abs(d.x) > 0.04:
 			_facing[id] = -1 if d.x < 0.0 else 1
 		_moving[id] = d.length() > 0.05
+	_talk_target = _nearest_alive_agent()
 	_wx_time += delta
 	_update_weather(delta)
 	if not _loc_lights_built and not _locations.is_empty():
@@ -350,7 +477,7 @@ func _poll_socket() -> void:
 		if not _connected:
 			_connected = true
 			_log("Connected to " + _server_url)
-			_send({"type": "player_join", "name": "James"})
+			_send({"type": "player_join", "name": _join_name})
 		while _ws.get_available_packet_count() > 0:
 			var pkt := _ws.get_packet().get_string_from_utf8()
 			_on_message(pkt)
@@ -371,6 +498,7 @@ func _on_message(text: String) -> void:
 		return
 	match data.get("type", ""):
 		"hello":
+			_server_version = str(data.get("version", ""))
 			_locations = data.get("world", {}).get("locations", [])
 			_props = data.get("world", {}).get("props", [])
 			var cfg: Dictionary = data.get("config", {})
@@ -426,6 +554,12 @@ func _on_event(evt: Dictionary) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	# mouse wheel zooms the world in/out (works even while a text field has focus)
+	if event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
+			_zoom_by(1.12)
+		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			_zoom_by(1.0 / 1.12)
 	if not (event is InputEventKey) or not event.pressed or event.echo:
 		return
 	# while typing in any text field, keys belong to it (Esc just unfocuses)
@@ -447,6 +581,16 @@ func _input(event: InputEvent) -> void:
 			_cycle_weather()
 		KEY_L:
 			_toggle_lighting()
+		KEY_Z:
+			_zoom_by(1.15)
+		KEY_X:
+			_zoom_by(1.0 / 1.15)
+		KEY_V:
+			_show_plates = not _show_plates
+			_log("Nameplates: " + ("on" if _show_plates else "off"))
+		KEY_M:
+			_show_minimap = not _show_minimap
+			_log("Minimap: " + ("on" if _show_minimap else "off"))
 
 
 func _handle_input(delta: float) -> void:
@@ -475,7 +619,8 @@ func _handle_input(delta: float) -> void:
 	_o_down = o
 
 
-func _observe_nearest() -> void:
+## Id of the closest living villager to the player (any range), or "".
+func _nearest_alive_agent() -> String:
 	var best_id := ""
 	var best_d := 1.0e9
 	for id in _agents.keys():
@@ -486,6 +631,11 @@ func _observe_nearest() -> void:
 		if d < best_d:
 			best_d = d
 			best_id = id
+	return best_id
+
+
+func _observe_nearest() -> void:
+	var best_id := _nearest_alive_agent()
 	if best_id == "":
 		return
 	if _observe_id == best_id:
@@ -503,8 +653,20 @@ func _draw() -> void:
 	var font := ThemeDB.fallback_font
 	_draw_vignette()
 	_draw_weather()
+	if _subjective.is_empty():
+		if _show_minimap:
+			_draw_minimap(font)
+		if _show_plates:
+			_draw_inspect_card(font)
 	_draw_subjective(font)
 	_draw_hud(font)
+
+
+## A soft panel with a thin edge and top highlight, used across the HUD.
+func _panel(r: Rect2, fill: Color = UI_INK, edge: Color = UI_EDGE) -> void:
+	draw_rect(r, fill, true)
+	draw_rect(r, edge, false, 1.0)
+	draw_rect(Rect2(r.position + Vector2(1, 1), Vector2(r.size.x - 2, 1)), Color(1, 1, 1, 0.06), true)
 
 
 ## A soft edge-darkening frame over the world (above tiles, below HUD text).
@@ -527,10 +689,9 @@ func _draw_world() -> void:
 	for gx in range(cx - 40, cx + 42, gt):
 		for gy in range(cy - 30, cy + 32, gt):
 			var h := _cell_hash(gx, gy)
-			var g := 0.90 + h * 0.16                       # 0.90..1.06 lightness
-			_tile(_sheet, T_GRASS, world_to_screen(gx, gy), SCALE * 2 + 2, Color(g * 0.97, g, g * 0.85))
-			if h > 0.84:                                    # a darker tuft here and there
-				_tile(_sheet, T_GRASS, world_to_screen(gx + 0.6, gy + 0.5), SCALE * 0.85, Color(0.70, 0.80, 0.55))
+			_ltile(L_GRASS, world_to_screen(gx, gy), SCALE * 2 + 2)   # uniform lawn
+			if h > 0.94:                                    # rare, small tuft (keeps grass reading flat)
+				_ltile(L_GRASS2, world_to_screen(gx + 0.55, gy + 0.5), SCALE * 0.9)
 	# stone paths radiating from the square hub
 	var sq := _find_loc("square")
 	if not sq.is_empty():
@@ -541,10 +702,12 @@ func _draw_world() -> void:
 			var ay: float = sq.get("y", 0.0)
 			var bx: float = loc.get("x", 0.0)
 			var by: float = loc.get("y", 0.0)
-			var n := int(Vector2(bx - ax, by - ay).length() / 1.4) + 1
+			var n := int(Vector2(bx - ax, by - ay).length() / 0.85) + 1
 			for k in range(n + 1):
 				var t := float(k) / float(n)
-				_tile(_sheet, T_STONE, world_to_screen(ax + (bx - ax) * t, ay + (by - ay) * t), SCALE * 1.7, Color(1, 1, 1).lerp(Color(0.82, 0.75, 0.6), 0.15 + _cell_hash(int((ax + (bx - ax) * t) * 2.0), int((ay + (by - ay) * t) * 2.0)) * 0.3))
+				var pc := world_to_screen(ax + (bx - ax) * t, ay + (by - ay) * t)
+				var dv := 0.90 + _cell_hash(int(pc.x), int(pc.y)) * 0.12   # subtle dirt shade
+				_ltile(L_DIRT, pc, SCALE * 2.5, Color(dv, dv * 0.97, dv * 0.92))
 	# crop field patches, then buildings (top-down = roofs)
 	for loc in _locations:
 		var p := world_to_screen(loc["x"], loc["y"])
@@ -553,25 +716,23 @@ func _draw_world() -> void:
 			"field":
 				for dx in [-2, 0, 2]:
 					for dy in [-2, 0, 2]:
-						_tile(_sheet, T_FIELD, world_to_screen(loc["x"] + dx, loc["y"] + dy), SCALE * 2 + 2)
+						_gtile(_tilled, L_TILLED, world_to_screen(loc["x"] + dx, loc["y"] + dy), SCALE * 2 + 2)
 			"well":
-				_tile(_sheet, T_STONE, p, SCALE * 1.7)
-				_tile(_sheet, T_WATER, p, SCALE * 0.9)
+				_ltile(L_FLAG, p, SCALE * 2 + 2)
+				_shadow(p + Vector2(0, SCALE * 0.15), SCALE * 1.5, SCALE * 0.7)
+				_building_draw(_fountain, p, 1.8)
 			"square":
 				for dx in [-1.5, 0.0, 1.5]:
 					for dy in [-1.0, 1.0]:
-						_tile(_sheet, T_STONE, world_to_screen(loc["x"] + dx, loc["y"] + dy), SCALE * 1.6)
+						_ltile(L_FLAG, world_to_screen(loc["x"] + dx, loc["y"] + dy), SCALE * 1.7)
 			"gate":
-				_tile(_sheet, T_ROCK, p, SCALE * 1.8)
+				_ltile(L_COBBLE, p, SCALE * 2 + 2)
+				_shadow(p + Vector2(0, SCALE * 0.2), SCALE * 1.9, SCALE * 1.0)
+				_building_draw(_bld_b, p, 3.0)
 			_:
-				var r: Vector2i = ROOF.get(kind, ROOF["home"])
-				_shadow(world_to_screen(loc["x"], loc["y"] + 1.15), SCALE * 4.6, SCALE * 1.4)
-				for dx in [-1.2, 0.0, 1.2]:
-					for dy in [-0.9, 0.9]:
-						# front (lower) row sits in the building's own shadow -> darker,
-						# giving a flat roof cluster a bit of solid, 3D weight
-						var sh := 1.0 if dy < 0.0 else 0.68
-						_tile(_sheet, r, world_to_screen(loc["x"] + dx, loc["y"] + dy), SCALE * 1.5 + 2, Color(sh, sh, sh))
+				# wide ground-contact shadow so the building rests on the terrain, not floats
+				_shadow(p + Vector2(0, SCALE * 0.15), _building_w(kind) * SCALE * 0.62, SCALE * 1.25)
+				_building_draw(_building_tex(kind, loc["x"]), p, _building_w(kind))
 		if kind != "field":
 			_label(_world_node, font, p + Vector2(-40, 28), loc.get("name", ""), 9, Color(0.9, 0.88, 0.78), HORIZONTAL_ALIGNMENT_CENTER, 80)
 	# decorative scenery
@@ -593,14 +754,22 @@ func _draw_world() -> void:
 			_shadow(p + Vector2(0, SCALE * 0.55), SCALE * 1.5, SCALE * 0.55)
 		if a.get("wanted", false):
 			_world_node.draw_arc(p - Vector2(0, SCALE * 0.3), SCALE * 1.4, 0, TAU, 20, Color(0.85, 0.3, 0.3), 2.0)
-		var ctile: Vector2i = ROLE_TILE.get(a.get("role", ""), Vector2i(0, 0))
+		# pulsing golden ring under the villager the chat box will address
+		if alive and id == _talk_target:
+			var pulse := 0.5 + 0.5 * sin(_wx_time * 4.0)
+			_world_node.draw_set_transform(p + Vector2(0, SCALE * 0.5), 0.0, Vector2(1.0, 0.5))
+			_world_node.draw_arc(Vector2.ZERO, SCALE * (0.9 + 0.12 * pulse), 0, TAU, 28,
+				Color(UI_GOLD.r, UI_GOLD.g, UI_GOLD.b, 0.35 + 0.45 * pulse), 2.5)
+			_world_node.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		var vrole: String = a.get("role", "")
+		var vdir := 2                                   # front/down when idle
+		if _moving.get(id, false):
+			vdir = 1 if int(_facing.get(id, 1)) < 0 else 3
 		var bob := (sin(_wx_time * 9.0 + p.x * 0.05) * SCALE * 0.08) if _moving.get(id, false) else 0.0
 		if alive:
-			_tile_h(_chars, ctile, p - Vector2(0, SCALE * 0.3 + bob), SCALE * 2.4, int(_facing.get(id, 1)) < 0)
+			_villager_draw(vrole, p - Vector2(0, bob), vdir, SCALE * 3.0)
 		else:
-			_world_node.draw_texture_rect_region(_chars,
-				Rect2(p - Vector2(0, SCALE * 0.3) - Vector2(SCALE * 1.2, SCALE * 1.2), Vector2(SCALE * 2.4, SCALE * 2.4)),
-				Rect2(ctile.x * 17, ctile.y * 17, 16, 16), Color(1, 1, 1, 0.45))
+			_villager_draw(vrole, p, 2, SCALE * 3.0, Color(1, 1, 1, 0.45))
 		var nm: String = a.get("name", "") if alive else str(a.get("name", "")) + " +"
 		_label(_world_node, font, p + Vector2(-40, -SCALE * 1.5), nm, 10, Color(0.96, 0.96, 1.0), HORIZONTAL_ALIGNMENT_CENTER, 80)
 		var say: String = a.get("say", "")
@@ -614,8 +783,10 @@ func _draw_world() -> void:
 	for pl in _players:
 		var p := world_to_screen(pl.get("x", 0), pl.get("y", 0))
 		_shadow(p + Vector2(0, SCALE * 0.55), SCALE * 1.6, SCALE * 0.6)
-		var pf: bool = _player_facing < 0 if pl.get("id", "") == _player_id else false
-		_tile_h(_chars, Vector2i(1, 11), p - Vector2(0, SCALE * 0.3), SCALE * 2.5, pf)
+		var pdir := 2
+		if pl.get("id", "") == _player_id:
+			pdir = 1 if _player_facing < 0 else 3
+		_villager_draw("Player", p, pdir, SCALE * 3.1)
 		_label(_world_node, font, p + Vector2(-40, -SCALE * 1.5), pl.get("name", "You"), 10, Color(0.6, 0.92, 1.0), HORIZONTAL_ALIGNMENT_CENTER, 80)
 
 	# In immediate mode, the flat tint + glow fallback is drawn here on the world layer.
@@ -636,14 +807,15 @@ func _draw_props() -> void:
 		var p := world_to_screen(pr.get("x", 0), pr.get("y", 0))
 		match pr.get("kind", ""):
 			"tree":
-				_shadow(p + Vector2(0, SCALE * 0.7), SCALE * 1.7, SCALE * 0.6)
-				_tile(_sheet, T_TREE if i % 2 == 0 else T_PINE, p - Vector2(0, SCALE * 0.4), SCALE * 2.6)
+				_shadow(p + Vector2(0, SCALE * 0.15), SCALE * 1.8, SCALE * 0.55)
+				_tree_draw(TREE_REG if i % 2 == 0 else PINE_REG, p, SCALE * 3.4)
 			"rock":
-				_tile(_sheet, T_ROCK, p, SCALE * 1.4)
+				_world_node.draw_circle(p, SCALE * 0.55, Color(0.40, 0.40, 0.45))
+				_world_node.draw_circle(p - Vector2(SCALE * 0.15, SCALE * 0.12), SCALE * 0.32, Color(0.55, 0.55, 0.60))
 			"pond":
 				for dx in [-3, -1, 1, 3]:
 					for dy in [-2, 0, 2]:
-						_tile(_sheet, T_WATER, world_to_screen(pr.get("x", 0) + dx, pr.get("y", 0) + dy), SCALE * 2 + 2)
+						_ltile(L_WATER, world_to_screen(pr.get("x", 0) + dx, pr.get("y", 0) + dy), SCALE * 2 + 2)
 		i += 1
 
 
@@ -785,6 +957,14 @@ func _toggle_lighting() -> void:
 	_log("Lighting: " + _lighting + ("  (real Light2D)" if _lighting == "lights2d" else "  (immediate glow)"))
 
 
+## Zoom the world view. `f` > 1 zooms in, < 1 zooms out; clamped to a sane range.
+## Everything keys off SCALE (positions and sprite sizes), so this scales the whole
+## scene uniformly around the camera.
+func _zoom_by(f: float) -> void:
+	SCALE = clamp(SCALE * f, ZOOM_MIN, ZOOM_MAX)
+	_log("Zoom: %.0f%%" % (SCALE / BASE_SCALE * 100.0))
+
+
 ## 0 = full day, 1 = deep night; smooth dawn/dusk shoulders.
 func _night_amount(h: float) -> float:
 	if h >= 21.0 or h < 5.0:
@@ -832,6 +1012,7 @@ func _update_lighting(_delta: float) -> void:
 	for pl in _loc_lights:
 		var src: Dictionary = pl.get_meta("src")
 		pl.position = world_to_screen(src["x"], src["y"])   # follow the camera
+		pl.texture_scale = max(0.25, float(src["r"]) * SCALE * 2.0 / 256.0)   # scale with zoom
 		if not on:
 			pl.energy = 0.0
 			continue
@@ -841,10 +1022,13 @@ func _update_lighting(_delta: float) -> void:
 		pl.energy = n * float(src["base"]) * 1.25 * max(0.3, fl)
 	if _player_light:
 		_player_light.position = world_to_screen(_player_pos.x, _player_pos.y)
+		_player_light.texture_scale = 1.5 * SCALE / BASE_SCALE   # scale with zoom
 		_player_light.energy = lerp(0.0, 0.7, n) if on else 0.0
 
 
 func _clock_hours() -> float:
+	if _force_hour >= 0.0:
+		return _force_hour
 	if not _clock.is_empty():
 		var s := str(_clock.get("hhmm", ""))
 		if ":" in s:
@@ -885,13 +1069,16 @@ func _light_sources() -> Array:
 	var out: Array = []
 	for l in _locations:
 		match l.get("kind", ""):
-			"smithy": out.append({"x": l["x"], "y": l["y"] - 0.3, "r": 5.5, "c": Color(1.0, 0.55, 0.18), "amp": 0.35, "sp": 9.0, "base": 1.0})
-			"tavern": out.append({"x": l["x"], "y": l["y"], "r": 5.0, "c": Color(1.0, 0.77, 0.38), "amp": 0.14, "sp": 5.0, "base": 0.9})
-			"square": out.append({"x": l["x"], "y": l["y"], "r": 4.6, "c": Color(1.0, 0.82, 0.59), "amp": 0.10, "sp": 4.0, "base": 0.85})
-			"well": out.append({"x": l["x"], "y": l["y"], "r": 3.6, "c": Color(1.0, 0.80, 0.55), "amp": 0.10, "sp": 4.0, "base": 0.7})
-			"gate": out.append({"x": l["x"], "y": l["y"], "r": 3.6, "c": Color(1.0, 0.78, 0.55), "amp": 0.12, "sp": 4.0, "base": 0.7})
-			"shop": out.append({"x": l["x"], "y": l["y"], "r": 3.8, "c": Color(1.0, 0.78, 0.47), "amp": 0.12, "sp": 5.0, "base": 0.7})
-			"home": out.append({"x": l["x"], "y": l["y"], "r": 3.0, "c": Color(1.0, 0.71, 0.43), "amp": 0.10, "sp": 3.0, "base": 0.55})
+			# lights sit at the building FRONT (y + ~0.5, where the door/windows are, in
+			# front of the sprite) with tighter radii, so they read as spill from a
+			# doorway/window rather than a big blob engulfing the whole structure.
+			"smithy": out.append({"x": l["x"], "y": l["y"] + 0.5, "r": 3.0, "c": Color(1.0, 0.52, 0.16), "amp": 0.35, "sp": 9.0, "base": 0.9})
+			"tavern": out.append({"x": l["x"], "y": l["y"] + 0.6, "r": 2.8, "c": Color(1.0, 0.74, 0.36), "amp": 0.14, "sp": 5.0, "base": 0.8})
+			"square": out.append({"x": l["x"], "y": l["y"], "r": 3.6, "c": Color(1.0, 0.82, 0.59), "amp": 0.10, "sp": 4.0, "base": 0.7})
+			"well": out.append({"x": l["x"], "y": l["y"] + 0.3, "r": 2.0, "c": Color(1.0, 0.80, 0.55), "amp": 0.10, "sp": 4.0, "base": 0.55})
+			"gate": out.append({"x": l["x"], "y": l["y"] + 0.5, "r": 2.4, "c": Color(1.0, 0.78, 0.55), "amp": 0.12, "sp": 4.0, "base": 0.6})
+			"shop": out.append({"x": l["x"], "y": l["y"] + 0.6, "r": 2.4, "c": Color(1.0, 0.78, 0.47), "amp": 0.12, "sp": 5.0, "base": 0.6})
+			"home": out.append({"x": l["x"], "y": l["y"] + 0.6, "r": 2.0, "c": Color(1.0, 0.71, 0.43), "amp": 0.10, "sp": 3.0, "base": 0.45})
 	return out
 
 
@@ -1015,28 +1202,117 @@ func _draw_bubble(font: Font, p: Vector2, text: String) -> void:
 	_world_node.draw_string(font, box.position + Vector2(5, 13), t, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.9, 0.9, 0.95))
 
 
+## Corner minimap: locations coloured by kind, living villagers as dots, the
+## player highlighted. Toggle with M.
+func _draw_minimap(font: Font) -> void:
+	if _locations.is_empty():
+		return
+	var vp := get_viewport_rect().size
+	var sz := 156.0
+	var rect := Rect2(vp.x - sz - 10.0, 10.0, sz, sz)
+	_panel(rect)
+	draw_string(font, rect.position + Vector2(8, 14), "Oakhollow", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, UI_GOLD)
+	var minx := 1.0e9
+	var miny := 1.0e9
+	var maxx := -1.0e9
+	var maxy := -1.0e9
+	for loc in _locations:
+		minx = min(minx, float(loc.get("x", 0.0)))
+		maxx = max(maxx, float(loc.get("x", 0.0)))
+		miny = min(miny, float(loc.get("y", 0.0)))
+		maxy = max(maxy, float(loc.get("y", 0.0)))
+	minx -= 4.0; miny -= 4.0; maxx += 4.0; maxy += 4.0
+	var spanx := maxf(1.0, maxx - minx)
+	var spany := maxf(1.0, maxy - miny)
+	var inner := Rect2(rect.position + Vector2(8.0, 22.0), rect.size - Vector2(16.0, 30.0))
+	for loc in _locations:
+		var c: Color = KIND_COLORS.get(loc.get("kind", ""), Color(0.6, 0.6, 0.65))
+		var mx := inner.position.x + (float(loc.get("x", 0.0)) - minx) / spanx * inner.size.x
+		var my := inner.position.y + (float(loc.get("y", 0.0)) - miny) / spany * inner.size.y
+		draw_rect(Rect2(mx - 1.5, my - 1.5, 3.0, 3.0), c, true)
+	for id in _agents.keys():
+		var a: Dictionary = _agents[id]
+		if not a.get("alive", true):
+			continue
+		var mx := inner.position.x + (float(a.get("x", 0.0)) - minx) / spanx * inner.size.x
+		var my := inner.position.y + (float(a.get("y", 0.0)) - miny) / spany * inner.size.y
+		var col := Color(0.80, 0.82, 0.88)
+		if a.get("wanted", false):
+			col = Color(0.9, 0.35, 0.35)
+		if id == _talk_target:
+			col = UI_GOLD
+		draw_circle(Vector2(mx, my), 1.7, col)
+	var px := inner.position.x + (_player_pos.x - minx) / spanx * inner.size.x
+	var py := inner.position.y + (_player_pos.y - miny) / spany * inner.size.y
+	draw_circle(Vector2(px, py), 2.6, Color(0.55, 0.92, 1.0))
+	draw_arc(Vector2(px, py), 4.2, 0.0, TAU, 16, Color(0.55, 0.92, 1.0, 0.6), 1.0)
+
+
+## Inspect card for the nearest villager (name, role, activity, health, coin)
+## plus a floating "press Enter to speak" tag when in range. Toggle with V.
+func _draw_inspect_card(font: Font) -> void:
+	if _talk_target == "" or not _agents.has(_talk_target):
+		return
+	var a: Dictionary = _agents[_talk_target]
+	if not a.get("alive", true):
+		return
+	var vp := get_viewport_rect().size
+	var dist := Vector2(float(a.get("x", 0.0)) - _player_pos.x, float(a.get("y", 0.0)) - _player_pos.y).length()
+	if dist <= TALK_RANGE:
+		var sp: Vector2 = _render_pos.get(_talk_target, world_to_screen(a.get("x", 0), a.get("y", 0)))
+		var tag := "Press Enter to speak"
+		var tw := float(tag.length()) * 6.0 + 14.0
+		var tr := Rect2(sp + Vector2(-tw * 0.5, -SCALE * 2.3), Vector2(tw, 18.0))
+		_panel(tr, Color(0.06, 0.06, 0.09, 0.92))
+		draw_string(font, tr.position + Vector2(7, 13), tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, UI_GOLD)
+	var w := 196.0
+	var x := vp.x - w - 10.0
+	var y := 176.0 if _show_minimap else 10.0
+	var h := 92.0
+	_panel(Rect2(x, y, w, h))
+	var nm := str(a.get("name", "?"))
+	draw_string(font, Vector2(x + 10, y + 18), nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.96, 0.96, 1.0))
+	var sub_t := "%s  -  %s" % [str(a.get("role", "")), str(a.get("activity", ""))]
+	draw_string(font, Vector2(x + 10, y + 34), sub_t, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.72, 0.78, 0.85))
+	var hp := clampf(float(a.get("health", 1.0)), 0.0, 1.0)
+	var bx := x + 10.0
+	var by := y + 44.0
+	var bw := w - 20.0
+	draw_rect(Rect2(bx, by, bw, 7.0), Color(0, 0, 0, 0.45), true)
+	draw_rect(Rect2(bx, by, bw * hp, 7.0), Color(0.85, 0.3, 0.3).lerp(Color(0.45, 0.8, 0.4), hp), true)
+	draw_rect(Rect2(bx, by, bw, 7.0), Color(0, 0, 0, 0.5), false, 1.0)
+	draw_string(font, Vector2(bx, by + 20), "Health %d%%" % int(round(hp * 100.0)), HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(0.8, 0.82, 0.88))
+	draw_string(font, Vector2(bx + 96, by + 20), "%d coin" % int(a.get("coin", 0)), HORIZONTAL_ALIGNMENT_LEFT, -1, 9, UI_GOLD)
+	if a.get("wanted", false):
+		draw_string(font, Vector2(x + w - 58, y + 18), "WANTED", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.92, 0.36, 0.36))
+
+
 func _draw_hud(font: Font) -> void:
-	# clock panel
-	draw_rect(Rect2(10, 10, 300, 40), Color(0.05, 0.05, 0.08, 0.85), true)
+	var vp := get_viewport_rect().size
+	_panel(Rect2(10, 10, 320, 46))
+	draw_circle(Vector2(24, 24), 4.0, Color(0.45, 0.82, 0.5) if _connected else Color(0.85, 0.45, 0.4))
+	draw_string(font, Vector2(36, 27), "Realmweave - Oakhollow", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, UI_GOLD)
+	var ver := CLIENT_VERSION + ("  |  server " + _server_version if _server_version != "" else "")
+	draw_string(font, Vector2(10, 46), ver, HORIZONTAL_ALIGNMENT_RIGHT, 316, 10, Color(0.6, 0.62, 0.7))
 	var stamp := "Connecting..."
 	if not _clock.is_empty():
 		stamp = "Day %d  %s  %s  (%s)" % [_clock.get("day_index", 0), _clock.get("day_name", ""), _clock.get("hhmm", ""), _clock.get("part_of_day", "")]
-	draw_string(font, Vector2(20, 27), "Realmweave - Oakhollow", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.9, 0.85, 0.6))
-	draw_string(font, Vector2(20, 44), stamp, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.75, 0.8, 0.85))
-	# speed readout
+	draw_string(font, Vector2(20, 47), stamp, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.75, 0.8, 0.85))
 	var spd := "PAUSED" if _paused else "%sx  (%.0f min/s)" % [str(_time_scale), _game_min_per_sec]
 	var spd_col := Color(0.95, 0.6, 0.5) if _paused else Color(0.6, 0.85, 0.7)
-	draw_string(font, Vector2(230, 27), spd, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, spd_col)
-
-	# event log panel (bottom)
-	var vp := get_viewport_rect().size
-	draw_rect(Rect2(10, vp.y - 130, vp.x - 20, 120), Color(0.05, 0.05, 0.08, 0.8), true)
-	var y := vp.y - 116
-	for line in _events.slice(max(0, _events.size() - 7), _events.size()):
-		draw_string(font, Vector2(20, y), line, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.8, 0.8, 0.85))
+	draw_string(font, Vector2(234, 47), spd, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, spd_col)
+	var hint := "WASD move   Enter talk   O eyes   V plates   M map   R weather   L light   wheel/Z-X zoom   -/+ speed   Space pause   Esc menu"
+	var hy := vp.y - 150.0
+	_panel(Rect2(10, hy, vp.x - 20, 20))
+	draw_string(font, Vector2(18, hy + 14), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.62, 0.66, 0.74))
+	_panel(Rect2(10, vp.y - 126, vp.x - 20, 116))
+	var lines := _events.slice(max(0, _events.size() - 7), _events.size())
+	var n := lines.size()
+	var y := vp.y - 112.0
+	for i in range(n):
+		var fade := 0.5 + 0.5 * (float(i + 1) / float(max(1, n)))
+		draw_string(font, Vector2(20, y), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.82, 0.83, 0.88, fade))
 		y += 16
-	draw_string(font, Vector2(vp.x - 470, 27), "WASD · O: eyes · R: weather · L: light · -/+ speed · Space pause · Esc",
-		HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.6, 0.6, 0.65))
 
 
 func _log(msg: String) -> void:

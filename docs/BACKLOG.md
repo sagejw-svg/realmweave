@@ -74,6 +74,17 @@ Legend: [ ] todo · [~] in progress · [x] done
 - [ ] **Optional higher-fidelity art pass.** If we want painted scenes rather
       than vector/tile art, use an image generator (see Tooling). Log every
       asset in `ASSETS.md` with its license. Effort: varies
+- [ ] **Architecture-aware night lighting.** Lights are radial `PointLight2D`
+      blobs that pass straight through walls/roofs. Add `LightOccluder2D` polygons
+      to building sprites so light is blocked by geometry, and shape the emitters
+      to windows/doors (rectangular, warm near source) instead of pure circles.
+      Effort: L
+- [ ] **Building/character depth sort.** Buildings are drawn before all villagers,
+      so a villager standing *behind* a building still overlaps it. Y-sort
+      buildings and characters together (or use a real `YSort`/`y_sort_enabled`)
+      so depth reads correctly. Effort: M
+- [ ] **Anchor building labels to the structure base** rather than floating; avoid
+      overlap with light pools and path edges. Effort: S
 
 ## UI and UX
 
@@ -83,6 +94,10 @@ Legend: [ ] todo · [~] in progress · [x] done
       same labeling, so a single NPC's needs are readable. Effort: S
 - [ ] **Player-facing "what do I need" panel** for an embodied player character
       (once player needs are modeled). Effort: M
+- [ ] **Event log panel: scroll bars + pause/play.** The in-client event log
+      (bottom panel in `Main.gd`) currently shows only the last few lines and
+      auto-scrolls. Add a scroll bar to page back through the history and a
+      pause/resume toggle so the stream can be frozen while reading. Effort: M
 
 ## Tooling
 
