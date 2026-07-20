@@ -67,6 +67,15 @@ var _subjective: Dictionary = {}     # 'through their eyes' view of the observed
 var _observe_id := ""
 var _o_down := false
 
+# --- character overview panel (scrollable, tag-filterable memories) ---
+var _char_layer: CanvasLayer
+var _char_title: Label
+var _char_sub: Label
+var _mem_chip_box: HFlowContainer
+var _mem_list: VBoxContainer
+var _mem_tags: Dictionary = {}       # tag -> selected (bool); drives the memory filter
+var _mem_sig := 0                    # signature of the shown memory log (rebuild only on change)
+
 # live time control (server-authoritative; the client just requests changes)
 var _time_scale := 1.0
 var _game_min_per_sec := 0.0
@@ -233,6 +242,7 @@ func _ready() -> void:
 	add_child(_chat_input)
 	get_window().theme = _make_ui_theme()   # nicer chat box + settings menu
 	_build_settings_ui()
+	_build_char_ui()
 	set_process(true)
 	_maybe_setup_capture()
 
@@ -543,6 +553,7 @@ func _on_message(text: String) -> void:
 				_log("%s [%s]: \"%s\"" % [nm, data.get("outcome", "?"), data.get("reaction", "")])
 		"subjective":
 			_subjective = data
+			_refresh_char_panel()
 
 
 func _on_event(evt: Dictionary) -> void:
@@ -641,10 +652,169 @@ func _observe_nearest() -> void:
 	if _observe_id == best_id:
 		_observe_id = ""
 		_subjective = {}
+		if _char_layer:
+			_char_layer.visible = false
 		_send({"type": "stop_observe"})
 	else:
 		_observe_id = best_id
 		_send({"type": "observe", "agent_id": best_id})
+
+
+## The character overview panel: a header plus a scrollable, tag-filterable memory
+## list. Built once; populated whenever a 'subjective' payload arrives.
+func _build_char_ui() -> void:
+	_char_layer = CanvasLayer.new()
+	_char_layer.layer = 9
+	_char_layer.visible = false
+	add_child(_char_layer)
+
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	panel.offset_left = -336; panel.offset_right = -12
+	panel.offset_top = 58; panel.offset_bottom = 560
+	_char_layer.add_child(panel)
+
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 6)
+	panel.add_child(vb)
+
+	var head := HBoxContainer.new()
+	_char_title = Label.new()
+	_char_title.add_theme_font_size_override("font_size", 18)
+	_char_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(_char_title)
+	var close := Button.new()
+	close.text = "x"
+	close.pressed.connect(_close_char_panel)
+	head.add_child(close)
+	vb.add_child(head)
+
+	_char_sub = Label.new()
+	_char_sub.add_theme_font_size_override("font_size", 11)
+	_char_sub.modulate = Color(0.72, 0.76, 0.85)
+	vb.add_child(_char_sub)
+
+	var mh := Label.new()
+	mh.text = "Memories"
+	mh.add_theme_font_size_override("font_size", 13)
+	mh.modulate = UI_GOLD
+	vb.add_child(mh)
+
+	_mem_chip_box = HFlowContainer.new()
+	_mem_chip_box.add_theme_constant_override("h_separation", 4)
+	_mem_chip_box.add_theme_constant_override("v_separation", 4)
+	vb.add_child(_mem_chip_box)
+
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.custom_minimum_size = Vector2(312, 360)
+	vb.add_child(scroll)
+	_mem_list = VBoxContainer.new()
+	_mem_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_mem_list.add_theme_constant_override("separation", 4)
+	scroll.add_child(_mem_list)
+
+
+## Populate the panel from the current _subjective payload and show it.
+func _refresh_char_panel() -> void:
+	if _char_layer == null:
+		return
+	var ag: Dictionary = _subjective.get("agent", {})
+	_char_title.text = str(ag.get("name", "?"))
+	_char_sub.text = "%s  ·  %s  ·  %s" % [ag.get("role", ""),
+		_subjective.get("where", ""), _subjective.get("mood", "")]
+	_char_layer.visible = true
+	# The server re-streams the subjective ~4x/sec; only rebuild the chips + list
+	# (which hold scroll position and tag selection) when the memories actually change.
+	var log: Array = _subjective.get("memory_log", [])
+	var blob := ""
+	for m in log:
+		blob += str(m.get("at", 0)) + str(m.get("text", ""))
+	var sig := blob.hash()
+	if sig == _mem_sig:
+		return
+	_mem_sig = sig
+	var keep: Dictionary = {}
+	for m in log:
+		for t in m.get("tags", []):
+			keep[t] = _mem_tags.get(t, false)   # preserve selection across refreshes
+	_mem_tags = keep
+	_build_mem_chips()
+	_rebuild_mem_list()
+
+
+func _build_mem_chips() -> void:
+	for c in _mem_chip_box.get_children():
+		c.queue_free()
+	var tags: Array = _mem_tags.keys()
+	tags.sort()
+	for t in tags:
+		var b := Button.new()
+		b.toggle_mode = true
+		b.button_pressed = _mem_tags[t]
+		b.text = str(t)
+		b.add_theme_font_size_override("font_size", 11)
+		b.toggled.connect(_on_chip_toggled.bind(t))
+		_mem_chip_box.add_child(b)
+
+
+func _close_char_panel() -> void:
+	if _observe_id != "":
+		_observe_nearest()
+
+
+func _on_chip_toggled(on: bool, tag) -> void:
+	_mem_tags[tag] = on
+	_rebuild_mem_list()
+
+
+func _rebuild_mem_list() -> void:
+	for c in _mem_list.get_children():
+		c.queue_free()
+	var selected: Array = []
+	for t in _mem_tags:
+		if _mem_tags[t]:
+			selected.append(t)
+	var log: Array = _subjective.get("memory_log", [])
+	var shown := 0
+	for m in log:
+		var mt: Array = m.get("tags", [])
+		var ok := selected.is_empty()
+		if not ok:
+			for t in selected:
+				if t in mt:
+					ok = true
+					break
+		if not ok:
+			continue
+		_mem_list.add_child(_mem_row(m))
+		shown += 1
+	if shown == 0:
+		var empty := Label.new()
+		empty.text = "No memories match those tags."
+		empty.modulate = Color(0.6, 0.62, 0.7)
+		_mem_list.add_child(empty)
+
+
+func _mem_row(m: Dictionary) -> Control:
+	var row := VBoxContainer.new()
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var txt := Label.new()
+	txt.text = str(m.get("text", ""))
+	txt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	txt.custom_minimum_size = Vector2(300, 0)
+	txt.add_theme_font_size_override("font_size", 12)
+	row.add_child(txt)
+	var meta := Label.new()
+	var tags: Array = m.get("tags", [])
+	meta.text = "· " + " · ".join(PackedStringArray(tags))
+	meta.add_theme_font_size_override("font_size", 10)
+	meta.modulate = Color(0.62, 0.66, 0.78)
+	row.add_child(meta)
+	var sep := HSeparator.new()
+	row.add_child(sep)
+	return row
 
 
 ## Overlays only. The world (tiles, sprites, lamps) is drawn on _world_node in a
@@ -658,7 +828,8 @@ func _draw() -> void:
 			_draw_minimap(font)
 		if _show_plates:
 			_draw_inspect_card(font)
-	_draw_subjective(font)
+	# the observed agent's overview now lives in the _char_layer Control panel
+	# (scrollable, tag-filterable memories), so no immediate-mode subjective draw.
 	_draw_hud(font)
 
 

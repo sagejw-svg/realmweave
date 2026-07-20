@@ -29,6 +29,40 @@ def mood_of(agent) -> str:
     return "even-keeled"
 
 
+# Topic tags derived from the words in a memory. Order is priority; a memory can
+# carry several. These are the clickable filter chips in the character overview.
+_TOPIC_TAGS = [
+    ("death", ("died", "death", "buried", "grief", "killed", "slain")),
+    ("gift", ("gift", "gave", "shared a", "generous")),
+    ("help", ("helped", "aided", "saved", "mended", "healed", "carried")),
+    ("conflict", ("argued", "stole", "struck", "threatened", "wronged", "fought", "crime", "insult")),
+    ("trade", ("bought", "sold", "traded", "paid", "coin", "market", "price", "wage")),
+    ("work", ("harvest", "forge", "mined", "tended", "hauled", "crafted", "worked", "field")),
+    ("rumor", ("heard", "told me", "rumor", "gossip", "word is", "they say")),
+    ("gods", ("gods", "divine", "prayed", "blessed", "the heavens")),
+    ("threat", ("wanted", "bounty", "guard", "pursued", "caught")),
+]
+
+
+def _memory_tags(text: str, kind: str, people: list, places: list) -> list:
+    """Derive clickable filter tags for a memory: its kind, topic keywords, and
+    the people/places it names. Kept deterministic and cheap (no LLM)."""
+    tags = set()
+    if kind and kind != "observation":
+        tags.add(kind)
+    low = text.lower()
+    for tag, keys in _TOPIC_TAGS:
+        if any(k in low for k in keys):
+            tags.add(tag)
+    for name in people:
+        if name and name.lower() in low:
+            tags.add(name)
+    for place in places:
+        if place and place.lower() in low:
+            tags.add(place)
+    return sorted(tags)
+
+
 def build_subjective(sim, agent) -> dict:
     night = sim.clock.is_night
 
@@ -51,9 +85,21 @@ def build_subjective(sim, agent) -> dict:
 
     context = agent.activity + " " + " ".join(s["name"] for s in seen[:3])
     memories = []
+    memory_log = []
     if agent.memory is not None:
         memories = [{"text": m.text, "importance": m.importance}
                     for m in agent.memory.retrieve(context or "today", sim.clock.minutes, k=4)]
+        # a fuller, tagged memory log for the character overview's filterable list
+        people = [a.name for a in sim.agents.values()]
+        places = [l.name for l in sim.world.locations.values()]
+        recent = sorted(agent.memory.entries, key=lambda e: e.created_at, reverse=True)[:60]
+        memory_log = [{
+            "text": m.text,
+            "importance": round(m.importance, 1),
+            "kind": m.kind,
+            "at": m.created_at,
+            "tags": _memory_tags(m.text, m.kind, people, places),
+        } for m in recent]
 
     self_notes = []
     if agent.wanted > 0:
@@ -84,6 +130,7 @@ def build_subjective(sim, agent) -> dict:
         "goal_step": (agent.goal.current_step.name if (agent.goal and agent.goal.current_step) else ""),
         "seen": seen,
         "memories": memories,
+        "memory_log": memory_log,
         "self_notes": self_notes,
         "needs": {
             "energy": round(agent.energy.value, 2),
