@@ -87,6 +87,9 @@ const TALK_RANGE := 6.0            # world units within which "press Enter to sp
 const UI_GOLD := Color(0.86, 0.74, 0.42)
 const UI_INK := Color(0.05, 0.055, 0.085, 0.86)
 const UI_EDGE := Color(0.62, 0.55, 0.35, 0.85)
+# Client build version, shown in the HUD so you can tell which build is running.
+# Bump this whenever the client art/behaviour changes meaningfully.
+const CLIENT_VERSION := "v0.2.0-lpc"
 
 const KIND_COLORS := {
 	"tavern": Color(0.72, 0.45, 0.20),
@@ -1256,6 +1259,7 @@ func _draw_hud(font: Font) -> void:
 	_panel(Rect2(10, 10, 320, 46))
 	draw_circle(Vector2(24, 24), 4.0, Color(0.45, 0.82, 0.5) if _connected else Color(0.85, 0.45, 0.4))
 	draw_string(font, Vector2(36, 27), "Realmweave - Oakhollow", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, UI_GOLD)
+	draw_string(font, Vector2(10, 46), CLIENT_VERSION, HORIZONTAL_ALIGNMENT_RIGHT, 316, 10, Color(0.6, 0.62, 0.7))
 	var stamp := "Connecting..."
 	if not _clock.is_empty():
 		stamp = "Day %d  %s  %s  (%s)" % [_clock.get("day_index", 0), _clock.get("day_name", ""), _clock.get("hhmm", ""), _clock.get("part_of_day", "")]
