@@ -129,6 +129,23 @@ const ROLE_TILE := {
 }
 const ROLE_TILE_DEFAULT := Vector2i(1, 0)   # plain villager for any unmapped role
 
+# --- LPC Revised art (OGA-BY 3.0). 32px terrain atlas + assembled 64px villagers.
+# See ASSETS.md / docs/ART.md. Terrain tiles are (col,row) in a 16x26 grid.
+var _lterrain: Texture2D = load("res://assets/lpc/terrain/terrain_summer.png")
+var _ltrees: Texture2D = load("res://assets/lpc/terrain/trees_summer.png")
+const L_TILE := 32
+const L_GRASS := Vector2i(1, 1)      # solid grass
+const L_GRASS2 := Vector2i(1, 4)     # tufted grass (variation)
+const L_DIRT := Vector2i(4, 1)       # dirt / worn path
+const L_COBBLE := Vector2i(10, 3)    # cobblestone
+const L_FLAG := Vector2i(10, 1)      # pale flagstone (plaza)
+const L_WATER := Vector2i(14, 16)    # solid water
+# Assembled per-role villager sheets (256x64 = 4 frames: up,left,down,right).
+const VILLAGER_ROLES := ["Blacksmith", "Herbalist", "Tavernkeeper", "Farmer",
+	"Stable hand", "Gate guard", "Street sweeper", "Errand child", "Player"]
+const VILLAGER_DEFAULT := "Stable hand"
+var _vill: Dictionary = {}           # role -> Texture2D
+
 
 ## Blit one 16x16 tile from a Kenney sheet, centered on `center`, scaled to `size` px.
 ## Drawn on the world layer so lighting affects it.
@@ -160,10 +177,42 @@ func _tile_h(tex: Texture2D, t: Vector2i, center: Vector2, size: float, flip: bo
 	_world_node.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
+## Blit one 32px LPC terrain tile (col,row), centered on `center`, scaled to `size` px.
+func _ltile(t: Vector2i, center: Vector2, size: float, mod: Color = Color(1, 1, 1)) -> void:
+	if _lterrain == null or _world_node == null:
+		return
+	_world_node.draw_texture_rect_region(_lterrain,
+		Rect2(center - Vector2(size, size) * 0.5, Vector2(size, size)),
+		Rect2(t.x * L_TILE, t.y * L_TILE, L_TILE, L_TILE), mod)
+
+
+## Draw an assembled LPC villager. The sheet is 256x64 (frames up,left,down,right).
+## `feet` is the ground position; the sprite stands on it. `dir` picks the facing
+## column; `h` is the on-screen sprite height in px.
+func _villager_draw(role: String, feet: Vector2, dir: int, h: float, mod: Color = Color(1, 1, 1)) -> void:
+	if _world_node == null:
+		return
+	var tex: Texture2D = _vill.get(role, _vill.get(VILLAGER_DEFAULT, null))
+	if tex == null:
+		return
+	var top_left := feet - Vector2(h * 0.5, h * 0.86)
+	_world_node.draw_texture_rect_region(tex,
+		Rect2(top_left, Vector2(h, h)),
+		Rect2(dir * 64, 0, 64, 64), mod)
+
+
+func _load_villagers() -> void:
+	for role in VILLAGER_ROLES:
+		var t: Texture2D = load("res://assets/lpc/villagers/%s.png" % role)
+		if t != null:
+			_vill[role] = t
+
+
 func _ready() -> void:
 	# crisp pixel art (no bilinear blur when the 16px tiles are scaled up)
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_build_world_layer()
+	_load_villagers()
 	if ProjectSettings.has_setting("network/realmweave/server_url"):
 		_server_url = ProjectSettings.get_setting("network/realmweave/server_url")
 	_ws.connect_to_url(_server_url)
@@ -621,10 +670,10 @@ func _draw_world() -> void:
 	for gx in range(cx - 40, cx + 42, gt):
 		for gy in range(cy - 30, cy + 32, gt):
 			var h := _cell_hash(gx, gy)
-			var g := 0.90 + h * 0.16                       # 0.90..1.06 lightness
-			_tile(_sheet, T_GRASS, world_to_screen(gx, gy), SCALE * 2 + 2, Color(g * 0.97, g, g * 0.85))
-			if h > 0.84:                                    # a darker tuft here and there
-				_tile(_sheet, T_GRASS, world_to_screen(gx + 0.6, gy + 0.5), SCALE * 0.85, Color(0.70, 0.80, 0.55))
+			var g := 0.98 + h * 0.04                       # very subtle mottling (no checkerboard)
+			_ltile(L_GRASS, world_to_screen(gx, gy), SCALE * 2 + 2, Color(g, g, g))
+			if h > 0.82:                                    # a tuft of taller grass here and there
+				_ltile(L_GRASS2, world_to_screen(gx + 0.6, gy + 0.5), SCALE * 2 + 2)
 	# stone paths radiating from the square hub
 	var sq := _find_loc("square")
 	if not sq.is_empty():
@@ -638,7 +687,7 @@ func _draw_world() -> void:
 			var n := int(Vector2(bx - ax, by - ay).length() / 1.4) + 1
 			for k in range(n + 1):
 				var t := float(k) / float(n)
-				_tile(_sheet, T_STONE, world_to_screen(ax + (bx - ax) * t, ay + (by - ay) * t), SCALE * 1.7, Color(1, 1, 1).lerp(Color(0.82, 0.75, 0.6), 0.15 + _cell_hash(int((ax + (bx - ax) * t) * 2.0), int((ay + (by - ay) * t) * 2.0)) * 0.3))
+				_ltile(L_DIRT, world_to_screen(ax + (bx - ax) * t, ay + (by - ay) * t), SCALE * 2.0, Color(1, 1, 1).lerp(Color(0.88, 0.82, 0.72), _cell_hash(int((ax + (bx - ax) * t) * 2.0), int((ay + (by - ay) * t) * 2.0)) * 0.35))
 	# crop field patches, then buildings (top-down = roofs)
 	for loc in _locations:
 		var p := world_to_screen(loc["x"], loc["y"])
@@ -694,14 +743,15 @@ func _draw_world() -> void:
 			_world_node.draw_arc(Vector2.ZERO, SCALE * (0.9 + 0.12 * pulse), 0, TAU, 28,
 				Color(UI_GOLD.r, UI_GOLD.g, UI_GOLD.b, 0.35 + 0.45 * pulse), 2.5)
 			_world_node.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-		var ctile: Vector2i = ROLE_TILE.get(a.get("role", ""), ROLE_TILE_DEFAULT)
+		var vrole: String = a.get("role", "")
+		var vdir := 2                                   # front/down when idle
+		if _moving.get(id, false):
+			vdir = 1 if int(_facing.get(id, 1)) < 0 else 3
 		var bob := (sin(_wx_time * 9.0 + p.x * 0.05) * SCALE * 0.08) if _moving.get(id, false) else 0.0
 		if alive:
-			_tile_h(_chars, ctile, p - Vector2(0, SCALE * 0.3 + bob), SCALE * 2.4, int(_facing.get(id, 1)) < 0)
+			_villager_draw(vrole, p - Vector2(0, bob), vdir, SCALE * 3.0)
 		else:
-			_world_node.draw_texture_rect_region(_chars,
-				Rect2(p - Vector2(0, SCALE * 0.3) - Vector2(SCALE * 1.2, SCALE * 1.2), Vector2(SCALE * 2.4, SCALE * 2.4)),
-				Rect2(ctile.x * 17, ctile.y * 17, 16, 16), Color(1, 1, 1, 0.45))
+			_villager_draw(vrole, p, 2, SCALE * 3.0, Color(1, 1, 1, 0.45))
 		var nm: String = a.get("name", "") if alive else str(a.get("name", "")) + " +"
 		_label(_world_node, font, p + Vector2(-40, -SCALE * 1.5), nm, 10, Color(0.96, 0.96, 1.0), HORIZONTAL_ALIGNMENT_CENTER, 80)
 		var say: String = a.get("say", "")
@@ -715,8 +765,10 @@ func _draw_world() -> void:
 	for pl in _players:
 		var p := world_to_screen(pl.get("x", 0), pl.get("y", 0))
 		_shadow(p + Vector2(0, SCALE * 0.55), SCALE * 1.6, SCALE * 0.6)
-		var pf: bool = _player_facing < 0 if pl.get("id", "") == _player_id else false
-		_tile_h(_chars, Vector2i(1, 11), p - Vector2(0, SCALE * 0.3), SCALE * 2.5, pf)
+		var pdir := 2
+		if pl.get("id", "") == _player_id:
+			pdir = 1 if _player_facing < 0 else 3
+		_villager_draw("Player", p, pdir, SCALE * 3.1)
 		_label(_world_node, font, p + Vector2(-40, -SCALE * 1.5), pl.get("name", "You"), 10, Color(0.6, 0.92, 1.0), HORIZONTAL_ALIGNMENT_CENTER, 80)
 
 	# In immediate mode, the flat tint + glow fallback is drawn here on the world layer.
