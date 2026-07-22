@@ -6,6 +6,28 @@ Effort is rough: S = hours, M = a day or two, L = multi-day.
 
 Legend: [ ] todo · [~] in progress · [x] done
 
+## Now / next (top of the stack, 2026-07-20)
+
+Recently shipped (on the open PRs #45/#46/#47, not yet merged): LPC art render path,
+world zoom, client+server versions, the tag-filterable **Memories** panel, the
+scrollable/pausable **event log**, and the LLM-free dialogue grammar. See "Current
+work state" in `CLAUDE.md` for the full status and known-weak list.
+
+Next up, roughly in order:
+
+- [ ] **Decide + do the PR merge order** (#45 -> #46 -> #47) to consolidate and stop
+      branch divergence. Effort: S
+- [ ] **User verification pass**: F5 the client, confirm the Memories panel (click tag
+      chips) and event-log scroll/pause, and send day+night screenshots for graphics tuning.
+- [ ] **Reliable graphics verification** - the top blocker. A CI job (or stable local
+      render) that produces a client screenshot artifact, so visuals stop shipping
+      unverified. Today the sandbox render dies and remote screenshots can't capture the
+      GL window. Effort: M
+- [ ] **Character overview: next tabs** - Bag (inventory + coin + bounty) and Social
+      (relationships/affinity) reuse the panel + tagged-payload pattern just built. Effort: M
+- [ ] **Building/character depth sort** and **architecture-aware light occlusion**
+      (`LightOccluder2D`) - the real night-scene quality jump. Effort: M / L
+
 ## World and map content
 
 - [~] **Flesh out the lands around town.** Define the region beyond the village
@@ -74,6 +96,17 @@ Legend: [ ] todo · [~] in progress · [x] done
 - [ ] **Optional higher-fidelity art pass.** If we want painted scenes rather
       than vector/tile art, use an image generator (see Tooling). Log every
       asset in `ASSETS.md` with its license. Effort: varies
+- [ ] **Architecture-aware night lighting.** Lights are radial `PointLight2D`
+      blobs that pass straight through walls/roofs. Add `LightOccluder2D` polygons
+      to building sprites so light is blocked by geometry, and shape the emitters
+      to windows/doors (rectangular, warm near source) instead of pure circles.
+      Effort: L
+- [ ] **Building/character depth sort.** Buildings are drawn before all villagers,
+      so a villager standing *behind* a building still overlaps it. Y-sort
+      buildings and characters together (or use a real `YSort`/`y_sort_enabled`)
+      so depth reads correctly. Effort: M
+- [ ] **Anchor building labels to the structure base** rather than floating; avoid
+      overlap with light pools and path edges. Effort: S
 
 ## UI and UX
 
@@ -83,9 +116,41 @@ Legend: [ ] todo · [~] in progress · [x] done
       same labeling, so a single NPC's needs are readable. Effort: S
 - [ ] **Player-facing "what do I need" panel** for an embodied player character
       (once player needs are modeled). Effort: M
+- [ ] **Event log panel: scroll bars + pause/play.** The in-client event log
+      (bottom panel in `Main.gd`) currently shows only the last few lines and
+      auto-scrolls. Add a scroll bar to page back through the history and a
+      pause/resume toggle so the stream can be frozen while reading. Effort: M
+- [ ] **Character overview panel (scrollable, tabbed).** Clicking/inspecting an
+      agent opens a scrollable overview with tabs: **Kills** (from death/justice
+      events), **Bag** (inventory items + coin + bounty), **Memories**, **Social**
+      (relationships / affinity), **Quests**, and **Crafting** (known recipes and
+      outputs). Modeled on the character view in play.artificiety.world. Builds on
+      the existing observe/subjective stream. Effort: L
+- [ ] **Tagged, filterable memories** (the standout from Artificiety). Give each
+      memory tags - derived from its `kind`, the people/places it names, and the
+      event type - and render them as clickable chips in the overview; clicking a
+      tag filters the memory list (faceted, multi-select). Most data already
+      exists: `MemoryEntry` has text/importance/kind, and inventory/coin/bounty/
+      recipes/quests/justice are all modeled. The work is (1) a protocol field
+      exposing the richer per-agent payload, (2) tag derivation, and (3) a Godot
+      `ScrollContainer` + tab UI with toggle-able tag chips. Effort: M
 
 ## Tooling
 
 - [ ] **Add an image-generation connector** so raster art can be produced in-app
       for the higher-fidelity art pass. James to enable; I can suggest options.
       Effort: S
+- [ ] **CI screenshot artifact for the client.** A CI job that runs `tools/screenshot.sh`
+      (headless Godot + xvfb + stub server) and uploads a PNG per PR, so client visuals are
+      checked automatically instead of relying on a manual F5. This is the fix for the
+      top-of-`CLAUDE.md` "graphics verification" weakness. Effort: M
+- [ ] **Unify the version number to a single source.** Client (`CLIENT_VERSION`), server
+      (`__version__`), and installer (`AppVersion`) are three separate strings that can drift.
+      Read one canonical version (e.g. a `VERSION` file or `backend/realmweave.__version__`)
+      into all three at build time. Effort: S
+- [ ] **Run the LPC/client branch through CI** (export + tests) rather than hand-building the
+      exe in the sandbox, which has been unreliable. Effort: M
+- [ ] **Dialogue pre-built-intelligence, remaining steps** (from the plan): offline
+      corpus-baker (LLM expands the grammar once, curated to data files), utility-AI/GOAP
+      cleanup of the reflex tier, and a runtime response cache keyed by situation signature.
+      Effort: M each

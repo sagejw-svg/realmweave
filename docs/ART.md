@@ -127,3 +127,95 @@ Later tiers, when we want a bigger jump (deferred, not scheduled):
 
 Avoid AI-generated tiles: poor cross-tileset consistency and a licensing/
 provenance liability against our CC0/MIT discipline.
+
+## LPC art (step 0, feature/lpc-art-step0)
+
+LPC Revised sheets staged under `godot_client/assets/lpc/` (OGA-BY 3.0, LFS-tracked,
+not yet wired into the renderers). Note: LPC is 32px-based (vs the current 16x16 /
+17px Kenney sheets) and characters are modular layers (Body/Head/Hair/Clothing),
+not pre-composed role sprites - both are wiring decisions for a later step.
+
+Missing structures (well, mill, granary) - resolution playbook:
+LPC Revised has no ready well, mill/windmill, or granary/silo sheet. Options, in
+preference order:
+1. Compose from existing LPC parts (no new license). Granary/silo = tall narrow
+   `structure/walls` + `structure/roofing` + `objects/small items/Hay & Straw` /
+   `Grains, Grasses`. Well = a stone-wall ring + a bucket prop, or the interim
+   `structure/misc/Fountain A.png`.
+2. Pull LPC-compatible sheets from OpenGameArt (the wider LPC ecosystem has well,
+   windmill, and watermill art). Filter to CC0 / CC-BY / OGA-BY; avoid CC-BY-SA
+   (share-alike) to keep the release flexible. Log each in ASSETS.md with its own
+   license and attribution before it ships.
+3. Original art (MIT, no attribution) for a distinct identity - best long term,
+   most effort.
+Avoid AI-generated tiles (provenance + style consistency, per this doc).
+Interim: `structure/misc/Fountain A.png` stands in for the well until replaced.
+
+## The LPC render path (step 1)
+
+The Godot client now renders Oakhollow entirely from LPC Revised art (OGA-BY 3.0),
+replacing the Kenney sheets. This is still client-only: the backend streams the
+same positions, kinds, and time-of-day; only how the client paints them changed.
+All of the code lives in `godot_client/scripts/Main.gd`.
+
+### What draws what
+
+- **Terrain** comes from `assets/lpc/terrain/terrain_summer.png`, a 32px atlas laid
+  out as a 16x26 tile grid. The renderer keys off named cells:
+
+  | Use | (col,row) | | Use | (col,row) |
+  |-----|-----------|-|-----|-----------|
+  | grass | (1,1) | | cobblestone | (10,3) |
+  | tufted grass | (1,4) | | flagstone (plaza) | (10,1) |
+  | dirt path | (4,1) | | water | (14,16) |
+
+  Crop fields use `tilled_soil.png` cell (1,1); trees are cropped regions of
+  `trees_summer.png` (round tree at px (160,0,64,128), conifer at (160,352,64,160)).
+
+- **Villagers** are assembled sheets under `assets/lpc/villagers/<Role>.png`. LPC
+  Revised characters are *modular* - Body, Head (separate from the body), Hair, and
+  Clothing (Torso/Legs/Feet slots) are individual 512x256 animation sheets. A build
+  script composites the down/left/right/up standing frame of each layer, in
+  z-order Body -> Head -> Legs -> Feet -> Torso -> Hair, into a 256x64 four-frame
+  sheet (columns: up, left, down, right). To add or restyle a role, re-composite
+  its layers and drop the sheet in `villagers/`. The renderer picks the front frame
+  when idle and the side frame when the agent is moving.
+
+- **Buildings** use LPC prefab houses copied into `assets/lpc/buildings/`
+  (`house_brick_a/b`, `house_paneled_a` from `Structure/Structures`, `fountain`
+  from `Structure/Misc`). These are 3/4-elevation sprites, which matches the LPC
+  character perspective, so a top-down ground with elevation buildings reads
+  correctly. `_building_tex(kind)` maps a location kind to a prefab (homes vary by
+  position hash) and `_building_w(kind)` sets its on-screen width in world units;
+  `_building_draw` blits it with its base on the ground. Wells use the fountain;
+  the square and gate use flagstone/cobble ground.
+
+### Helpers (Main.gd)
+
+`_gtile(tex, col, row, center, size)` blits one 32px atlas tile; `_ltile` is the
+terrain shortcut. `_villager_draw(role, feet, dir, h)` draws an assembled villager
+standing on `feet`. `_building_draw(tex, feet, world_w)` and `_tree_draw(region,
+feet, h)` place elevation sprites by their base. There is no Kenney blit path left.
+
+### Import discipline (important)
+
+The full LPC character tree is ~64k files. Godot must not import it, or the editor
+and CI hang. `assets/lpc/characters/`, `structure/`, and `objects/` each carry a
+`.gdignore` so Godot skips them; the renderer only uses the assembled `villagers/`
+sheets, the copied `buildings/` prefabs, and `terrain/`. Keep new raw-layer drops
+under a `.gdignore`d directory.
+
+### Verifying renders headless (no GPU)
+
+`tools/screenshot.sh` renders the client against the stub server under `xvfb` with
+software GL. In a plain Linux sandbox: download Godot 4.3, `pip install websockets`,
+ensure the `.gdignore`s above are present (so import is a few dozen textures, not
+64k), then run the script. It writes a PNG you can eyeball. This is how the terrain
+and villager passes were verified.
+
+### Open items
+
+- Buildings/props pass is parse-validated but wants an on-GPU render confirm (F5).
+- The Errand child renders under-dressed (this LPC subset has no child-fit clothing).
+- Well/mill/granary have no dedicated LPC sheet: the fountain is the well stand-in;
+  mill and granary are still an open sourcing/compose task (see the step-0 playbook).

@@ -3,7 +3,7 @@
 ; Build:  iscc packaging\realmweave.iss   (run from the repo root)
 
 #define AppName "Realmweave"
-#define AppVersion "0.1.0"
+#define AppVersion "0.3.0"
 #define AppPublisher "James Wilson"
 #define AppURL "https://github.com/sagejw-svg/realmweave"
 
@@ -11,12 +11,13 @@
 AppId={{7B3F2A10-9C4D-4E8A-BE21-6F0A5D3C1E92}
 AppName={#AppName}
 AppVersion={#AppVersion}
+VersionInfoVersion={#AppVersion}
 AppPublisher={#AppPublisher}
 AppPublisherURL={#AppURL}
 DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
 OutputDir=..\build
-OutputBaseFilename=RealmweaveSetup
+OutputBaseFilename=RealmweaveSetup-{#AppVersion}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern

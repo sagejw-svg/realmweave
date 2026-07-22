@@ -31,6 +31,7 @@ try:
 except ImportError:  # pragma: no cover
     websockets = None
 
+from . import __version__
 from .config import load_config
 from .llm.router import LLMRouter
 from .llm.ollama_client import OllamaClient
@@ -116,6 +117,7 @@ class RealmweaveServer:
         self.clients.add(ws)
         await ws.send(json.dumps({
             "type": "hello",
+            "version": __version__,
             "world": self.sim.world.to_dict(),
             "config": {"minutes_per_tick": self.sim.cfg.minutes_per_tick,
                        "ticks_per_second": self.base_tps,
@@ -437,7 +439,14 @@ class RealmweaveServer:
         if websockets is None:
             raise RuntimeError("The 'websockets' package is required: pip install websockets")
         host, port = self.scfg["host"], self.scfg["port"]
-        print(f"Realmweave server listening on ws://{host}:{port}")
+        import sys as _sys
+        if _sys.platform == "win32":                     # show the version in the console window title
+            try:
+                import ctypes
+                ctypes.windll.kernel32.SetConsoleTitleW(f"Realmweave Server v{__version__}")
+            except Exception:
+                pass
+        print(f"Realmweave server v{__version__} listening on ws://{host}:{port}")
         try:
             async with websockets.serve(self.handler, host, port):
                 await asyncio.gather(self.sim_loop(), self.broadcast_loop(),
