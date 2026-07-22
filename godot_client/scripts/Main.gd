@@ -11,12 +11,17 @@ extends Node2D
 ## weather overlays, drawn on this node, stay at full brightness. Press L to A/B
 ## the real lighting against the immediate-mode fallback glow.
 
-var SCALE := 20.0                   # pixels per world unit (mutated by zoom - see _zoom_by)
+var SCALE := 20.0                   # pixels per world unit (eases toward _scale_target - see _zoom_by)
 const BASE_SCALE := 20.0            # default zoom (1x)
 const ZOOM_MIN := 9.0               # most zoomed out
 const ZOOM_MAX := 46.0              # most zoomed in
 const ORIGIN := Vector2(60, 90)     # legacy map origin (unused since the camera follows)
 const CAM_LERP := 3.0               # how quickly the camera eases toward the player
+const CAM_LEAD := 2.2               # look-ahead distance (world units) in the walk direction
+const CAM_LEAD_SMOOTH := 1.6        # how quickly the look-ahead eases in/out
+const ZOOM_SMOOTH := 8.0            # how quickly SCALE eases toward _scale_target
+const IDLE_DRIFT_AFTER := 10.0      # seconds of stillness before the spectate drift starts
+const IDLE_DRIFT_AMP := 1.4         # max drift radius (world units), eased in over ~6 s
 const AGENT_R := 7.0
 const MOVE_SPEED := 12.0            # world units / second for the player
 const SEND_INTERVAL := 0.1
@@ -61,6 +66,10 @@ var _player_id := ""
 var _player_pos := Vector2(32, 24)
 var _player_facing := 1            # +1 right / -1 left, from WASD input
 var _cam := Vector2(32, 24)        # camera center in world units (eases toward player)
+var _cam_lead := Vector2.ZERO      # smoothed look-ahead offset (world units)
+var _move_dir := Vector2.ZERO      # normalized WASD direction this frame (ZERO when still)
+var _scale_target := 20.0          # zoom target; SCALE eases toward it each frame
+var _idle_time := 0.0              # seconds since the player last moved (drives spectate drift)
 var _send_accum := 0.0
 var _chat_input: LineEdit
 var _subjective: Dictionary = {}     # 'through their eyes' view of the observed agent
@@ -109,7 +118,7 @@ const UI_INK := Color(0.05, 0.055, 0.085, 0.86)
 const UI_EDGE := Color(0.62, 0.55, 0.35, 0.85)
 # Client build version, shown in the HUD so you can tell which build is running.
 # Bump this whenever the client art/behaviour changes meaningfully.
-const CLIENT_VERSION := "v0.3.0-lpc"
+const CLIENT_VERSION := "v0.3.1-lpc"
 var _server_version := ""            # reported by the server in its 'hello' message
 
 const KIND_COLORS := {
@@ -463,8 +472,18 @@ func world_to_screen(x: float, y: float) -> Vector2:
 func _process(delta: float) -> void:
 	_poll_socket()
 	_handle_input(delta)
-	# the camera eases toward the player so movement feels smooth, not snapped
-	_cam = _cam.lerp(_player_pos, clamp(delta * CAM_LERP, 0.0, 1.0))
+	# zoom eases toward its target so the wheel feels gentle, not stepped
+	SCALE = lerpf(SCALE, _scale_target, clamp(1.0 - exp(-delta * ZOOM_SMOOTH), 0.0, 1.0))
+	# camera: ease toward the player plus a slight look-ahead in the walk
+	# direction; after a stretch of stillness, add a slow spectate drift so
+	# watching the village feels like a documentary shot, not a freeze-frame
+	_idle_time += delta
+	_cam_lead = _cam_lead.lerp(_move_dir * CAM_LEAD, clamp(1.0 - exp(-delta * CAM_LEAD_SMOOTH), 0.0, 1.0))
+	var drift := Vector2.ZERO
+	if _idle_time > IDLE_DRIFT_AFTER:
+		var amp: float = clamp((_idle_time - IDLE_DRIFT_AFTER) / 6.0, 0.0, 1.0) * IDLE_DRIFT_AMP
+		drift = Vector2(sin(_wx_time * 0.23), cos(_wx_time * 0.17)) * amp
+	_cam = _cam.lerp(_player_pos + _cam_lead + drift, clamp(1.0 - exp(-delta * CAM_LERP), 0.0, 1.0))
 	# smooth agent positions toward their latest reported location
 	for id in _agents.keys():
 		var a: Dictionary = _agents[id]
@@ -619,9 +638,11 @@ func _input(event: InputEvent) -> void:
 
 func _handle_input(delta: float) -> void:
 	if _player_id == "" or _settings_open:
+		_move_dir = Vector2.ZERO
 		return
 	# don't drive the character while typing in the chat box
 	if _chat_input and _chat_input.has_focus():
+		_move_dir = Vector2.ZERO
 		return
 	var dir := Vector2.ZERO
 	if Input.is_key_pressed(KEY_W): dir.y -= 1
@@ -631,7 +652,11 @@ func _handle_input(delta: float) -> void:
 	if dir.x != 0.0:
 		_player_facing = -1 if dir.x < 0.0 else 1
 	if dir != Vector2.ZERO:
-		_player_pos += dir.normalized() * MOVE_SPEED * delta
+		_move_dir = dir.normalized()
+		_idle_time = 0.0
+		_player_pos += _move_dir * MOVE_SPEED * delta
+	else:
+		_move_dir = Vector2.ZERO
 	_send_accum += delta
 	if _send_accum >= SEND_INTERVAL:
 		_send_accum = 0.0
@@ -892,7 +917,12 @@ func _draw_world() -> void:
 				var pc := world_to_screen(ax + (bx - ax) * t, ay + (by - ay) * t)
 				var dv := 0.90 + _cell_hash(int(pc.x), int(pc.y)) * 0.12   # subtle dirt shade
 				_ltile(L_DIRT, pc, SCALE * 2.5, Color(dv, dv * 0.97, dv * 0.92))
-	# crop field patches, then buildings (top-down = roofs)
+	# ground details first (field patches, plaza stones, cobbles), then every
+	# TALL thing - buildings, trees, villagers, players - joins one depth-sorted
+	# pass keyed on its feet (G9), so nothing pops in front of what it stands
+	# behind and villagers no longer draw over buildings.
+	var drawables: Array = []          # {y: screen feet y, fn: Callable}
+	var bubbles: Array = []            # [pos, text] speech, drawn above everything
 	for loc in _locations:
 		var p := world_to_screen(loc["x"], loc["y"])
 		var kind: String = loc.get("kind", "")
@@ -903,75 +933,48 @@ func _draw_world() -> void:
 						_gtile(_tilled, L_TILLED, world_to_screen(loc["x"] + dx, loc["y"] + dy), SCALE * 2 + 2)
 			"well":
 				_ltile(L_FLAG, p, SCALE * 2 + 2)
-				_shadow(p + Vector2(0, SCALE * 0.15), SCALE * 1.5, SCALE * 0.7)
-				_building_draw(_fountain, p, 1.8)
+				drawables.append({"y": p.y, "fn": _draw_structure.bind(kind, p, float(loc["x"]))})
 			"square":
 				for dx in [-1.5, 0.0, 1.5]:
 					for dy in [-1.0, 1.0]:
 						_ltile(L_FLAG, world_to_screen(loc["x"] + dx, loc["y"] + dy), SCALE * 1.7)
 			"gate":
 				_ltile(L_COBBLE, p, SCALE * 2 + 2)
-				_shadow(p + Vector2(0, SCALE * 0.2), SCALE * 1.9, SCALE * 1.0)
-				_building_draw(_bld_b, p, 3.0)
+				drawables.append({"y": p.y, "fn": _draw_structure.bind(kind, p, float(loc["x"]))})
 			_:
-				# wide ground-contact shadow so the building rests on the terrain, not floats
-				_shadow(p + Vector2(0, SCALE * 0.15), _building_w(kind) * SCALE * 0.62, SCALE * 1.25)
-				_building_draw(_building_tex(kind, loc["x"]), p, _building_w(kind))
+				drawables.append({"y": p.y, "fn": _draw_structure.bind(kind, p, float(loc["x"]))})
 		if kind != "field":
-			_label(_world_node, font, p + Vector2(-40, 28), loc.get("name", ""), 9, Color(0.9, 0.88, 0.78), HORIZONTAL_ALIGNMENT_CENTER, 80)
-	# decorative scenery
-	_draw_props()
-
-	# NPCs (character sprites), drawn back-to-front by screen-y so nearer
-	# villagers overlap farther ones (a cheap but effective depth cue).
-	var order: Array = _agents.keys()
-	order.sort_custom(func(i, j):
-		var pi: Vector2 = _render_pos.get(i, world_to_screen(_agents[i].get("x", 0), _agents[i].get("y", 0)))
-		var pj: Vector2 = _render_pos.get(j, world_to_screen(_agents[j].get("x", 0), _agents[j].get("y", 0)))
-		return pi.y < pj.y)
-	var bubbles: Array = []
-	for id in order:
-		var a: Dictionary = _agents[id]
-		var p: Vector2 = _render_pos.get(id, world_to_screen(a.get("x", 0), a.get("y", 0)))
-		var alive: bool = a.get("alive", true)
-		if alive:
-			_shadow(p + Vector2(0, SCALE * 0.55), SCALE * 1.5, SCALE * 0.55)
-		if a.get("wanted", false):
-			_world_node.draw_arc(p - Vector2(0, SCALE * 0.3), SCALE * 1.4, 0, TAU, 20, Color(0.85, 0.3, 0.3), 2.0)
-		# pulsing golden ring under the villager the chat box will address
-		if alive and id == _talk_target:
-			var pulse := 0.5 + 0.5 * sin(_wx_time * 4.0)
-			_world_node.draw_set_transform(p + Vector2(0, SCALE * 0.5), 0.0, Vector2(1.0, 0.5))
-			_world_node.draw_arc(Vector2.ZERO, SCALE * (0.9 + 0.12 * pulse), 0, TAU, 28,
-				Color(UI_GOLD.r, UI_GOLD.g, UI_GOLD.b, 0.35 + 0.45 * pulse), 2.5)
-			_world_node.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-		var vrole: String = a.get("role", "")
-		var vdir := 2                                   # front/down when idle
-		if _moving.get(id, false):
-			vdir = 1 if int(_facing.get(id, 1)) < 0 else 3
-		var bob := (sin(_wx_time * 9.0 + p.x * 0.05) * SCALE * 0.08) if _moving.get(id, false) else 0.0
-		if alive:
-			_villager_draw(vrole, p - Vector2(0, bob), vdir, SCALE * 3.0)
-		else:
-			_villager_draw(vrole, p, 2, SCALE * 3.0, Color(1, 1, 1, 0.45))
-		var nm: String = a.get("name", "") if alive else str(a.get("name", "")) + " +"
-		_label(_world_node, font, p + Vector2(-40, -SCALE * 1.5), nm, 10, Color(0.96, 0.96, 1.0), HORIZONTAL_ALIGNMENT_CENTER, 80)
-		var say: String = a.get("say", "")
-		if say != "":
-			bubbles.append([p, say])
+			var bla := _building_label_alpha()
+			if bla > 0.02:
+				_label(_world_node, font, p + Vector2(-40, 28), loc.get("name", ""), 9, Color(0.9, 0.88, 0.78, bla), HORIZONTAL_ALIGNMENT_CENTER, 80)
+	# decorative scenery: ponds and rocks hug the ground; trees join the sorted pass
+	var i := 0
+	for pr in _props:
+		var pp := world_to_screen(pr.get("x", 0), pr.get("y", 0))
+		match pr.get("kind", ""):
+			"tree":
+				drawables.append({"y": pp.y, "fn": _draw_tree_prop.bind(i, pp)})
+			"rock":
+				_world_node.draw_circle(pp, SCALE * 0.55, Color(0.40, 0.40, 0.45))
+				_world_node.draw_circle(pp - Vector2(SCALE * 0.15, SCALE * 0.12), SCALE * 0.32, Color(0.55, 0.55, 0.60))
+			"pond":
+				for dx in [-3, -1, 1, 3]:
+					for dy in [-2, 0, 2]:
+						_ltile(L_WATER, world_to_screen(pr.get("x", 0) + dx, pr.get("y", 0) + dy), SCALE * 2 + 2)
+		i += 1
+	# villagers and players at their feet positions
+	for id in _agents.keys():
+		var ap: Vector2 = _render_pos.get(id, world_to_screen(_agents[id].get("x", 0), _agents[id].get("y", 0)))
+		drawables.append({"y": ap.y, "fn": _draw_agent.bind(id, bubbles)})
+	for pl in _players:
+		var plp := world_to_screen(pl.get("x", 0), pl.get("y", 0))
+		drawables.append({"y": plp.y, "fn": _draw_player.bind(pl, plp)})
+	drawables.sort_custom(func(u, v): return float(u["y"]) < float(v["y"]))
+	for d in drawables:
+		(d["fn"] as Callable).call()
 	# speech bubbles last so they sit above every sprite
 	for b in bubbles:
 		_draw_bubble(font, b[0], b[1])
-
-	# players (silver knight sprite)
-	for pl in _players:
-		var p := world_to_screen(pl.get("x", 0), pl.get("y", 0))
-		_shadow(p + Vector2(0, SCALE * 0.55), SCALE * 1.6, SCALE * 0.6)
-		var pdir := 2
-		if pl.get("id", "") == _player_id:
-			pdir = 1 if _player_facing < 0 else 3
-		_villager_draw("Player", p, pdir, SCALE * 3.1)
-		_label(_world_node, font, p + Vector2(-40, -SCALE * 1.5), pl.get("name", "You"), 10, Color(0.6, 0.92, 1.0), HORIZONTAL_ALIGNMENT_CENTER, 80)
 
 	# In immediate mode, the flat tint + glow fallback is drawn here on the world layer.
 	if _lighting == "immediate":
@@ -985,22 +988,78 @@ func _find_loc(id: String) -> Dictionary:
 	return {}
 
 
-func _draw_props() -> void:
-	var i := 0
-	for pr in _props:
-		var p := world_to_screen(pr.get("x", 0), pr.get("y", 0))
-		match pr.get("kind", ""):
-			"tree":
-				_shadow(p + Vector2(0, SCALE * 0.15), SCALE * 1.8, SCALE * 0.55)
-				_tree_draw(TREE_REG if i % 2 == 0 else PINE_REG, p, SCALE * 3.4)
-			"rock":
-				_world_node.draw_circle(p, SCALE * 0.55, Color(0.40, 0.40, 0.45))
-				_world_node.draw_circle(p - Vector2(SCALE * 0.15, SCALE * 0.12), SCALE * 0.32, Color(0.55, 0.55, 0.60))
-			"pond":
-				for dx in [-3, -1, 1, 3]:
-					for dy in [-2, 0, 2]:
-						_ltile(L_WATER, world_to_screen(pr.get("x", 0) + dx, pr.get("y", 0) + dy), SCALE * 2 + 2)
-		i += 1
+## One structure at its depth slot, with its ground-contact shadow.
+func _draw_structure(kind: String, p: Vector2, seedx: float) -> void:
+	match kind:
+		"well":
+			_shadow(p + Vector2(0, SCALE * 0.15), SCALE * 1.5, SCALE * 0.7)
+			_building_draw(_fountain, p, 1.8)
+		"gate":
+			_shadow(p + Vector2(0, SCALE * 0.2), SCALE * 1.9, SCALE * 1.0)
+			_building_draw(_bld_b, p, 3.0)
+		_:
+			# wide ground-contact shadow so the building rests on the terrain, not floats
+			_shadow(p + Vector2(0, SCALE * 0.15), _building_w(kind) * SCALE * 0.62, SCALE * 1.25)
+			_building_draw(_building_tex(kind, seedx), p, _building_w(kind))
+
+
+## One tree at its depth slot (alternating round/conifer, as before).
+func _draw_tree_prop(i: int, p: Vector2) -> void:
+	_shadow(p + Vector2(0, SCALE * 0.15), SCALE * 1.8, SCALE * 0.55)
+	_tree_draw(TREE_REG if i % 2 == 0 else PINE_REG, p, SCALE * 3.4)
+
+
+## One villager at its depth slot: shadow, rings, sprite, plate. Speech is
+## queued into `bubbles` so text draws above the whole sorted pass.
+func _draw_agent(id: String, bubbles: Array) -> void:
+	if not _agents.has(id):
+		return
+	var font := ThemeDB.fallback_font
+	var a: Dictionary = _agents[id]
+	var p: Vector2 = _render_pos.get(id, world_to_screen(a.get("x", 0), a.get("y", 0)))
+	var alive: bool = a.get("alive", true)
+	if alive:
+		_shadow(p + Vector2(0, SCALE * 0.55), SCALE * 1.5, SCALE * 0.55)
+	if a.get("wanted", false):
+		_world_node.draw_arc(p - Vector2(0, SCALE * 0.3), SCALE * 1.4, 0, TAU, 20, Color(0.85, 0.3, 0.3), 2.0)
+	# pulsing golden ring under the villager the chat box will address
+	if alive and id == _talk_target:
+		var pulse := 0.5 + 0.5 * sin(_wx_time * 4.0)
+		_world_node.draw_set_transform(p + Vector2(0, SCALE * 0.5), 0.0, Vector2(1.0, 0.5))
+		_world_node.draw_arc(Vector2.ZERO, SCALE * (0.9 + 0.12 * pulse), 0, TAU, 28,
+			Color(UI_GOLD.r, UI_GOLD.g, UI_GOLD.b, 0.35 + 0.45 * pulse), 2.5)
+		_world_node.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	var vrole: String = a.get("role", "")
+	var vdir := 2                                   # front/down when idle
+	if _moving.get(id, false):
+		vdir = 1 if int(_facing.get(id, 1)) < 0 else 3
+	var bob := (sin(_wx_time * 9.0 + p.x * 0.05) * SCALE * 0.08) if _moving.get(id, false) else 0.0
+	if alive:
+		_villager_draw(vrole, p - Vector2(0, bob), vdir, SCALE * 3.0)
+	else:
+		_villager_draw(vrole, p, 2, SCALE * 3.0, Color(1, 1, 1, 0.45))
+	var nm: String = a.get("name", "") if alive else str(a.get("name", "")) + " +"
+	var pa := _plate_alpha(a.get("x", 0.0), a.get("y", 0.0), p)
+	if pa > 0.02:
+		_label(_world_node, font, p + Vector2(-40, -SCALE * 1.5), nm, 10, Color(0.96, 0.96, 1.0, pa), HORIZONTAL_ALIGNMENT_CENTER, 80)
+	var say: String = a.get("say", "")
+	if say != "":
+		bubbles.append([p, say])
+
+
+## One player (silver knight) at its depth slot; same plate rules as villagers,
+## except your own plate never shows (the camera already says who you are).
+func _draw_player(pl: Dictionary, p: Vector2) -> void:
+	var font := ThemeDB.fallback_font
+	_shadow(p + Vector2(0, SCALE * 0.55), SCALE * 1.6, SCALE * 0.6)
+	var pdir := 2
+	if pl.get("id", "") == _player_id:
+		pdir = 1 if _player_facing < 0 else 3
+	_villager_draw("Player", p, pdir, SCALE * 3.1)
+	if pl.get("id", "") != _player_id:
+		var ppa := _plate_alpha(pl.get("x", 0.0), pl.get("y", 0.0), p)
+		if ppa > 0.02:
+			_label(_world_node, font, p + Vector2(-40, -SCALE * 1.5), pl.get("name", "You"), 10, Color(0.6, 0.92, 1.0, ppa), HORIZONTAL_ALIGNMENT_CENTER, 80)
 
 
 ## Immediate-mode fallback lighting (press L to compare): a flat ambient tint plus
@@ -1112,10 +1171,41 @@ func _shadow(center: Vector2, w: float, h: float) -> void:
 	_world_node.draw_texture_rect(_shadow_tex, Rect2(center - Vector2(w, h) * 0.5, Vector2(w, h)), false)
 
 
+## G15 label diet: names no longer carry the scene. Hold TAB to see everything;
+## otherwise villager plates appear only near the player or under the cursor,
+## and building names only once zoomed in enough to be "reading the place".
+
+func _names_held() -> bool:
+	return Input.is_key_pressed(KEY_TAB)
+
+
+## 0..1 visibility for building name labels: full under TAB, else fades in with zoom.
+func _building_label_alpha() -> float:
+	if not _show_plates:
+		return 0.0
+	if _names_held():
+		return 1.0
+	return clamp((SCALE - 26.0) / 8.0, 0.0, 1.0)
+
+
+## 0..1 visibility for one agent's nameplate: full under TAB or cursor hover,
+## else fades with the agent's distance from the player (full inside TALK_RANGE).
+func _plate_alpha(wx: float, wy: float, sp: Vector2) -> float:
+	if not _show_plates:
+		return 0.0
+	if _names_held():
+		return 1.0
+	var mouse := get_viewport().get_mouse_position()
+	if mouse.distance_to(sp - Vector2(0.0, SCALE * 1.2)) < SCALE * 1.8:
+		return 1.0
+	var d := Vector2(wx - _player_pos.x, wy - _player_pos.y).length()
+	return clamp(1.0 - (d - TALK_RANGE) / TALK_RANGE, 0.0, 1.0)
+
+
 ## Draw text with a dark outline so labels stay legible over any ground tile.
 func _label(node: CanvasItem, font: Font, pos: Vector2, text: String, size: int,
 		col: Color, halign: int = HORIZONTAL_ALIGNMENT_LEFT, width: float = -1) -> void:
-	var o := Color(0, 0, 0, 0.75)
+	var o := Color(0, 0, 0, 0.75 * col.a)   # outline fades with the text
 	for d in [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1)]:
 		node.draw_string(font, pos + d, text, halign, width, size, o)
 	node.draw_string(font, pos, text, halign, width, size, col)
@@ -1143,10 +1233,11 @@ func _toggle_lighting() -> void:
 
 ## Zoom the world view. `f` > 1 zooms in, < 1 zooms out; clamped to a sane range.
 ## Everything keys off SCALE (positions and sprite sizes), so this scales the whole
-## scene uniformly around the camera.
+## scene uniformly around the camera. Sets a target; SCALE eases toward it in
+## _process so wheel steps feel like a gentle glide.
 func _zoom_by(f: float) -> void:
-	SCALE = clamp(SCALE * f, ZOOM_MIN, ZOOM_MAX)
-	_log("Zoom: %.0f%%" % (SCALE / BASE_SCALE * 100.0))
+	_scale_target = clamp(_scale_target * f, ZOOM_MIN, ZOOM_MAX)
+	_log("Zoom: %.0f%%" % (_scale_target / BASE_SCALE * 100.0))
 
 
 ## 0 = full day, 1 = deep night; smooth dawn/dusk shoulders.
@@ -1485,7 +1576,7 @@ func _draw_hud(font: Font) -> void:
 	var spd := "PAUSED" if _paused else "%sx  (%.0f min/s)" % [str(_time_scale), _game_min_per_sec]
 	var spd_col := Color(0.95, 0.6, 0.5) if _paused else Color(0.6, 0.85, 0.7)
 	draw_string(font, Vector2(234, 47), spd, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, spd_col)
-	var hint := "WASD move   Enter talk   O eyes   V plates   M map   R weather   L light   wheel/Z-X zoom   -/+ speed   Space pause   Esc menu"
+	var hint := "WASD move   Enter talk   TAB names   O eyes   V plates   M map   R weather   L light   wheel/Z-X zoom   -/+ speed   Space pause   Esc menu"
 	var hy := vp.y - 150.0
 	_panel(Rect2(10, hy, vp.x - 20, 20))
 	draw_string(font, Vector2(18, hy + 14), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.62, 0.66, 0.74))

@@ -18,6 +18,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The client's LPC art is LFS-tracked. A plain checkout leaves pointer
+      # files and Godot exports a client with missing textures. Do NOT flip to
+      # `lfs: true` on the checkout: that downloads the whole ~350 MB LPC tree
+      # every run and eats the free LFS bandwidth quota (1 GB/month). Only the
+      # folders the renderer actually loads are pulled here (~2 MB).
+      - name: Fetch client art (selective LFS pull)
+        run: |
+          git lfs install --local
+          git lfs pull --include="godot_client/assets/lpc/terrain/**,godot_client/assets/lpc/villagers/**,godot_client/assets/lpc/buildings/**"
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -100,4 +110,5 @@ jobs:
           files: |
             build/RealmweaveServer.exe
             build/Realmweave-portable.zip
+            build/RealmweaveClient.exe
             build/RealmweaveSetup.exe
